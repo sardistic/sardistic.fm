@@ -1,0 +1,31 @@
+.glass-panel {
+    @apply border border-white/10;
+    position: relative;
+    background: rgba(17, 24, 39, 0.25);
+    overflow: visible;
+    border-radius: 0;
+    box-shadow:
+        0 0 10px rgba(0, 0, 0, 0.3),
+        inset 0 0 60px rgba(255, 255, 255, 0.03);
+}
+
+/* Extreme frosted glass backdrop */
+.glass-panel::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    backdrop-filter: blur(60px) saturate(280%);
+    -webkit-backdrop-filter: blur(60px) saturate(280%);
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.05) 0%,
+            transparent 50%,
+            rgba(255, 255, 255, 0.02) 100%);
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 0;
+}
+
+.glass-panel>* {
+    position: relative;
+    z-index: 2;
+}

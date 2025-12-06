@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes orbit {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(50px, -30px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 40px) scale(0.95);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-orbit {
+  animation: orbit 25s infinite ease-in-out;
+}
+
+.animation-delay-2000 {
+  animation-delay: -5s;
+}
+
+.animate-pulse-slow {
+  animation: pulse 10s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-dark-bg text-gray-200 font-sans antialiased overflow-x-hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-bg;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-border rounded-full hover:bg-neon-pink transition-colors;
+}
+
+@layer components {
+  .glass-panel {
+    position: relative;
+    /* Restore standard dark glass background */
+    background-color: rgba(0, 0, 0, 0.4) !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+
+    /* Transparent border to maintain spacing */
+    border: 2px solid transparent !important;
+    border-radius: 12px;
+
+    /* Ensure coordinates default to center */
+    --mouse-x: 50%;
+    --mouse-y: 50%;
+
+    /* Strong Blur & Saturation */
+    backdrop-filter: blur(12px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+
+    /* Clean shadow */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+
+    overflow: visible !important;
+    /* Allow pseudo-element to render if needed */
+    transition: transform 0.3s ease;
+  }
+
+  /* SPOTLIGHT BORDER PSEUDO-ELEMENT */
+  .glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    /* Match border width negative inset */
+    border-radius: inherit;
+    padding: 2px;
+    /* Border width */
+
+    /* The Spotlight Gradient: Follows mouse */
+    background: radial-gradient(120px circle at var(--mouse-x) var(--mouse-y),
+        var(--spotlight-color, rgba(0, 255, 204, 0.5)),
+        transparent 80%);
+
+    /* Mask trick: Cut out the middle (content-box) */
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+
+    pointer-events: none;
+    z-index: 50;
+    /* On top of background */
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    will-change: background, opacity;
+  }
+
+  .glass-panel:hover::before {
+    opacity: 1;
+  }
+
+  .glass-panel:hover {
+    transform: translateY(-2px);
+    /* Removed extra saturation boost on bg as requested */
+    /* backdrop-filter: blur(12px) saturate(160%) !important; */
+  }
+
+  /* Remove conflicting pseudo-elements */
+  .glass-panel::after {
+    display: none;
+  }
+
+  /* Subtle Variant Overrides */
+  .glass-panel.glass-subtle {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .glass-panel.glass-subtle::before {
+    display: none !important;
+    /* No spotlight on subtle */
+  }
+}
+
+/*
+   REMOVED: Old .glass-panel::before/::after manual logic
+   REMOVED: Specific highlight/glare logic (user disliked it)
+   
+   The above @apply rules EXACTLY match the footer:
+   Footer: bg-black/50 backdrop-blur-sm
+   Glass Panel: bg-black/50 backdrop-blur-sm
+*/
