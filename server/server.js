@@ -425,7 +425,12 @@ app.get('/api/youtube/search', (req, res) => {
     exec(cmd, (error, stdout, stderr) => {
         if (error) {
             console.error(`yt-dlp error: ${error.message}`);
-            return res.status(500).json({ error: 'Search failed' });
+            console.error(`stderr: ${stderr}`);
+            return res.status(500).json({
+                error: 'Search failed',
+                details: error.message,
+                stderr: stderr
+            });
         }
 
         const videoId = stdout.trim();
