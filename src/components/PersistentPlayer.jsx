@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Radio, X, Loader, Volume2, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function PersistentPlayer({
-    serverUrl = 'http://localhost:3001',
+    serverUrl = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'),
     nowPlaying,
     isActive,
     onClose,

@@ -168,7 +168,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
         <div className="space-y-8">
             {/* 1. Real-time Now Playing & Recent Activity */}
             <NowPlaying
-                serverUrl="http://localhost:3001"
+                serverUrl={import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}
                 nowPlaying={nowPlaying}
                 isListening={isListening}
                 onToggleListen={onToggleListen}

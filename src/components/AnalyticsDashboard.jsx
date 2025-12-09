@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, AlertTriangle, RefreshCw, TrendingUp } from 'lucide-react';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001') + '/api';
 
 function AnalyticsDashboard() {
     const [stats, setStats] = useState({ totalEvents: 0, totalErrors: 0 });

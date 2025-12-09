@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Activity, AlertTriangle, RefreshCw, TrendingUp, Clock, Mouse, BarChart3, Download } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001') + '/api';
 
 const COLORS = ['#06b6d4', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#f97316'];
 

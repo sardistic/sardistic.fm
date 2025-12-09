@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ERROR_ENDPOINT = 'http://localhost:3001/api/error';
+const ERROR_ENDPOINT = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001') + '/api/error';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {

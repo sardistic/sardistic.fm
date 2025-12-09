@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-const ANALYTICS_ENDPOINT = 'http://localhost:3001/api/track';
+const ANALYTICS_ENDPOINT = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001') + '/api/track';
 
 export const useAnalytics = () => {
     const trackEvent = useCallback(async (type, payload = {}) => {

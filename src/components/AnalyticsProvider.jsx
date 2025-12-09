@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001') + '/api';
 
 // Generate a unique session ID
 const generateSessionId = () => {

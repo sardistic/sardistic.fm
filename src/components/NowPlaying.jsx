@@ -5,7 +5,7 @@ import MagneticText from './MagneticText';
 
 const REFRESH_INTERVAL_MS = 10000; // 10 seconds
 
-export default function NowPlaying({ serverUrl = 'http://localhost:3001', nowPlaying, isListening, onToggleListen }) {
+export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'), nowPlaying, isListening, onToggleListen }) {
     const [stats, setStats] = useState({
         today: { count: 0, top: [], sparkline: [] },
         week: { count: 0, top: [], sparkline: [] },
