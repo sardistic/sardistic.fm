@@ -51,7 +51,16 @@ function App() {
         const res = await fetch(`${SERVER_URL}/api/now-playing`);
         const data = await res.json();
         if (data.nowPlaying) {
-          setNowPlaying(data.nowPlaying);
+          // Only update if the song actually changed to prevent re-renders
+          setNowPlaying(prev => {
+            if (prev &&
+              prev.name === data.nowPlaying.name &&
+              prev.artist === data.nowPlaying.artist &&
+              prev.isPlaying === data.nowPlaying.isPlaying) {
+              return prev;
+            }
+            return data.nowPlaying;
+          });
         }
       } catch (err) {
         console.error("Failed to fetch global now playing:", err);

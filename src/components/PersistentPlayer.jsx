@@ -16,7 +16,15 @@ export default function PersistentPlayer({
     const [videoUrl, setVideoUrl] = useState(null);
     const [tuning, setTuning] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
-    const [isPaused, setIsPaused] = useState(false);
+    // DEBUG: Lifecycle
+    useEffect(() => {
+        console.log("PersistentPlayer: Mounted");
+        return () => console.log("PersistentPlayer: Unmounted");
+    }, []);
+
+    useEffect(() => {
+        if (videoUrl) console.log("PersistentPlayer: Video URL set to:", videoUrl);
+    }, [videoUrl]);
 
     // Helper: Send command to YouTube Iframe
     const sendCommand = (func, args = []) => {
