@@ -15,7 +15,7 @@ import GlassDistortionFilter from './components/GlassDistortionFilter';
 import PersistentPlayer from './components/PersistentPlayer';
 
 const REFRESH_INTERVAL_MS = 10000;
-const SERVER_URL = 'http://localhost:3001';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 function App() {
   const [view, setView] = useState('overview'); // overview, year, artist, binges

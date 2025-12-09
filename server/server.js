@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // Database Setup
-const dbPath = path.resolve(__dirname, 'analytics.db');
+const dbPath = process.env.DB_PATH || path.resolve(__dirname, 'analytics.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
