@@ -274,7 +274,8 @@ app.get('/api/now-playing', async (req, res) => {
                 album: track.album['#text'],
                 image: image ? image['#text'] : null,
                 url: track.url,
-                date: track.date ? track.date['#text'] : 'Now'
+                date: track.date ? track.date['#text'] : 'Now',
+                timestamp: track.date ? track.date.uts : null
             }
         });
     } catch (error) {
@@ -408,3 +409,31 @@ app.get('/api/recent/:period', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch stats' });
     }
 });
+
+const { exec } = require('child_process');
+
+// GET YouTube ID
+app.get('/api/youtube/search', (req, res) => {
+    const query = req.query.q;
+    if (!query) return res.status(400).json({ error: 'Query required' });
+
+    // Use yt-dlp to find the video ID
+    // Command: yt-dlp "ytsearch1:QUERY" --get-id --no-warnings --no-playlist
+    const cmd = `yt-dlp "ytsearch1:${query}" --print id --no-warnings --no-playlist --match-filter "!is_live"`;
+
+    exec(cmd, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`yt-dlp error: ${error.message}`);
+            return res.status(500).json({ error: 'Search failed' });
+        }
+
+        const videoId = stdout.trim();
+        if (!videoId) {
+            return res.json({ videoId: null });
+        }
+
+        res.json({ videoId });
+    });
+});
+
+

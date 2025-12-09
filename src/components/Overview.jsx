@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, memo } from 'react';
 import { ArrowRight, BarChart3, Calendar, Disc, Moon, Sun, ChevronLeft, ChevronRight, User as UserIcon, BookOpen, Music, Layers } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
@@ -6,7 +6,7 @@ import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import MagneticText from './MagneticText';
 import NowPlaying from './NowPlaying';
 
-function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric }) {
+function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen }) {
     const [hoveredYear, setHoveredYear] = useState(null);
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
     const { meta, timeline, years } = data;
@@ -167,7 +167,12 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
     return (
         <div className="space-y-8">
             {/* 1. Real-time Now Playing & Recent Activity */}
-            <NowPlaying serverUrl="http://localhost:3001" />
+            <NowPlaying
+                serverUrl="http://localhost:3001"
+                nowPlaying={nowPlaying}
+                isListening={isListening}
+                onToggleListen={onToggleListen}
+            />
 
             {/* Hero Stats */}
             <div className="space-y-4">
@@ -355,7 +360,6 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                 hoveredMonth={hoveredMonth}
                                 setHoveredYear={setHoveredYear}
                                 onYearClick={onYearClick}
-                                handleMouseMove={handleMouseMove}
                                 metric={metric}
                             />
                         );
@@ -378,6 +382,7 @@ function FavoritesSection({ data, onArtistClick }) {
     const [highlightBooks, setHighlightBooks] = useState(false);
     const [page, setPage] = useState(1);
     const PER_PAGE = 24;
+    const requestRef = useRef(null);
 
     // Prepare Items based on Tab
     const items = useMemo(() => {
@@ -421,11 +426,17 @@ function FavoritesSection({ data, onArtistClick }) {
     React.useEffect(() => setPage(1), [tab]);
 
     const handleMouseMove = (e) => {
+        if (requestRef.current) return;
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-        e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+        const target = e.currentTarget;
+
+        requestRef.current = requestAnimationFrame(() => {
+            target.style.setProperty('--mouse-x', `${x}px`);
+            target.style.setProperty('--mouse-y', `${y}px`);
+            requestRef.current = null;
+        });
     };
 
     return (
@@ -590,7 +601,7 @@ function StatCard({ label, value, icon, color, glowColor = 'rgba(255,255,255,0.5
 
 export default Overview;
 
-function YearCard({ y, hoveredYear, hoveredMonth, setHoveredYear, onYearClick, metric }) {
+const YearCard = memo(({ y, hoveredYear, hoveredMonth, setHoveredYear, onYearClick, metric }) => {
     // Determine active state
     const isActive = String(hoveredYear) === String(y.year);
 
@@ -601,7 +612,7 @@ function YearCard({ y, hoveredYear, hoveredMonth, setHoveredYear, onYearClick, m
     function handleLocalMouseMove(e) {
         mouseX.set(e.clientX);
         mouseY.set(e.clientY);
-        setHoveredYear(String(y.year));
+        // Optimization: Removed redundant setHoveredYear trigger on every pixel move
     }
 
     // Dynamic Metrics
@@ -783,4 +794,23 @@ function YearCard({ y, hoveredYear, hoveredMonth, setHoveredYear, onYearClick, m
             </div>
         </motion.div>
     );
-}
+}, (prev, next) => {
+    // Optimization: Only re-render if visual state changes
+    if (prev.metric !== next.metric) return false;
+    if (prev.y !== next.y) return false;
+
+    const wasActive = String(prev.hoveredYear) === String(prev.y.year);
+    const isActive = String(next.hoveredYear) === String(next.y.year);
+    if (wasActive !== isActive) return false; // Active state changed -> Render
+
+    const wasDimmed = !!prev.hoveredYear;
+    const isDimmed = !!next.hoveredYear;
+    if (!isActive && (wasDimmed !== isDimmed)) return false; // Global dimming changed -> Render
+
+    // Month Hover Logic
+    const prevMonthRelevant = prev.hoveredMonth && prev.hoveredMonth.startsWith(String(prev.y.year));
+    const nextMonthRelevant = next.hoveredMonth && next.hoveredMonth.startsWith(String(next.y.year));
+    if ((prevMonthRelevant || nextMonthRelevant) && prev.hoveredMonth !== next.hoveredMonth) return false; // Month highlight changed -> Render
+
+    return true;
+});

@@ -1,7 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 
-function FluidBackground() {
+function FluidBackground({ intensity = 0 }) {
     const canvasRef = useRef(null);
+    const intensityRef = useRef(intensity);
+
+    // Update ref when prop changes without re-triggering effect
+    useEffect(() => {
+        intensityRef.current = intensity;
+    }, [intensity]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -46,11 +52,15 @@ function FluidBackground() {
             }
 
             update(mouse, time) {
+                const currentIntensity = intensityRef.current || 0;
+
                 for (let i = 0; i < this.points.length; i++) {
                     const p = this.points[i];
 
-                    // 1. Horizontal Traveling Wave (Subtle)
-                    const waveY = Math.sin(i * 0.2 + time * this.speed) * 8;
+                    // 1. Horizontal Traveling Wave (Subtle normally, wilder with intensity)
+                    // Base Amp: 8, Max Amp addition: 30
+                    const amp = 8 + (currentIntensity * 30);
+                    const waveY = Math.sin(i * 0.2 + time * this.speed) * amp;
                     const targetY = this.baseY + waveY;
 
                     // 2. Interaction
@@ -89,15 +99,17 @@ function FluidBackground() {
             }
 
             draw(ctx, mouse) {
+                const currentIntensity = intensityRef.current || 0;
+
                 ctx.strokeStyle = this.color;
 
                 // Calculate distance from mouse Y to string Y (approx glow)
                 const distY = Math.abs(mouse.y - this.y);
 
-                // Dynamic Glow Intensity based on proximity
-                let glowIntensity = 0;
+                // Dynamic Glow Intensity based on proximity OR music intensity
+                let glowIntensity = currentIntensity * 0.5; // Base glow from music
                 if (distY < 200) {
-                    glowIntensity = (200 - distY) / 200;
+                    glowIntensity += (200 - distY) / 200;
                 }
 
                 // Base opacity + extra glow
@@ -174,7 +186,9 @@ function FluidBackground() {
         };
 
         const draw = () => {
-            time += 0.05;
+            // Speed up time based on intensity
+            const currentIntensity = intensityRef.current || 0;
+            time += 0.05 + (currentIntensity * 0.1);
 
             // Lighter background (less pure black, more dark grey-ish to show depth)
             ctx.fillStyle = '#0a0a0a';
@@ -207,7 +221,7 @@ function FluidBackground() {
             window.removeEventListener('mousedown', handleClick);
             cancelAnimationFrame(animationFrame);
         };
-    }, []);
+    }, []); // Empty dependency array -> Init once. Logic uses ref.
 
     return (
         <canvas

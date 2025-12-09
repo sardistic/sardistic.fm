@@ -1,36 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Disc, Music, BarChart3, Clock, Calendar, Activity } from 'lucide-react';
+import { Disc, Music, BarChart3, Clock, Calendar, Activity, Radio, X } from 'lucide-react';
 import MagneticText from './MagneticText';
 
 const REFRESH_INTERVAL_MS = 10000; // 10 seconds
 
-export default function NowPlaying({ serverUrl = 'http://localhost:3001' }) {
-    const [nowPlaying, setNowPlaying] = useState(null);
+export default function NowPlaying({ serverUrl = 'http://localhost:3001', nowPlaying, isListening, onToggleListen }) {
     const [stats, setStats] = useState({
         today: { count: 0, top: [], sparkline: [] },
         week: { count: 0, top: [], sparkline: [] },
         month: { count: 0, top: [], sparkline: [] }
     });
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    // Fetch Now Playing
-    const fetchNowPlaying = async () => {
-        try {
-            const res = await fetch(`${serverUrl}/api/now-playing`);
-            const data = await res.json();
-            if (data.nowPlaying) {
-                setNowPlaying(data.nowPlaying);
-                if (data.isMock) {
-                    // console.warn("Using Mock Last.fm Data (API Key missing)");
-                }
-            }
-        } catch (err) {
-            console.error("Failed to fetch now playing:", err);
-            setError(err.message);
-        }
-    };
 
     // Fetch Stats (Today, Week, Month)
     const fetchStats = async () => {
@@ -57,22 +38,18 @@ export default function NowPlaying({ serverUrl = 'http://localhost:3001' }) {
 
     useEffect(() => {
         // Initial Fetch
-        fetchNowPlaying();
         fetchStats();
-
-        // Poll for Now Playing
-        const interval = setInterval(fetchNowPlaying, REFRESH_INTERVAL_MS);
 
         // Refresh stats less frequently (every minute)
         const statsInterval = setInterval(fetchStats, 60000);
 
         return () => {
-            clearInterval(interval);
             clearInterval(statsInterval);
         };
     }, []);
 
-    if (loading && !nowPlaying) {
+    if (loading && !nowPlaying && !stats.today.count) {
+        // Only show loading if we really have nothing
         return (
             <div className="w-full h-48 glass-panel animate-pulse flex items-center justify-center text-gray-500">
                 Loading live data...
@@ -108,43 +85,41 @@ export default function NowPlaying({ serverUrl = 'http://localhost:3001' }) {
                                 </>
                             ) : (
                                 <span className="flex items-center gap-2 text-gray-400">
-                                    <Clock size={12} /> Last Played
+                                    <Disc size={12} />
+                                    {nowPlaying?.timestamp ? (
+                                        Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000) < 1
+                                            ? 'Just now'
+                                            : `${Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000)}m ago`
+                                    ) : 'Last Check in'}
                                 </span>
                             )}
                         </div>
-                        <Disc className={`text-white/20 ${nowPlaying?.isPlaying ? 'animate-spin-slow' : ''}`} size={20} />
+                        {/* Listen In Toggle */}
+                        <button
+                            onClick={onToggleListen}
+                            className={`p-2 rounded-full transition-all duration-300 ${isListening ? 'bg-neon-pink text-white shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
+                            title={isListening ? "Stop Listening" : "Start Radio"}
+                        >
+                            {isListening ? <X size={16} /> : <Radio size={16} />}
+                        </button>
                     </div>
 
-                    <div className="flex gap-4 items-center mt-4">
-                        {/* Album Art */}
-                        <div className="relative w-24 h-24 flex-shrink-0 rounded-md overflow-hidden shadow-2xl ring-1 ring-white/10 group-hover:scale-105 transition-transform duration-500">
-                            {nowPlaying?.image ? (
-                                <img src={nowPlaying.image} alt="Album Art" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                                    <Music size={32} className="text-gray-600" />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Text Info */}
-                        <div className="flex flex-col overflow-hidden">
-                            <h3 className="text-xl font-bold text-white truncate leading-tight mb-1">
-                                {nowPlaying?.name || "Nothing Playing"}
-                            </h3>
-                            <p className="text-sm text-gray-300 truncate font-medium">
-                                {nowPlaying?.artist || "..."}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate mt-1">
-                                {nowPlaying?.album}
-                            </p>
+                    <div className="mt-4">
+                        <h2 className="text-3xl font-black text-white leading-tight mb-1 drop-shadow-md truncate">
+                            {nowPlaying?.name || "Offline"}
+                        </h2>
+                        <h3 className="text-xl text-gray-300 font-medium truncate">
+                            {nowPlaying?.artist || "Unknown Artist"}
+                        </h3>
+                        <div className="text-sm text-gray-500 mt-1 font-mono">
+                            {nowPlaying?.album || "Unknown Album"}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* 2. Feature: Recent Stats Grid */}
-            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 2. Stats Cards */}
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatBit
                     label="Today"
                     count={stats.today.count}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Calendar, Music, User, Zap } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
@@ -12,6 +12,10 @@ import FluidBackground from './components/FluidBackground';
 import AdvancedAnalyticsDashboard from './components/AdvancedAnalyticsDashboard';
 import { AnalyticsProvider } from './components/AnalyticsProvider';
 import GlassDistortionFilter from './components/GlassDistortionFilter';
+import PersistentPlayer from './components/PersistentPlayer';
+
+const REFRESH_INTERVAL_MS = 10000;
+const SERVER_URL = 'http://localhost:3001';
 
 function App() {
   const [view, setView] = useState('overview'); // overview, year, artist, binges
@@ -21,8 +25,36 @@ function App() {
   const [initialLibrarySearch, setInitialLibrarySearch] = useState('');
   const [metric, setMetric] = useState('scrobbles'); // 'scrobbles' | 'minutes'
 
+  // Global Player State
+  const [nowPlaying, setNowPlaying] = useState(null);
+  const [isGlobalPlayerActive, setIsGlobalPlayerActive] = useState(false);
+  const [globalVolume, setGlobalVolume] = useState(3); // Start at 3% volume
+  const [isGlobalPlaying, setIsGlobalPlaying] = useState(false);
+
+  // Background Intensity based on Audio
+  const intensity = isGlobalPlaying ? (globalVolume / 100) : 0;
+
   // Memoize data to prevent lags
   const data = useMemo(() => rawData, []);
+
+  // Poll for Now Playing Data Globally
+  useEffect(() => {
+    const fetchNowPlaying = async () => {
+      try {
+        const res = await fetch(`${SERVER_URL}/api/now-playing`);
+        const data = await res.json();
+        if (data.nowPlaying) {
+          setNowPlaying(data.nowPlaying);
+        }
+      } catch (err) {
+        console.error("Failed to fetch global now playing:", err);
+      }
+    };
+
+    fetchNowPlaying();
+    const interval = setInterval(fetchNowPlaying, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleYearClick = (year, metric) => {
     setSelectedYear(year);
@@ -63,7 +95,18 @@ function App() {
 
   return (
     <div className="min-h-screen text-gray-200 selection:bg-neon-pink selection:text-white pb-20 overflow-x-hidden relative">
-      <FluidBackground />
+      <FluidBackground intensity={intensity} />
+
+      {/* Persistent Global Player */}
+      <PersistentPlayer
+        nowPlaying={nowPlaying}
+        isActive={isGlobalPlayerActive}
+        onClose={() => setIsGlobalPlayerActive(false)}
+        serverUrl={SERVER_URL}
+        volume={globalVolume}
+        onVolumeChange={setGlobalVolume}
+        onPlayStateChange={setIsGlobalPlaying}
+      />
 
       {/* Header */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/40 backdrop-blur-xl border-b border-white/10 z-50 flex items-center px-6 justify-between supports-[backdrop-filter]:bg-black/20">
@@ -125,6 +168,9 @@ function App() {
                   onYearClick={handleYearClick}
                   onArtistClick={handleArtistClick}
                   onLibraryClick={() => setView('library')}
+                  nowPlaying={nowPlaying}
+                  isListening={isGlobalPlayerActive}
+                  onToggleListen={() => setIsGlobalPlayerActive(!isGlobalPlayerActive)}
                 />
               </motion.div>
             )}
