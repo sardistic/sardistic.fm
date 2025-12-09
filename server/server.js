@@ -217,3 +217,194 @@ app.get('/api/analytics/timeline', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// --- Last.fm Integration ---
+const axios = require('axios');
+
+// TODO: Replace with user credentials or use environment variables
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY || 'dbcaf1bb203839cba225f01cfc0df0f9';
+const LASTFM_USER = process.env.LASTFM_USER || 'coldhunter'; // Defaulting to username found in paths if specific one not provided, or can simply use placeholder
+
+const LASTFM_BASE_URL = 'http://ws.audioscrobbler.com/2.0/';
+
+// Helper to fetch from Last.fm
+async function fetchLastFm(method, params) {
+    if (LASTFM_API_KEY === 'YOUR_API_KEY_HERE') {
+        throw new Error('MISSING_API_KEY');
+    }
+    try {
+        const response = await axios.get(LASTFM_BASE_URL, {
+            params: {
+                method,
+                api_key: LASTFM_API_KEY,
+                user: LASTFM_USER,
+                format: 'json',
+                ...params
+            },
+            timeout: 5000
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`Last.fm API Error (${method}):`, error.message);
+        throw error;
+    }
+}
+
+// GET Now Playing
+app.get('/api/now-playing', async (req, res) => {
+    try {
+        const data = await fetchLastFm('user.getrecenttracks', { limit: 1, extended: 1 });
+        const tracks = data.recenttracks.track;
+
+        if (!tracks || tracks.length === 0) {
+            return res.json({ nowPlaying: null });
+        }
+
+        const track = tracks[0];
+        const isPlaying = track['@attr'] && track['@attr'].nowplaying === 'true';
+
+        // Get high-res image if available (extralarge is usually 300x300)
+        const image = track.image.find(img => img.size === 'extralarge') || track.image[track.image.length - 1];
+
+        res.json({
+            nowPlaying: {
+                isPlaying,
+                name: track.name,
+                artist: track.artist.name,
+                album: track.album['#text'],
+                image: image ? image['#text'] : null,
+                url: track.url,
+                date: track.date ? track.date['#text'] : 'Now'
+            }
+        });
+    } catch (error) {
+        if (error.message === 'MISSING_API_KEY') {
+            // Return mock data for demo purposes if key is missing
+            return res.json({
+                nowPlaying: {
+                    isPlaying: true, // Pretend playing
+                    name: "Demo Track (Set API Key)",
+                    artist: "Demo Artist",
+                    album: "Demo Album",
+                    image: null,
+                    url: "#",
+                    date: "Now"
+                },
+                isMock: true
+            });
+        }
+        res.status(500).json({ error: 'Failed to fetch Last.fm data' });
+    }
+});
+
+// GET Recent Scrobble Stats
+app.get('/api/recent/:period', async (req, res) => {
+    const { period } = req.params; // today, week, month
+
+    // Last.fm doesn't have a direct "today" endpoint, we have to filter getRecentTracks by timestamp
+    // or use user.getTopTracks with period param (which supports 7day, 1month, etc.)
+
+    // Mapping our periods to Last.fm periods or logic
+    let apiMethod = 'user.getrecenttracks';
+    let apiParams = { limit: 200 }; // Fetch a bunch to aggregate
+
+    const now = Math.floor(Date.now() / 1000);
+    let fromTime = 0;
+
+    if (period === 'today') {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        fromTime = Math.floor(startOfDay.getTime() / 1000);
+        apiParams.from = fromTime;
+    } else if (period === 'week') {
+        // Last 7 days
+        fromTime = now - (7 * 24 * 60 * 60);
+        apiParams.from = fromTime;
+    } else if (period === 'month') {
+        // Last 30 days
+        fromTime = now - (30 * 24 * 60 * 60);
+        apiParams.from = fromTime;
+    } else {
+        return res.status(400).json({ error: 'Invalid period' });
+    }
+
+    try {
+        const data = await fetchLastFm('user.getrecenttracks', apiParams);
+        const tracks = data.recenttracks.track;
+
+        // Basic Aggregation
+        // Note: For 'month', fetching all tracks might require pagination. 
+        // For now, we take the page 1 limit (200 is decent for daily/weekly snippet).
+        // If count > 200, we might just report "> 200".
+        // Or we use user.getWeeklyTrackChart for weeks.
+
+        const total = data.recenttracks['@attr'].total;
+
+        // Calculate Top Artist from this batch
+        const artistCounts = {};
+        tracks.forEach(t => {
+            const artist = t.artist['#text'];
+            artistCounts[artist] = (artistCounts[artist] || 0) + 1;
+        });
+
+        const sortedArtists = Object.entries(artistCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([name, count]) => ({ name, count }));
+
+        // Generate a mini-sparkline (e.g. per hour for today, per day for week)
+        const sparkline = [];
+        if (period === 'today') {
+            // Group by hour
+            const hours = new Array(24).fill(0);
+            tracks.forEach(t => {
+                if (t.date) {
+                    const d = new Date(parseInt(t.date.uts) * 1000);
+                    hours[d.getHours()]++;
+                }
+            });
+            // Current hour might be incomplete, but that's fine
+            sparkline.push(...hours);
+        } else if (period === 'week') {
+            // Group by day (last 7 days)
+            const days = new Array(7).fill(0);
+            tracks.forEach(t => {
+                if (t.date) {
+                    const d = new Date(parseInt(t.date.uts) * 1000);
+                    const diffDays = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+                    if (diffDays < 7) {
+                        days[6 - diffDays]++; // 6 is today, 0 is 7 days ago
+                    }
+                }
+            });
+            sparkline.push(...days);
+        }
+
+        res.json({
+            period,
+            totalScrobbles: total, // Accurate total from API header
+            fetchedCount: tracks.length,
+            topArtists: sortedArtists,
+            sparkline
+        });
+
+    } catch (error) {
+        if (error.message === 'MISSING_API_KEY') {
+            // Mock data
+            return res.json({
+                period,
+                totalScrobbles: period === 'today' ? 42 : (period === 'week' ? 350 : 1200),
+                fetchedCount: 20,
+                topArtists: [
+                    { name: "Mock Artist A", count: 15 },
+                    { name: "Mock Artist B", count: 10 }
+                ],
+                sparkline: period === 'today'
+                    ? [0, 0, 0, 2, 5, 10, 8, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5, 8, 12, 10, 4, 0, 0]
+                    : [40, 52, 35, 60, 45, 80, 55],
+                isMock: true
+            });
+        }
+        res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+});

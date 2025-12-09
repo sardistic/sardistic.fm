@@ -2,9 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-function Library({ data, onBack, onArtistClick }) {
-    const [search, setSearch] = useState('');
-    const [sort, setSort] = useState('plays');
+function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'scrobbles' }) {
+    const [search, setSearch] = useState(initialSearch);
+    const [sort, setSort] = useState(metric === 'minutes' ? 'minutes' : 'plays');
     const [order, setOrder] = useState('desc');
     const [page, setPage] = useState(1);
 
@@ -17,6 +17,7 @@ function Library({ data, onBack, onArtistClick }) {
         return Object.entries(data.artists).map(([name, stats]) => ({
             name,
             plays: stats.t,
+            est_minutes: stats.m || Math.round(stats.t * 3.5),
             year: stats.y ? Object.keys(stats.y).length : 0,
             img: stats.img
         }));
@@ -28,12 +29,15 @@ function Library({ data, onBack, onArtistClick }) {
 
         if (search) {
             const q = search.toLowerCase();
-            result = result.filter(a => a.name.toLowerCase().includes(q));
+            result = result.filter(a =>
+                a.name.toLowerCase().includes(q) ||
+                (data.artists[a.name].tags && data.artists[a.name].tags.some(t => t.toLowerCase().includes(q)))
+            );
         }
 
         return result.sort((a, b) => {
-            let valA = sort === 'name' ? a.name : a.plays;
-            let valB = sort === 'name' ? b.name : b.plays;
+            let valA = sort === 'name' ? a.name : (metric === 'minutes' ? a.est_minutes : a.plays);
+            let valB = sort === 'name' ? b.name : (metric === 'minutes' ? b.est_minutes : b.plays);
 
             if (sort === 'name') {
                 return order === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
@@ -41,7 +45,7 @@ function Library({ data, onBack, onArtistClick }) {
                 return order === 'asc' ? valA - valB : valB - valA;
             }
         });
-    }, [allArtists, search, sort, order]);
+    }, [allArtists, search, sort, order, metric]);
 
     // 3. Paginate
     const totalPages = Math.ceil(filteredArtists.length / ITEMS_PER_PAGE);
@@ -78,6 +82,14 @@ function Library({ data, onBack, onArtistClick }) {
                         className="w-full bg-black/40 border border-white/10 rounded-full py-2 pl-10 pr-4 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors"
                         autoFocus
                     />
+                    {search && (
+                        <button
+                            onClick={() => setSearch('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                        >
+                            ✕
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -87,15 +99,14 @@ function Library({ data, onBack, onArtistClick }) {
                     <span>
                         <span className="text-white font-bold">{filteredArtists.length.toLocaleString()}</span> artists
                     </span>
-                    <div className="h-4 w-px bg-white/10"></div>
                     <button
                         onClick={() => {
-                            if (sort === 'plays') setOrder(o => o === 'asc' ? 'desc' : 'asc');
-                            else { setSort('plays'); setOrder('desc'); }
+                            if (sort === 'plays' || sort === 'minutes') setOrder(o => o === 'asc' ? 'desc' : 'asc');
+                            else { setSort(metric === 'minutes' ? 'minutes' : 'plays'); setOrder('desc'); }
                         }}
-                        className={`flex items-center gap-1 hover:text-white transition-colors ${sort === 'plays' ? 'text-neon-pink' : ''}`}
+                        className={`flex items-center gap-1 hover:text-white transition-colors ${sort === 'plays' || sort === 'minutes' ? 'text-neon-pink' : ''}`}
                     >
-                        Plays {sort === 'plays' && (order === 'desc' ? '↓' : '↑')}
+                        {metric === 'minutes' ? 'Minutes' : 'Plays'} {(sort === 'plays' || sort === 'minutes') && (order === 'desc' ? '↓' : '↑')}
                     </button>
                     <button
                         onClick={() => {
@@ -162,8 +173,10 @@ function Library({ data, onBack, onArtistClick }) {
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="font-bold text-white text-sm">{artist.plays.toLocaleString()}</div>
-                                    <div className="text-[10px] text-gray-600">plays</div>
+                                    <div className="font-bold text-white text-sm">
+                                        {metric === 'minutes' ? artist.est_minutes.toLocaleString() : artist.plays.toLocaleString()}
+                                    </div>
+                                    <div className="text-[10px] text-gray-600">{metric === 'minutes' ? 'mins' : 'plays'}</div>
                                 </div>
                             </div>
                         ))}

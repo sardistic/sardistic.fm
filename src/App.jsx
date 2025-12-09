@@ -4,6 +4,7 @@ import { LayoutDashboard, Calendar, Music, User, Zap } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
 import Overview from './components/Overview';
 import YearDetail from './components/YearDetail';
+import MonthDetail from './components/MonthDetail';
 import ArtistProfile from './components/ArtistProfile';
 import BingeReport from './components/BingeReport';
 import Library from './components/Library';
@@ -15,14 +16,24 @@ import GlassDistortionFilter from './components/GlassDistortionFilter';
 function App() {
   const [view, setView] = useState('overview'); // overview, year, artist, binges
   const [selectedYear, setSelectedYear] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(null);
   const [selectedArtist, setSelectedArtist] = useState(null);
+  const [initialLibrarySearch, setInitialLibrarySearch] = useState('');
+  const [metric, setMetric] = useState('scrobbles'); // 'scrobbles' | 'minutes'
 
   // Memoize data to prevent lags
   const data = useMemo(() => rawData, []);
 
-  const handleYearClick = (year) => {
+  const handleYearClick = (year, metric) => {
     setSelectedYear(year);
     setView('year');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleMonthClick = (year, month) => {
+    setSelectedYear(year);
+    setSelectedMonth(month);
+    setView('month');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -41,6 +52,13 @@ function App() {
     setView('overview');
     setSelectedYear(null);
     setSelectedArtist(null);
+    setInitialLibrarySearch('');
+  };
+
+  const handleTagClick = (tag) => {
+    setInitialLibrarySearch(tag);
+    setView('library');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -102,6 +120,8 @@ function App() {
               >
                 <Overview
                   data={data}
+                  metric={metric}
+                  setMetric={setMetric}
                   onYearClick={handleYearClick}
                   onArtistClick={handleArtistClick}
                   onLibraryClick={() => setView('library')}
@@ -135,8 +155,10 @@ function App() {
               >
                 <Library
                   data={data}
+                  metric={metric}
                   onBack={goHome}
                   onArtistClick={handleArtistClick}
+                  initialSearch={initialLibrarySearch}
                 />
               </motion.div>
             )}
@@ -155,6 +177,30 @@ function App() {
                   allData={data}
                   onBack={goHome}
                   onArtistClick={handleArtistClick}
+                  onMonthClick={handleMonthClick}
+                  onYearClick={handleYearClick}
+                  metric={metric}
+                  setMetric={setMetric}
+                />
+              </motion.div>
+            )}
+
+            {view === 'month' && selectedYear && selectedMonth && (
+              <motion.div
+                key="month"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.4 }}
+              >
+                <MonthDetail
+                  year={selectedYear}
+                  month={selectedMonth}
+                  allData={data}
+                  metric={metric}
+                  setMetric={setMetric}
+                  onBack={() => setView('year')}
+                  onMonthClick={handleMonthClick}
                 />
               </motion.div>
             )}
@@ -170,8 +216,10 @@ function App() {
                 <ArtistProfile
                   artist={selectedArtist}
                   stats={data.artists[selectedArtist]}
+                  metric={metric}
                   allData={data}
                   onBack={() => setView(selectedYear ? 'year' : 'overview')}
+                  onTagClick={handleTagClick}
                 />
               </motion.div>
             )}
