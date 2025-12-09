@@ -418,9 +418,12 @@ app.get('/api/youtube/search', (req, res) => {
     const query = req.query.q;
     if (!query) return res.status(400).json({ error: 'Query required' });
 
+    // Sanitize query to prevent shell injection/syntax errors (remove quotes)
+    const sanitizedQuery = query.replace(/["'$`]/g, '');
+
     // Use yt-dlp to find the video ID
     // Command: yt-dlp "ytsearch1:QUERY" --get-id --no-warnings --no-playlist
-    const cmd = `yt-dlp "ytsearch1:${query}" --print id --no-warnings --no-playlist --match-filter "!is_live"`;
+    const cmd = `yt-dlp "ytsearch1:${sanitizedQuery}" --print id --no-warnings --no-playlist --match-filter "!is_live"`;
 
     exec(cmd, (error, stdout, stderr) => {
         if (error) {
