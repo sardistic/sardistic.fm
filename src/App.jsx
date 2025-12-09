@@ -28,6 +28,13 @@ function App() {
   // Global Player State
   const [nowPlaying, setNowPlaying] = useState(null);
   const [isGlobalPlayerActive, setIsGlobalPlayerActive] = useState(false);
+
+  // DEBUG: Check what URL we are using
+  console.log('DEBUG: VITE_SERVER_URL config:', {
+    env: import.meta.env.VITE_SERVER_URL,
+    final: SERVER_URL
+  });
+
   const [globalVolume, setGlobalVolume] = useState(3); // Start at 3% volume
   const [isGlobalPlaying, setIsGlobalPlaying] = useState(false);
 
