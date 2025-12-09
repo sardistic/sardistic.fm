@@ -97,7 +97,7 @@ export default function PersistentPlayer({
                     const res = await fetch(`${serverUrl}/api/youtube/search?q=${encodeURIComponent(query)}`);
                     const data = await res.json();
                     if (data.videoId) {
-                        setVideoUrl(`https://www.youtube.com/embed/${data.videoId}?autoplay=1&enablejsapi=1&controls=0`);
+                        setVideoUrl(`https://www.youtube.com/embed/${data.videoId}?autoplay=1&enablejsapi=1&controls=0&origin=${window.location.origin}`);
                         setIsPaused(false);
                         if (onPlayStateChange) onPlayStateChange(true);
                     } else {
