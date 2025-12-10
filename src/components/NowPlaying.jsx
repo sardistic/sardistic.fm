@@ -137,7 +137,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                     icon={<Calendar size={14} />}
                 />
                 <StatBit
-                    label="This Month"
+                    label="Last 30 Days"
                     count={stats.month.count}
                     top={stats.month.top}
                     sparkline={stats.month.sparkline}
@@ -155,10 +155,9 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
     const getTooltipLabel = (index, totalBars) => {
         const isToday = label.toLowerCase().includes('24h') || label.toLowerCase().includes('today');
         const isWeek = label.toLowerCase().includes('week') || label.toLowerCase().includes('7 days');
-        const isMonth = label.toLowerCase().includes('month');
+        const isMonth = label.toLowerCase().includes('month') || label.toLowerCase().includes('30 days');
 
         if (isToday) {
-            // Bars are chronological: 0 = 23h ago, total-1 = Now
             const hoursAgo = (totalBars - 1) - index;
             if (hoursAgo === 0) return "Just now";
             const d = new Date();
@@ -167,7 +166,6 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
         }
 
         if (isWeek || isMonth) {
-            // Bars are chronological: 0 = N days ago, total-1 = Today
             const daysAgo = (totalBars - 1) - index;
             if (daysAgo === 0) return "Today";
             if (daysAgo === 1) return "Yesterday";
@@ -180,15 +178,21 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
     };
 
     return (
-        <div className="glass-panel p-4 flex flex-col justify-between relative overflow-visible group hover:bg-white/5 transition-colors">
+        <div className="glass-panel p-4 flex flex-col justify-between relative overflow-hidden group hover:bg-black transition-colors duration-300 border border-white/5 hover:border-white/20">
+            {/* Retro Scanline Background (Visible on Hover) */}
+            <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-10 z-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,6px_100%]"></div>
+
             {/* Header */}
             <div className="flex justify-between items-start mb-2 relative z-10">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-widest font-mono group-hover:text-white transition-colors">
                     {icon} {label}
                 </div>
                 <div
-                    className="text-2xl font-black tabular-nums tracking-tighter drop-shadow-sm transition-all duration-300 group-hover:scale-110 origin-right"
-                    style={{ color: color }}
+                    className="text-2xl font-black tabular-nums tracking-tighter transition-all duration-300 group-hover:scale-105 origin-right"
+                    style={{
+                        color: color,
+                        textShadow: `0 0 10px ${color}40`
+                    }}
                 >
                     {count}
                 </div>
@@ -196,17 +200,17 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
 
             {/* Top Artist */}
             <div className="relative z-10 mb-3">
-                <div className="text-[10px] text-gray-500 uppercase font-bold mb-0.5 opacity-60">Top Artist</div>
-                <div className="text-sm font-bold text-white truncate">
+                <div className="text-[10px] text-gray-600 uppercase font-bold mb-0.5 opacity-60 font-mono tracking-wider">Top Artist</div>
+                <div className="text-sm font-bold text-white truncate group-hover:tracking-wide transition-all">
                     {top && top.length > 0 ? top[0].name : "—"}
                 </div>
-                <div className="text-[10px] text-gray-400">
+                <div className="text-[10px] text-gray-400 font-mono">
                     {top && top.length > 0 ? `${top[0].count} plays` : ""}
                 </div>
             </div>
 
             {/* Mini Sparkline Visualization */}
-            <div className="h-10 flex items-end gap-[2px] opacity-60 group-hover:opacity-100 transition-opacity relative">
+            <div className="h-10 flex items-end gap-[2px] opacity-60 group-hover:opacity-100 transition-opacity relative z-10">
                 {sparkline.length > 0 ? (
                     sparkline.map((val, i) => {
                         const max = Math.max(...sparkline, 1);
@@ -216,40 +220,32 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
                         return (
                             <div
                                 key={i}
-                                className="flex-1 rounded-t-sm transition-all duration-300 relative group/bar hover:opacity-100 opacity-80"
+                                className="flex-1 rounded-sm transition-all duration-300 relative group/bar hover:opacity-100 opacity-80"
                                 style={{
                                     height: `${Math.max(heightPct, 10)}%`,
-                                    backgroundColor: color
+                                    backgroundColor: color,
+                                    boxShadow: `0 0 4px ${color}40`
                                 }}
                             >
-                                {/* Snazzy Tooltip */}
-                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-all duration-200 transform translate-y-2 group-hover/bar:translate-y-0 z-20">
-                                    <div className="bg-black/90 backdrop-blur-md border border-white/10 rounded px-2 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.5)] text-center min-w-[60px]"
-                                        style={{ borderColor: color, boxShadow: `0 0 10px ${color}30` }}>
-                                        <div className="text-sm font-black text-white leading-none" style={{ color: color }}>
+                                {/* Retro Pixel Tooltip */}
+                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-opacity duration-0 z-30">
+                                    <div className="bg-black border border-white/20 px-2 py-1 shadow-[4px_4px_0px_rgba(255,255,255,0.1)] text-center min-w-[60px]"
+                                        style={{ borderColor: color }}>
+                                        <div className="text-sm font-black leading-none font-mono" style={{ color: color }}>
                                             {val}
                                         </div>
-                                        <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wide mt-0.5 whitespace-nowrap">
+                                        <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wide mt-1 whitespace-nowrap font-mono">
                                             {timeLabel}
                                         </div>
                                     </div>
-                                    {/* Arrow */}
-                                    <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] absolute left-1/2 -translate-x-1/2 top-full"
-                                        style={{ borderTopColor: color }}></div>
                                 </div>
                             </div>
                         )
                     })
                 ) : (
-                    <div className="w-full text-center text-[10px] text-gray-600">No data</div>
+                    <div className="w-full text-center text-[10px] text-gray-600 font-mono">NO DATA</div>
                 )}
             </div>
-
-            {/* Glow Effect */}
-            <div
-                className="absolute -bottom-10 -right-10 w-24 h-24 rounded-full blur-2xl opacity-0 group-hover:opacity-20 transition-opacity pointer-events-none"
-                style={{ backgroundColor: color }}
-            />
         </div>
     );
 }
