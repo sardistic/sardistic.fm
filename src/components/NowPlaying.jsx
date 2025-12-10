@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Disc, Clock, Calendar, Activity, Radio, X } from 'lucide-react';
 
 const REFRESH_INTERVAL_MS = 10000; // 10 seconds
@@ -46,7 +46,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
     if (loading && !nowPlaying && !stats.today.count) {
         return (
             <div className="w-full h-48 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md animate-pulse flex items-center justify-center text-gray-500 font-mono">
-                INITIALIZING_SYSTEM...
+                INITIALIZING...
             </div>
         );
     }
@@ -57,108 +57,163 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8"
         >
-            {/* 1. Feature: Now Playing Card */}
-            <div className="lg:col-span-1 relative group rounded-3xl overflow-hidden min-h-[220px]">
-                {/* 
-                   Cutting Edge Backdrops:
-                   Deep blur + Saturation boost for that "Vivid Glass" look.
-                */}
-                <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-3xl backdrop-saturate-200" />
+            {/* 1. Feature: Now Playing Card (3D Tilt) */}
+            <TiltCard className="lg:col-span-1 min-h-[260px] relative z-10">
+                {/* Dynamic Background Art */}
+                <div className="absolute inset-0 z-0 overflow-hidden rounded-3xl">
+                    {/* Base dark layer */}
+                    <div className="absolute inset-0 bg-gray-950/90 z-10" />
 
-                {/* Animated Gradient Mesh Background */}
-                <div className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity duration-700">
-                    <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,_rgba(76,29,149,0.5),transparent_60%)] animate-[spin_12s_linear_infinite]" />
-                    <div className="absolute top-[20%] left-[20%] w-[80%] h-[80%] bg-[radial-gradient(circle_at_50%_50%,_rgba(236,72,153,0.3),transparent_50%)] animate-[pulse_4s_ease-in-out_infinite]" />
+                    {/* Album Art - LARGE & VISIBLE */}
+                    <motion.div
+                        className="absolute inset-0 bg-cover bg-center z-0 opacity-60"
+                        style={{
+                            backgroundImage: nowPlaying?.image ? `url(${nowPlaying.image})` : 'none',
+                            filter: 'blur(20px) saturate(150%)',
+                            scale: 1.2
+                        }}
+                        animate={{
+                            scale: [1.2, 1.3, 1.2],
+                            rotate: [0, 5, 0]
+                        }}
+                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    />
+
+                    {/* Prismatic/Holo Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 via-transparent to-cyan-500/10 mix-blend-overlay z-20 pointer-events-none" />
                 </div>
 
-                {/* Image Background (if available) - Increased visibility as requested */}
-                <div
-                    className="absolute inset-0 bg-cover bg-center opacity-60 blur-md transition-all duration-700 group-hover:blur-sm group-hover:scale-110 group-hover:opacity-70"
-                    style={{ backgroundImage: nowPlaying?.image ? `url(${nowPlaying.image})` : 'none' }}
-                />
-
-                {/* Glass Border */}
-                <div className="absolute inset-0 rounded-3xl border border-white/10 z-20 pointer-events-none group-hover:border-white/20 transition-colors" />
-
-                <div className="relative z-30 p-6 h-full flex flex-col justify-between">
+                <div className="relative z-30 p-8 h-full flex flex-col justify-between">
                     <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest font-mono text-neon-cyan/80">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] font-mono text-cyan-300 drop-shadow-lg">
                             {nowPlaying?.isPlaying ? (
                                 <>
                                     <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-cyan opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-cyan"></span>
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
                                     </span>
-                                    LIVE_SIGNAL
+                                    ON AIR
                                 </>
                             ) : (
                                 <span className="flex items-center gap-2 text-gray-400">
                                     <Disc size={12} />
                                     {nowPlaying?.timestamp ? (
                                         Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000) < 1
-                                            ? 'JUST_NOW'
-                                            : `T-${Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000)}m`
-                                    ) : 'OFFLINE'}
+                                            ? 'JUST NOW'
+                                            : `${Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000)}M AGO`
+                                    ) : 'IDLE'}
                                 </span>
                             )}
                         </div>
-                        {/* Listen In Toggle */}
+
+                        {/* Listen Toggle */}
                         <button
-                            onClick={onToggleListen}
-                            className={`p-2 rounded-full transition-all duration-300 backdrop-blur-md border border-white/10 ${isListening ? 'bg-neon-pink/20 text-neon-pink shadow-[0_0_20px_rgba(236,72,153,0.3)]' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
-                            title={isListening ? "Stop Listening" : "Start Radio"}
+                            onClick={(e) => { e.stopPropagation(); onToggleListen(); }}
+                            className={`p-2.5 rounded-full transition-all duration-300 backdrop-blur-md border border-white/20 hover:scale-110 active:scale-95 ${isListening ? 'bg-pink-500/80 text-white shadow-[0_0_25px_rgba(236,72,153,0.6)]' : 'bg-black/30 text-gray-300 hover:bg-white/10 hover:text-white'}`}
                         >
-                            {isListening ? <X size={16} /> : <Radio size={16} />}
+                            {isListening ? <X size={18} /> : <Radio size={18} />}
                         </button>
                     </div>
 
-                    <div className="mt-6">
-                        <h2 className="text-3xl font-black text-white leading-tight mb-2 drop-shadow-lg truncate tracking-tight">
-                            {nowPlaying?.name || "No Signal"}
+                    <div className="mt-8 space-y-2">
+                        <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-gray-400 leading-[0.9] drop-shadow-sm truncate tracking-tighter mix-blend-hard-light">
+                            {nowPlaying?.name || "OFFLINE"}
                         </h2>
-                        <h3 className="text-lg text-white/70 font-medium truncate font-mono tracking-tight">
-                            {nowPlaying?.artist || "Standby..."}
+                        <h3 className="text-xl text-cyan-100 font-medium truncate tracking-tight opacity-90">
+                            {nowPlaying?.artist || "System Standby"}
                         </h3>
-                        <div className="text-xs text-white/40 mt-1 font-mono uppercase tracking-widest">
-                            {nowPlaying?.album || "---"}
-                        </div>
+                        {nowPlaying?.album && (
+                            <div className="text-xs text-white/50 font-mono uppercase tracking-widest border-l-2 border-white/20 pl-2 mt-2">
+                                {nowPlaying.album}
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
+            </TiltCard>
 
-            {/* 2. Stats Cards */}
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatBit
-                    label="Last 24h"
+            {/* 2. Stats Cards (Also 3D) */}
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <StatCard3D
+                    label="24h"
                     count={stats.today.count}
                     top={stats.today.top}
                     sparkline={stats.today.sparkline}
-                    color="#facc15" // Yellow
-                    icon={<Clock size={14} />}
+                    color="#facc15"
+                    icon={<Clock size={16} />}
                 />
-                <StatBit
-                    label="Last 7 Days"
+                <StatCard3D
+                    label="7 Days"
                     count={stats.week.count}
                     top={stats.week.top}
                     sparkline={stats.week.sparkline}
-                    color="#a78bfa" // Purple
-                    icon={<Calendar size={14} />}
+                    color="#a78bfa"
+                    icon={<Calendar size={16} />}
                 />
-                <StatBit
-                    label="Last 30 Days"
+                <StatCard3D
+                    label="30 Days"
                     count={stats.month.count}
                     top={stats.month.top}
                     sparkline={stats.month.sparkline}
-                    color="#00ffcc" // Cyan
-                    icon={<Activity size={14} />}
+                    color="#00ffcc"
+                    icon={<Activity size={16} />}
                 />
             </div>
         </motion.div>
     );
 }
 
-// Advanced Glass Stat Card
-function StatBit({ label, count, top, sparkline, color, icon }) {
+/* --- 3D Components --- */
+
+function TiltCard({ children, className }) {
+    const x = useMotionValue(0);
+    const y = useMotionValue(0);
+
+    const rotateX = useTransform(y, [-100, 100], [5, -5]); // Inverted for natural feel
+    const rotateY = useTransform(x, [-100, 100], [-5, 5]);
+
+    function handleMouseMove(event) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        const xPct = (mouseX / width - 0.5) * 200; // -100 to 100
+        const yPct = (mouseY / height - 0.5) * 200;
+        x.set(xPct);
+        y.set(yPct);
+    }
+
+    function handleMouseLeave() {
+        x.set(0);
+        y.set(0);
+    }
+
+    return (
+        <motion.div
+            style={{
+                rotateX,
+                rotateY,
+                transformStyle: "preserve-3d",
+                perspective: 1000
+            }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            className={`rounded-3xl border border-white/10 bg-gray-900/40 backdrop-blur-2xl transition-shadow duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden ${className}`}
+        >
+            {/* Gloss Reflection */}
+            <motion.div
+                className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-50"
+                style={{
+                    x: useTransform(x, [-100, 100], [-20, 20]),
+                    y: useTransform(y, [-100, 100], [-20, 20]),
+                }}
+            />
+            {children}
+        </motion.div>
+    );
+}
+
+function StatCard3D({ label, count, top, sparkline, color, icon }) {
     const getTooltipLabel = (index, totalBars) => {
         const isToday = label.toLowerCase().includes('24h') || label.toLowerCase().includes('today');
         const isWeek = label.toLowerCase().includes('week') || label.toLowerCase().includes('7 days');
@@ -184,63 +239,54 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
     };
 
     return (
-        <div className="relative group rounded-3xl overflow-hidden p-5 flex flex-col justify-between h-full bg-black/20 backdrop-blur-xl backdrop-saturate-150 border border-white/5 hover:border-white/20 transition-all duration-500 hover:shadow-[0_0_30px_rgba(0,0,0,0.3)]">
-
-            {/* Ambient Light/Glow Background */}
-            <div className="absolute -top-[50%] -right-[50%] w-[100%] h-[100%] rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-700 blur-[80px]"
+        <TiltCard className="p-5 flex flex-col justify-between h-full bg-black/40 group">
+            {/* Neon Glow underlay */}
+            <div className="absolute bottom-0 right-0 w-32 h-32 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-500 blur-3xl pointer-events-none"
                 style={{ backgroundColor: color }} />
 
-            {/* Header */}
-            <div className="flex justify-between items-start mb-4 relative z-10">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] font-mono group-hover:text-white transition-colors">
+            <div className="flex justify-between items-start mb-4 relative z-10" style={{ transform: "translateZ(20px)" }}>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest font-mono group-hover:text-white transition-colors">
                     {icon} {label}
                 </div>
                 <div
-                    className="text-3xl font-black tabular-nums tracking-tighter transition-all duration-300 group-hover:scale-110 origin-right drop-shadow-xl"
+                    className="text-3xl font-black tabular-nums tracking-tighter transition-all duration-300 group-hover:scale-110 origin-right drop-shadow-md"
                     style={{ color: color }}
                 >
                     {count}
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="relative z-10">
-                {/* Top Artist */}
+            <div className="relative z-10" style={{ transform: "translateZ(10px)" }}>
                 <div className="mb-4">
-                    <div className="text-[9px] text-white/30 uppercase font-black tracking-widest mb-1 font-mono">Top Artist</div>
+                    <div className="text-[9px] text-gray-600 uppercase font-black tracking-widest mb-1 font-mono">Top Artist</div>
                     <div className="text-sm font-bold text-white truncate group-hover:translate-x-1 transition-transform">
                         {top && top.length > 0 ? top[0].name : "---"}
                     </div>
                 </div>
 
-                {/* Modern Bar Chart */}
                 <div className="h-12 flex items-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
                     {sparkline.length > 0 ? (
                         sparkline.map((val, i) => {
                             const max = Math.max(...sparkline, 1);
                             const heightPct = (val / max) * 100;
                             const timeLabel = getTooltipLabel(i, sparkline.length);
-
                             return (
                                 <div key={i} className="flex-1 h-full flex items-end group/bar relative">
                                     <div
-                                        className="w-full rounded-full transition-all duration-500 ease-out relative"
+                                        className="w-full rounded-sm transition-all duration-300 relative"
                                         style={{
                                             height: `${Math.max(heightPct, 8)}%`,
                                             backgroundColor: color,
-                                            boxShadow: `0 0 10px ${color}20`
+                                            boxShadow: `0 0 5px ${color}10`
                                         }}
-                                    >
-                                        <div className="absolute inset-x-0 top-0 h-1 bg-white/40 rounded-full" />
-                                    </div>
-
-                                    {/* Glass Tooltip */}
-                                    <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-max pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-all duration-300 transform translate-y-2 group-hover/bar:translate-y-0 z-50">
-                                        <div className="bg-gray-900/80 backdrop-blur-md border border-white/10 rounded-lg px-3 py-2 shadow-2xl text-center">
-                                            <div className="text-lg font-black leading-none mb-1" style={{ color: color }}>
+                                    />
+                                    {/* Tooltip */}
+                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-opacity duration-200 z-50">
+                                        <div className="bg-black/90 border border-white/20 px-2 py-1 shadow-xl text-center">
+                                            <div className="text-xs font-black text-white leading-none font-mono">
                                                 {val}
                                             </div>
-                                            <div className="text-[10px] text-gray-400 font-mono uppercase tracking-wider whitespace-nowrap">
+                                            <div className="text-[8px] text-gray-400 font-mono uppercase mt-0.5">
                                                 {timeLabel}
                                             </div>
                                         </div>
@@ -249,10 +295,10 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
                             )
                         })
                     ) : (
-                        <div className="w-full text-center text-[10px] text-white/20 font-mono">WAITING FOR DATA</div>
+                        <div className="w-full text-center text-[10px] text-gray-700 font-mono">NO DATA</div>
                     )}
                 </div>
             </div>
-        </div>
+        </TiltCard>
     );
 }
