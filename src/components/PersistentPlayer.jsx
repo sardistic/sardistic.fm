@@ -16,6 +16,8 @@ export default function PersistentPlayer({
     const [videoUrl, setVideoUrl] = useState(null);
     const [tuning, setTuning] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+
     // DEBUG: Lifecycle
     useEffect(() => {
         console.log("PersistentPlayer: Mounted");
