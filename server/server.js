@@ -158,7 +158,7 @@ app.post('/api/session', (req, res) => {
                 res.json({ updated: true });
             });
     } else {
-        db.run(`INSERT INTO sessions (session_id) VALUES (?)`, [session_id], function (err) {
+        db.run(`INSERT OR IGNORE INTO sessions (session_id) VALUES (?)`, [session_id], function (err) {
             if (err) return res.status(500).json({ error: err.message });
             res.status(201).json({ id: this.lastID });
         });
@@ -401,29 +401,40 @@ app.get('/api/recent/:period', async (req, res) => {
         } else if (period === 'week') {
             // Change "Week" to "Last 7 Days" rolling window
             // 0 = 7 days ago, 6 = Today
-            const days = new Array(7).fill(0);
+            const days = new Array(7).fill(0).map(() => ({ day: 0, night: 0 }));
             const nowMs = Date.now();
             tracks.forEach(t => {
                 if (t.date) {
                     const trackTime = parseInt(t.date.uts) * 1000;
                     const diffDays = Math.floor((nowMs - trackTime) / (1000 * 60 * 60 * 24));
                     if (diffDays >= 0 && diffDays < 7) {
-                        // Bucket 6 is "0 days ago" (today), Bucket 0 is "6 days ago"
-                        days[6 - diffDays]++;
+                        const dateObj = new Date(trackTime);
+                        const hour = dateObj.getHours();
+                        const isDay = hour >= 6 && hour < 18; // 6am - 6pm
+                        const bucket = 6 - diffDays;
+
+                        if (isDay) days[bucket].day++;
+                        else days[bucket].night++;
                     }
                 }
             });
             sparkline.push(...days);
         } else if (period === 'month') {
             // 30 days sparkline
-            const days = new Array(30).fill(0);
+            const days = new Array(30).fill(0).map(() => ({ day: 0, night: 0 }));
             const nowMs = Date.now();
             tracks.forEach(t => {
                 if (t.date) {
                     const trackTime = parseInt(t.date.uts) * 1000;
                     const diffDays = Math.floor((nowMs - trackTime) / (1000 * 60 * 60 * 24));
                     if (diffDays >= 0 && diffDays < 30) {
-                        days[29 - diffDays]++;
+                        const dateObj = new Date(trackTime);
+                        const hour = dateObj.getHours();
+                        const isDay = hour >= 6 && hour < 18;
+                        const bucket = 29 - diffDays;
+
+                        if (isDay) days[bucket].day++;
+                        else days[bucket].night++;
                     }
                 }
             });
@@ -487,12 +498,108 @@ app.get('/api/recent/:period', async (req, res) => {
             }
         }
 
+        // 3. Fetch Top Tracks (Tasteful List)
+        let topTracks = [];
+
+        if (period === 'today') {
+            // Calculate actual Top Tracks by counting occurrences
+            const trackCounts = {};
+            tracks.forEach(t => {
+                const key = `${t.name}|||${t.artist['#text']}`;
+                trackCounts[key] = (trackCounts[key] || 0) + 1;
+            });
+
+            topTracks = Object.entries(trackCounts)
+                .map(([key, count]) => {
+                    const [name, artist] = key.split('|||');
+                    return { name, artist, count };
+                })
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 3);
+        } else {
+            // For Week/Month, fetch actual top tracks
+            const periodParam = period === 'week' ? '7day' : '1month';
+            const topTracksData = await fetchLastFm('user.gettoptracks', { period: periodParam, limit: 3 });
+
+            if (topTracksData.toptracks && topTracksData.toptracks.track) {
+                const tList = Array.isArray(topTracksData.toptracks.track)
+                    ? topTracksData.toptracks.track
+                    : [topTracksData.toptracks.track];
+
+                topTracks = tList.map(t => ({
+                    name: t.name,
+                    artist: t.artist.name
+                }));
+            }
+        }
+
+        // 4. Fetch Top Albums (Limit 1 for the cycling view)
+        let topAlbums = [];
+
+        if (period === 'today') {
+            const albumCounts = {};
+            const albumImages = {};
+
+            tracks.forEach(t => {
+                if (t.album && t.album['#text']) {
+                    const name = t.album['#text'];
+                    albumCounts[name] = (albumCounts[name] || 0) + 1;
+
+                    // Cache image
+                    if (!albumImages[name] && t.image) {
+                        const img = t.image.find(i => i.size === 'extralarge') ||
+                            t.image.find(i => i.size === 'large') ||
+                            t.image[t.image.length - 1];
+                        if (img && img['#text']) albumImages[name] = img['#text'];
+                    }
+                }
+            });
+
+            topAlbums = Object.entries(albumCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 1)
+                .map(([name, count]) => ({
+                    name,
+                    count,
+                    image: albumImages[name] || null
+                }));
+        } else {
+            const periodParam = period === 'week' ? '7day' : '1month';
+            const topAlbumsData = await fetchLastFm('user.gettopalbums', { period: periodParam, limit: 1 });
+
+            if (topAlbumsData.topalbums && topAlbumsData.topalbums.album) {
+                const aList = Array.isArray(topAlbumsData.topalbums.album)
+                    ? topAlbumsData.topalbums.album
+                    : [topAlbumsData.topalbums.album];
+
+                topAlbums = aList.map(a => {
+                    let image = null;
+                    if (a.image) {
+                        const img = a.image.find(i => i.size === 'extralarge') ||
+                            a.image.find(i => i.size === 'large') ||
+                            a.image[a.image.length - 1];
+                        if (img && img['#text']) image = img['#text'];
+                    }
+
+                    return {
+                        name: a.name,
+                        artist: a.artist.name,
+                        count: parseInt(a.playcount),
+                        image
+                    };
+                });
+            }
+        }
+
         res.json({
             period,
             totalScrobbles: total, // Accurate total from API header
             fetchedCount: tracks.length,
             topArtists: topArtists,
-            sparkline
+            topTracks: topTracks,
+            recentTracks: tracks.slice(0, 3).map(t => ({ name: t.name, artist: t.artist['#text'] })), // ADDED RAW RECENT TRACKS
+            topAlbums: topAlbums,
+            sparkline: sparkline
         });
 
     } catch (error) {

@@ -93,7 +93,7 @@ const DailyHistoryChart = memo(({ data, metric, onHoverMonth }) => {
                 Listening History <span className="text-xs text-gray-500 font-normal ml-2">(Daily)</span>
             </h2>
             <div className="flex-1 relative z-10 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart
                         data={data}
                         barCategoryGap={1}

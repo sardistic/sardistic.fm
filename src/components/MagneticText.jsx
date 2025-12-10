@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 
-export default function MagneticText({ content, className = '', color = '#fff', isActive = false, externalMouseX = null, externalMouseY = null }) {
+export default function MagneticText({ content, className = '', color = '#ffffff', isActive = false, externalMouseX = null, externalMouseY = null }) {
     const internalMouseX = useMotionValue(Infinity);
     const internalMouseY = useMotionValue(Infinity);
 

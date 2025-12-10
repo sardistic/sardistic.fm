@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, memo } from 'react';
 import { ArrowRight, BarChart3, Calendar, Disc, Moon, Sun, ChevronLeft, ChevronRight, User as UserIcon, BookOpen, Music, Layers } from 'lucide-react';
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, ReferenceArea, CartesianGrid } from 'recharts';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 
 import MagneticText from './MagneticText';
@@ -9,7 +9,26 @@ import NowPlaying from './NowPlaying';
 function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen }) {
     const [hoveredYear, setHoveredYear] = useState(null);
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
+    const [zoomYear, setZoomYear] = useState(null); // V14: Zoom into a specific year
+    const zoomTimer = useRef(null);
     const { meta, timeline, years } = data;
+
+    // Zoom Logic
+    const handleYearHover = (year) => {
+        setHoveredYear(year);
+        // Start 5s timer to zoom
+        if (zoomTimer.current) clearTimeout(zoomTimer.current);
+        zoomTimer.current = setTimeout(() => {
+            setZoomYear(year);
+        }, 5000); // 5 seconds delay
+    };
+
+    const handleYearLeave = () => {
+        setHoveredYear(null);
+        // Clear timer and potential zoom
+        if (zoomTimer.current) clearTimeout(zoomTimer.current);
+        setZoomYear(null);
+    };
 
     // Helper: Format Duration (Minutes -> Readable) - Moved up for Tooltip access
     const formatDuration = (mins) => {
@@ -77,7 +96,8 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
 
             let label = d.date;
             try {
-                label = new Date(d.date + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                // V14 Polish: Use full "Month Year" to avoid "Sep 12" looking like a day
+                label = new Date(d.date + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
             } catch (e) { /* ignore */ }
 
             return {
@@ -88,9 +108,10 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 // Normalized curve 0.6 power for visibility
                 normalized_plays: Math.pow(val, 0.6),
                 top_albums: d.top_albums || [],
+                top_tracks: d.top_tracks || [],
                 img: d.img || null
             };
-        });
+        }).reverse(); // V14: Newest on Left (Reverse chronological)
     }, [data, metric]);
 
     // 2. Yearly Data for the Grid
@@ -164,6 +185,14 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
         show: { opacity: 1, y: 0 }
     };
 
+    // V14: Filter for Zoom
+    const chartData = useMemo(() => {
+        if (zoomYear) {
+            return monthlyTimeline.filter(d => d.year === zoomYear);
+        }
+        return monthlyTimeline;
+    }, [monthlyTimeline, zoomYear]);
+
     return (
         <div className="space-y-8">
             {/* 1. Real-time Now Playing & Recent Activity */}
@@ -230,12 +259,40 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
             >
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2 relative z-10">
                     <span className="w-1 h-6 bg-neon-cyan rounded-full shadow-[0_0_10px_#00ffcc]"></span>
-                    Listening History
+                    {zoomYear ? `History: ${zoomYear}` : "Listening History"}
                 </h2>
+
+                {/* YEAR BACKGROUND LAYER */}
+                <div className="absolute inset-0 z-0 pointer-events-none flex items-end pb-2 overflow-hidden px-6"> {/* Padding matches chart container approximately */}
+                    {!zoomYear && Object.keys(years).map((year) => {
+                        // Find the approximate relative position of this year in the timeline
+                        // We can just space them out or find the first month of that year
+                        const yearDataIndex = monthlyTimeline.findIndex(d => d.date.startsWith(year));
+                        if (yearDataIndex === -1) return null;
+
+                        const leftPct = (yearDataIndex / monthlyTimeline.length) * 100;
+
+                        return (
+                            <div
+                                key={year}
+                                className="absolute text-[100px] font-black leading-none text-white/5 select-none"
+                                style={{
+                                    left: `${leftPct}%`,
+                                    bottom: '-20px',
+                                    fontFamily: 'monospace',
+                                    opacity: 0.03
+                                }}
+                            >
+                                {year}
+                            </div>
+                        );
+                    })}
+                </div>
+
                 <div className="flex-1 relative z-10">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <AreaChart
-                            data={monthlyTimeline}
+                            data={chartData}
                             onMouseMove={(data) => {
                                 if (data) {
                                     const label = data.activeLabel;
@@ -259,6 +316,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                 setHoveredYear(null);
                                 setHoveredMonth(null);
                             }}
+
                             onClick={(data) => {
                                 if (data && data.activePayload && data.activePayload[0]) {
                                     const point = data.activePayload[0].payload;
@@ -276,13 +334,10 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                     <stop offset="95%" stopColor="#00ffcc" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
+                            <CartesianGrid vertical={false} horizontal={false} opacity={0} />
                             <XAxis
                                 dataKey="date"
-                                stroke="#444"
-                                tick={{ fill: '#888', fontSize: 11 }}
-                                tickFormatter={(str) => str.endsWith('-01') ? str.split('-')[0] : ''}
-                                interval={0}
-                                height={20}
+                                hide
                             />
                             <Tooltip
                                 content={({ active, payload }) => {
@@ -292,15 +347,46 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                             ? data.top_albums[0].url
                                             : (data.img || 'https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png');
                                         return (
-                                            <div className="bg-[#0a0a0a]/95 p-3 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md pointer-events-none">
-                                                <div className="w-48 h-48 mb-3 rounded-lg overflow-hidden shadow-lg relative bg-[#1a1a1a]">
-                                                    <img src={art} alt="Art" className="w-full h-full object-cover" />
-                                                </div>
-                                                <div className="text-center">
-                                                    <p className="text-white font-bold text-base mb-1">{data.label}</p>
-                                                    <p className="text-neon-cyan text-sm font-mono font-bold">
-                                                        {metric === 'minutes' ? formatDuration(data.value) : `${data.value} plays`}
-                                                    </p>
+                                            <div className="bg-[#0a0a0a]/95 p-3 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md pointer-events-none min-w-[320px] max-w-[400px]">
+                                                <div className="flex gap-4 items-start">
+                                                    {/* Art (Small & Fixed) */}
+                                                    <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden shadow-lg bg-[#1a1a1a]">
+                                                        <img src={art} alt="Art" className="w-full h-full object-cover" />
+                                                    </div>
+
+                                                    {/* Info Content */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="mb-2">
+                                                            <p className="text-white font-bold text-base leading-tight">{data.label}</p>
+                                                            <p className="text-neon-cyan text-sm font-mono font-bold">
+                                                                {metric === 'minutes'
+                                                                    ? `Time: ${formatDuration(data.value)}`
+                                                                    : `Plays: ${data.value.toLocaleString()}`}
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Top Album */}
+                                                        {data.top_albums?.[0] && (
+                                                            <div className="mb-1.5">
+                                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1">
+                                                                    <Disc size={8} /> Top Album
+                                                                </p>
+                                                                <p className="text-white text-xs font-semibold truncate w-full">{data.top_albums[0].name}</p>
+                                                                <p className="text-gray-400 text-[10px] truncate w-full">{data.top_albums[0].artist}</p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Top Track */}
+                                                        {data.top_tracks?.[0] && (
+                                                            <div>
+                                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1">
+                                                                    <Music size={8} /> Top Track
+                                                                </p>
+                                                                <p className="text-white text-xs font-semibold truncate w-full">{data.top_tracks[0].name}</p>
+                                                                <p className="text-gray-400 text-[10px] truncate w-full">{data.top_tracks[0].artist}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -358,9 +444,10 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                 y={y}
                                 hoveredYear={hoveredYear}
                                 hoveredMonth={hoveredMonth}
-                                setHoveredYear={setHoveredYear}
                                 onYearClick={onYearClick}
                                 metric={metric}
+                                onMouseEnter={() => handleYearHover(y.year)}
+                                onMouseLeave={handleYearLeave}
                             />
                         );
                     })}
@@ -601,7 +688,7 @@ function StatCard({ label, value, icon, color, glowColor = 'rgba(255,255,255,0.5
 
 export default Overview;
 
-const YearCard = memo(({ y, hoveredYear, hoveredMonth, setHoveredYear, onYearClick, metric }) => {
+const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMouseEnter, onMouseLeave }) => {
     // Determine active state
     const isActive = String(hoveredYear) === String(y.year);
 
@@ -644,9 +731,9 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, setHoveredYear, onYearCli
             layout
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             onMouseMove={handleLocalMouseMove}
-            onMouseEnter={() => setHoveredYear(String(y.year))}
+            onMouseEnter={onMouseEnter}
             onMouseLeave={() => {
-                setHoveredYear(null);
+                onMouseLeave();
                 mouseX.set(Infinity);
                 mouseY.set(Infinity);
             }}
@@ -745,7 +832,7 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, setHoveredYear, onYearCli
                         <div className="text-2xl font-bold text-white transition-colors">
                             <MagneticText
                                 content={format(mainValue)}
-                                color={isActive ? '#00ffcc' : 'white'}
+                                color={isActive ? '#00ffcc' : '#ffffff'}
                                 isActive={isActive}
                                 externalMouseX={mouseX}
                                 externalMouseY={mouseY}
