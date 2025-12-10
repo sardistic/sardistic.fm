@@ -299,6 +299,10 @@ app.get('/api/now-playing', async (req, res) => {
     }
 });
 
+// Global Cache for Artist Images (to fix missing images in Top Artists)
+const artistImageCache = {};
+const LASTFM_PLACEHOLDER_STAR = 'https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png';
+
 // GET Recent Scrobble Stats
 app.get('/api/recent/:period', async (req, res) => {
     const { period } = req.params; // today, week, month
@@ -359,6 +363,21 @@ app.get('/api/recent/:period', async (req, res) => {
                     : [data.recenttracks.track];
 
                 tracks.push(...pageTracks);
+
+                // POPULATE CACHE from Recent Tracks (usually has good images)
+                pageTracks.forEach(t => {
+                    if (t.artist && t.artist['#text'] && t.image) {
+                        const img = t.image.find(i => i.size === 'extralarge') ||
+                            t.image.find(i => i.size === 'large') ||
+                            t.image[t.image.length - 1];
+
+                        const url = img ? img['#text'] : null;
+                        // Only cache if valid and NOT the star placeholder (some recent tracks might have it too)
+                        if (url && url !== '' && !url.includes('2a96cbd8b46e442fc41c2b86b821562f')) {
+                            artistImageCache[t.artist['#text']] = url;
+                        }
+                    }
+                });
             }
         });
 
@@ -417,6 +436,8 @@ app.get('/api/recent/:period', async (req, res) => {
         if (period === 'today') {
             // For "Today", we must aggregate manually from the recent tracks fetch
             const artistCounts = {};
+            // We can use the global cache directly now
+
             tracks.forEach(t => {
                 const artist = t.artist['#text'];
                 artistCounts[artist] = (artistCounts[artist] || 0) + 1;
@@ -425,7 +446,11 @@ app.get('/api/recent/:period', async (req, res) => {
             topArtists = Object.entries(artistCounts)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 3)
-                .map(([name, count]) => ({ name, count }));
+                .map(([name, count]) => ({
+                    name,
+                    count,
+                    image: artistImageCache[name] || null
+                }));
 
         } else {
             // For Week/Month, use the dedicated API which is accurate over the full period
@@ -438,10 +463,27 @@ app.get('/api/recent/:period', async (req, res) => {
                     ? topData.topartists.artist
                     : [topData.topartists.artist];
 
-                topArtists = artists.map(a => ({
-                    name: a.name,
-                    count: parseInt(a.playcount)
-                }));
+                topArtists = artists.map(a => {
+                    let image = null;
+                    if (a.image) {
+                        const img = a.image.find(i => i.size === 'extralarge') ||
+                            a.image.find(i => i.size === 'large') ||
+                            a.image[a.image.length - 1];
+                        if (img && img['#text']) image = img['#text'];
+                    }
+
+                    // CHECK CACHE if image is missing or is the placeholder star
+                    if ((!image || image === '' || image.includes('2a96cbd8b46e442fc41c2b86b821562f')) && artistImageCache[a.name]) {
+                        console.log(`[Cache Hit] Using cached image for ${a.name}`);
+                        image = artistImageCache[a.name];
+                    }
+
+                    return {
+                        name: a.name,
+                        count: parseInt(a.playcount),
+                        image: image
+                    };
+                });
             }
         }
 
@@ -461,8 +503,16 @@ app.get('/api/recent/:period', async (req, res) => {
                 totalScrobbles: period === 'today' ? 42 : (period === 'week' ? 350 : 1200),
                 fetchedCount: 20,
                 topArtists: [
-                    { name: "Mock Artist A", count: 15 },
-                    { name: "Mock Artist B", count: 10 }
+                    {
+                        name: "Mock Artist A",
+                        count: 15,
+                        image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80" // Microphone/Singer
+                    },
+                    {
+                        name: "Mock Artist B",
+                        count: 10,
+                        image: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?auto=format&fit=crop&w=300&q=80" // Guitarist
+                    }
                 ],
                 sparkline: period === 'today'
                     ? [0, 0, 0, 2, 5, 10, 8, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5, 8, 12, 10, 4, 0, 0]
