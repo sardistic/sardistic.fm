@@ -332,28 +332,9 @@ app.get('/api/recent/:period', async (req, res) => {
     try {
         const data = await fetchLastFm('user.getrecenttracks', apiParams);
         const tracks = data.recenttracks.track;
-
-        // Basic Aggregation
-        // Note: For 'month', fetching all tracks might require pagination. 
-        // For now, we take the page 1 limit (200 is decent for daily/weekly snippet).
-        // If count > 200, we might just report "> 200".
-        // Or we use user.getWeeklyTrackChart for weeks.
-
         const total = data.recenttracks['@attr'].total;
 
-        // Calculate Top Artist from this batch
-        const artistCounts = {};
-        tracks.forEach(t => {
-            const artist = t.artist['#text'];
-            artistCounts[artist] = (artistCounts[artist] || 0) + 1;
-        });
-
-        const sortedArtists = Object.entries(artistCounts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([name, count]) => ({ name, count }));
-
-        // Generate a mini-sparkline (e.g. per hour for today, per day for week)
+        // 1. Calculate Sparkline (from recent tracks sample)
         const sparkline = [];
         if (period === 'today') {
             // Change "Today" to "Last 24 Hours" rolling window for better accuracy across timezones
@@ -365,7 +346,6 @@ app.get('/api/recent/:period', async (req, res) => {
                     const trackTime = parseInt(t.date.uts) * 1000;
                     const diffHours = Math.floor((nowMs - trackTime) / (1000 * 60 * 60));
                     if (diffHours >= 0 && diffHours < 24) {
-                        // Bucket 23 is "0 hours ago" (now), Bucket 0 is "23 hours ago"
                         hours[23 - diffHours]++;
                     }
                 }
@@ -387,13 +367,61 @@ app.get('/api/recent/:period', async (req, res) => {
                 }
             });
             sparkline.push(...days);
+        } else if (period === 'month') {
+            // 30 days sparkline
+            const days = new Array(30).fill(0);
+            const nowMs = Date.now();
+            tracks.forEach(t => {
+                if (t.date) {
+                    const trackTime = parseInt(t.date.uts) * 1000;
+                    const diffDays = Math.floor((nowMs - trackTime) / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 0 && diffDays < 30) {
+                        days[29 - diffDays]++;
+                    }
+                }
+            });
+            sparkline.push(...days);
+        }
+
+        // 2. Fetch Accurate Top Artists (Server-side Aggregation)
+        let topArtists = [];
+
+        if (period === 'today') {
+            // For "Today", we must aggregate manually from the recent tracks fetch
+            const artistCounts = {};
+            tracks.forEach(t => {
+                const artist = t.artist['#text'];
+                artistCounts[artist] = (artistCounts[artist] || 0) + 1;
+            });
+
+            topArtists = Object.entries(artistCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([name, count]) => ({ name, count }));
+
+        } else {
+            // For Week/Month, use the dedicated API which is accurate over the full period
+            const periodParam = period === 'week' ? '7day' : '1month';
+            const topData = await fetchLastFm('user.gettopartists', { period: periodParam, limit: 3 });
+
+            if (topData.topartists && topData.topartists.artist) {
+                // Ensure array (single result edge case)
+                const artists = Array.isArray(topData.topartists.artist)
+                    ? topData.topartists.artist
+                    : [topData.topartists.artist];
+
+                topArtists = artists.map(a => ({
+                    name: a.name,
+                    count: parseInt(a.playcount)
+                }));
+            }
         }
 
         res.json({
             period,
             totalScrobbles: total, // Accurate total from API header
             fetchedCount: tracks.length,
-            topArtists: sortedArtists,
+            topArtists: topArtists,
             sparkline
         });
 
@@ -451,5 +479,3 @@ app.get('/api/youtube/search', (req, res) => {
         res.json({ videoId });
     });
 });
-
-
