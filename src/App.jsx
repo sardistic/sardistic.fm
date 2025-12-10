@@ -133,16 +133,9 @@ function App() {
           className="flex items-center gap-2 cursor-pointer group"
           onClick={goHome}
         >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            whileHover={{ scale: 1.1 }}
-            className="w-8 h-8 rounded-full bg-gradient-to-tr from-neon-pink to-neon-purple flex items-center justify-center font-bold text-white shadow-[0_0_15px_rgba(255,0,85,0.5)]"
-          >
-            S
-          </motion.div>
-          <span className="font-bold text-xl tracking-tight text-white group-hover:text-neon-pink transition-colors">
-            sardistic.com <span className="opacity-50">Music</span>
+          <span className="text-lg tracking-tight font-mono group-hover:text-white/50 transition-colors">
+            <span className="text-white/60 font-semibold">AUDIO</span>
+            <span className="text-white/20">.sardistic.com</span>
           </span>
         </div>
 
