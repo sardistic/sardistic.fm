@@ -71,9 +71,9 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                     <div className="absolute top-[20%] left-[20%] w-[80%] h-[80%] bg-[radial-gradient(circle_at_50%_50%,_rgba(236,72,153,0.3),transparent_50%)] animate-[pulse_4s_ease-in-out_infinite]" />
                 </div>
 
-                {/* Image Background (if available) */}
+                {/* Image Background (if available) - Increased visibility as requested */}
                 <div
-                    className="absolute inset-0 bg-cover bg-center opacity-30 blur-2xl transition-all duration-700 group-hover:scale-110"
+                    className="absolute inset-0 bg-cover bg-center opacity-60 blur-md transition-all duration-700 group-hover:blur-sm group-hover:scale-110 group-hover:opacity-70"
                     style={{ backgroundImage: nowPlaying?.image ? `url(${nowPlaying.image})` : 'none' }}
                 />
 
