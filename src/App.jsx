@@ -13,6 +13,7 @@ import AdvancedAnalyticsDashboard from './components/AdvancedAnalyticsDashboard'
 import { AnalyticsProvider } from './components/AnalyticsProvider';
 import GlassDistortionFilter from './components/GlassDistortionFilter';
 import PersistentPlayer from './components/PersistentPlayer';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const REFRESH_INTERVAL_MS = 10000;
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
@@ -114,15 +115,17 @@ function App() {
       <FluidBackground intensity={intensity} />
 
       {/* Persistent Global Player */}
-      <PersistentPlayer
-        nowPlaying={nowPlaying}
-        isActive={isGlobalPlayerActive}
-        onClose={() => setIsGlobalPlayerActive(false)}
-        serverUrl={SERVER_URL}
-        volume={globalVolume}
-        onVolumeChange={setGlobalVolume}
-        onPlayStateChange={setIsGlobalPlaying}
-      />
+      <ErrorBoundary>
+        <PersistentPlayer
+          nowPlaying={nowPlaying}
+          isActive={isGlobalPlayerActive}
+          onClose={() => setIsGlobalPlayerActive(false)}
+          serverUrl={SERVER_URL}
+          volume={globalVolume}
+          onVolumeChange={setGlobalVolume}
+          onPlayStateChange={setIsGlobalPlaying}
+        />
+      </ErrorBoundary>
 
       {/* Header */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/40 backdrop-blur-xl border-b border-white/10 z-50 flex items-center px-6 justify-between supports-[backdrop-filter]:bg-black/20">
