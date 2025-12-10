@@ -306,35 +306,63 @@ app.get('/api/recent/:period', async (req, res) => {
     // Last.fm doesn't have a direct "today" endpoint, we have to filter getRecentTracks by timestamp
     // or use user.getTopTracks with period param (which supports 7day, 1month, etc.)
 
-    // Mapping our periods to Last.fm periods or logic
-    let apiMethod = 'user.getrecenttracks';
-    let apiParams = { limit: 1000 }; // Fetch larger sample for accurate Week graphs (max 1000)
-
     const now = Math.floor(Date.now() / 1000);
     let fromTime = 0;
+
+    // Pagination settings
+    // Today: can usually fit in one page (200 tracks = ~12 hours of non-stop listening, or 24h normal)
+    // Week: Needs roughly 800-1000 tracks max.
+    // Month: Needs 3000+. We'll cap at 1000 to keep it fast but fill the chart better.
+    let pagesToFetch = 1;
 
     if (period === 'today') {
         // "Today" now means "Last 24 Hours" for the graph
         fromTime = now - (24 * 60 * 60);
-        apiParams.from = fromTime;
+        pagesToFetch = 1;
     } else if (period === 'week') {
         // Last 7 days
         fromTime = now - (7 * 24 * 60 * 60);
-        apiParams.from = fromTime;
+        pagesToFetch = 5; // 5 * 200 = 1000 tracks
     } else if (period === 'month') {
         // Last 30 days
         fromTime = now - (30 * 24 * 60 * 60);
-        apiParams.from = fromTime;
+        pagesToFetch = 5; // 5 * 200 = 1000 tracks (sample)
     } else {
         return res.status(400).json({ error: 'Invalid period' });
     }
 
     try {
-        const data = await fetchLastFm('user.getrecenttracks', apiParams);
-        const tracks = data.recenttracks.track;
-        const total = data.recenttracks['@attr'].total;
+        let tracks = [];
+        let total = 0;
 
-        // 1. Calculate Sparkline (from recent tracks sample)
+        // Parallel Fetch helper
+        const fetchPage = (page) => fetchLastFm('user.getrecenttracks', {
+            limit: 200,
+            page: page,
+            from: fromTime
+        });
+
+        // Create array of promises [1...pagesToFetch]
+        const promises = Array.from({ length: pagesToFetch }, (_, i) => fetchPage(i + 1));
+
+        const results = await Promise.all(promises);
+
+        results.forEach(data => {
+            if (data.recenttracks && data.recenttracks.track) {
+                // Determine total from the first page (or any)
+                if (!total && data.recenttracks['@attr']) {
+                    total = data.recenttracks['@attr'].total;
+                }
+
+                const pageTracks = Array.isArray(data.recenttracks.track)
+                    ? data.recenttracks.track
+                    : [data.recenttracks.track];
+
+                tracks.push(...pageTracks);
+            }
+        });
+
+        // 1. Calculate Sparkline (from aggregated tracks)
         const sparkline = [];
         if (period === 'today') {
             // Change "Today" to "Last 24 Hours" rolling window for better accuracy across timezones
