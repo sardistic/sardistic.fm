@@ -121,7 +121,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
             {/* 2. Stats Cards */}
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatBit
-                    label="Today"
+                    label="Last 24h"
                     count={stats.today.count}
                     top={stats.today.top}
                     sparkline={stats.today.sparkline}

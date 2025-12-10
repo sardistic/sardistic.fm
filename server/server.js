@@ -314,9 +314,8 @@ app.get('/api/recent/:period', async (req, res) => {
     let fromTime = 0;
 
     if (period === 'today') {
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        fromTime = Math.floor(startOfDay.getTime() / 1000);
+        // "Today" now means "Last 24 Hours" for the graph
+        fromTime = now - (24 * 60 * 60);
         apiParams.from = fromTime;
     } else if (period === 'week') {
         // Last 7 days
@@ -357,15 +356,20 @@ app.get('/api/recent/:period', async (req, res) => {
         // Generate a mini-sparkline (e.g. per hour for today, per day for week)
         const sparkline = [];
         if (period === 'today') {
-            // Group by hour
+            // Change "Today" to "Last 24 Hours" rolling window for better accuracy across timezones
+            // 0 = 24 hours ago, 23 = Current hour
             const hours = new Array(24).fill(0);
+            const nowMs = Date.now();
             tracks.forEach(t => {
                 if (t.date) {
-                    const d = new Date(parseInt(t.date.uts) * 1000);
-                    hours[d.getHours()]++;
+                    const trackTime = parseInt(t.date.uts) * 1000;
+                    const diffHours = Math.floor((nowMs - trackTime) / (1000 * 60 * 60));
+                    if (diffHours >= 0 && diffHours < 24) {
+                        // Bucket 23 is "0 hours ago" (now), Bucket 0 is "23 hours ago"
+                        hours[23 - diffHours]++;
+                    }
                 }
             });
-            // Current hour might be incomplete, but that's fine
             sparkline.push(...hours);
         } else if (period === 'week') {
             // Group by day (last 7 days)
