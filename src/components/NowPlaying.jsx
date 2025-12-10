@@ -151,8 +151,36 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
 
 // Sub-component for formatted small cards
 function StatBit({ label, count, top, sparkline, color, icon }) {
+    // Helper to generate tooltip label based on index and period type
+    const getTooltipLabel = (index, totalBars) => {
+        const isToday = label.toLowerCase().includes('24h') || label.toLowerCase().includes('today');
+        const isWeek = label.toLowerCase().includes('week') || label.toLowerCase().includes('7 days');
+        const isMonth = label.toLowerCase().includes('month');
+
+        if (isToday) {
+            // Bars are chronological: 0 = 23h ago, total-1 = Now
+            const hoursAgo = (totalBars - 1) - index;
+            if (hoursAgo === 0) return "Just now";
+            const d = new Date();
+            d.setHours(d.getHours() - hoursAgo);
+            return d.toLocaleTimeString([], { hour: 'numeric', hour12: true });
+        }
+
+        if (isWeek || isMonth) {
+            // Bars are chronological: 0 = N days ago, total-1 = Today
+            const daysAgo = (totalBars - 1) - index;
+            if (daysAgo === 0) return "Today";
+            if (daysAgo === 1) return "Yesterday";
+            const d = new Date();
+            d.setDate(d.getDate() - daysAgo);
+            return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+
+        return `Bucket ${index + 1}`;
+    };
+
     return (
-        <div className="glass-panel p-4 flex flex-col justify-between relative overflow-hidden group hover:bg-white/5 transition-colors">
+        <div className="glass-panel p-4 flex flex-col justify-between relative overflow-visible group hover:bg-white/5 transition-colors">
             {/* Header */}
             <div className="flex justify-between items-start mb-2 relative z-10">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">
@@ -178,20 +206,38 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
             </div>
 
             {/* Mini Sparkline Visualization */}
-            <div className="h-8 flex items-end gap-[2px] opacity-50 group-hover:opacity-100 transition-opacity">
+            <div className="h-10 flex items-end gap-[2px] opacity-60 group-hover:opacity-100 transition-opacity relative">
                 {sparkline.length > 0 ? (
                     sparkline.map((val, i) => {
                         const max = Math.max(...sparkline, 1);
                         const heightPct = (val / max) * 100;
+                        const timeLabel = getTooltipLabel(i, sparkline.length);
+
                         return (
                             <div
                                 key={i}
-                                className="flex-1 rounded-t-sm transition-all duration-500"
+                                className="flex-1 rounded-t-sm transition-all duration-300 relative group/bar hover:opacity-100 opacity-80"
                                 style={{
-                                    height: `${Math.max(heightPct, 5)}%`,
+                                    height: `${Math.max(heightPct, 10)}%`,
                                     backgroundColor: color
                                 }}
-                            />
+                            >
+                                {/* Snazzy Tooltip */}
+                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-all duration-200 transform translate-y-2 group-hover/bar:translate-y-0 z-20">
+                                    <div className="bg-black/90 backdrop-blur-md border border-white/10 rounded px-2 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.5)] text-center min-w-[60px]"
+                                        style={{ borderColor: color, boxShadow: `0 0 10px ${color}30` }}>
+                                        <div className="text-sm font-black text-white leading-none" style={{ color: color }}>
+                                            {val}
+                                        </div>
+                                        <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wide mt-0.5 whitespace-nowrap">
+                                            {timeLabel}
+                                        </div>
+                                    </div>
+                                    {/* Arrow */}
+                                    <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] absolute left-1/2 -translate-x-1/2 top-full"
+                                        style={{ borderTopColor: color }}></div>
+                                </div>
+                            </div>
                         )
                     })
                 ) : (

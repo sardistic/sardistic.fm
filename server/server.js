@@ -308,7 +308,7 @@ app.get('/api/recent/:period', async (req, res) => {
 
     // Mapping our periods to Last.fm periods or logic
     let apiMethod = 'user.getrecenttracks';
-    let apiParams = { limit: 200 }; // Fetch a bunch to aggregate
+    let apiParams = { limit: 1000 }; // Fetch larger sample for accurate Week graphs (max 1000)
 
     const now = Math.floor(Date.now() / 1000);
     let fromTime = 0;
