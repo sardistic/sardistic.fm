@@ -3,6 +3,7 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Disc, Clock, Calendar, Activity, Radio, X } from 'lucide-react';
 
 const REFRESH_INTERVAL_MS = 10000; // 10 seconds
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop"; // Abstract dark fluid art
 
 export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'), nowPlaying, isListening, onToggleListen }) {
     const [stats, setStats] = useState({
@@ -58,34 +59,58 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
             className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8"
         >
             {/* 1. Feature: Now Playing Card (3D Tilt) */}
-            <TiltCard className="lg:col-span-1 min-h-[260px] relative z-10">
+            <TiltCard className="lg:col-span-1 min-h-[260px] relative z-10 group">
                 {/* Dynamic Background Art */}
-                <div className="absolute inset-0 z-0 overflow-hidden rounded-3xl">
+                <div className="absolute inset-0 z-0 overflow-hidden rounded-3xl bg-black">
                     {/* Base dark layer */}
-                    <div className="absolute inset-0 bg-gray-950/90 z-10" />
+                    <div className="absolute inset-0 bg-gray-950/40 z-10 mix-blend-multiply" />
 
-                    {/* Album Art - LARGE & VISIBLE */}
+                    {/* Album Art - LARGE & VISIBLE with Fallback */}
                     <motion.div
-                        className="absolute inset-0 bg-cover bg-center z-0 opacity-60"
+                        className="absolute inset-0 bg-cover bg-center z-0 opacity-80"
                         style={{
-                            backgroundImage: nowPlaying?.image ? `url(${nowPlaying.image})` : 'none',
-                            filter: 'blur(20px) saturate(150%)',
-                            scale: 1.2
+                            backgroundImage: `url(${nowPlaying?.image || FALLBACK_IMAGE})`,
+                            filter: 'blur(15px) saturate(140%) brightness(0.8)',
+                            scale: 1.1
                         }}
                         animate={{
-                            scale: [1.2, 1.3, 1.2],
-                            rotate: [0, 5, 0]
+                            scale: [1.1, 1.2, 1.1],
+                            rotate: [0, 2, 0]
                         }}
-                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
                     />
 
                     {/* Prismatic/Holo Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 via-transparent to-cyan-500/10 mix-blend-overlay z-20 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 via-transparent to-cyan-500/20 mix-blend-overlay z-20 pointer-events-none" />
+
+                    {/* Noise/Grain Texture */}
+                    <div className="absolute inset-0 opacity-[0.07] z-20 pointer-events-none mix-blend-overlay"
+                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
+                    />
+
+                    {/* Floating Dust Particles */}
+                    <div className="absolute inset-0 z-20 pointer-events-none">
+                        <motion.div
+                            className="absolute top-1/4 left-1/4 w-1 h-1 bg-white rounded-full opacity-60"
+                            animate={{ y: [-20, 20, -20], x: [-10, 10, -10], opacity: [0.2, 0.6, 0.2] }}
+                            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                        <motion.div
+                            className="absolute top-3/4 right-1/4 w-0.5 h-0.5 bg-cyan-300 rounded-full opacity-0"
+                            animate={{ y: [0, -40, 0], opacity: [0, 0.8, 0] }}
+                            transition={{ duration: 7, repeat: Infinity, ease: "linear", delay: 1 }}
+                        />
+                        <motion.div
+                            className="absolute bottom-1/3 left-1/2 w-1 h-1 bg-purple-300 rounded-full blur-[1px]"
+                            animate={{ y: [0, -30], opacity: [0, 0.5, 0] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "easeOut", delay: 2 }}
+                        />
+                    </div>
                 </div>
 
                 <div className="relative z-30 p-8 h-full flex flex-col justify-between">
                     <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] font-mono text-cyan-300 drop-shadow-lg">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] font-mono text-cyan-200 drop-shadow-md">
                             {nowPlaying?.isPlaying ? (
                                 <>
                                     <span className="relative flex h-2 w-2">
@@ -95,7 +120,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                                     ON AIR
                                 </>
                             ) : (
-                                <span className="flex items-center gap-2 text-gray-400">
+                                <span className="flex items-center gap-2 text-white/50">
                                     <Disc size={12} />
                                     {nowPlaying?.timestamp ? (
                                         Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000) < 1
@@ -109,17 +134,17 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                         {/* Listen Toggle */}
                         <button
                             onClick={(e) => { e.stopPropagation(); onToggleListen(); }}
-                            className={`p-2.5 rounded-full transition-all duration-300 backdrop-blur-md border border-white/20 hover:scale-110 active:scale-95 ${isListening ? 'bg-pink-500/80 text-white shadow-[0_0_25px_rgba(236,72,153,0.6)]' : 'bg-black/30 text-gray-300 hover:bg-white/10 hover:text-white'}`}
+                            className={`p-2.5 rounded-full transition-all duration-300 backdrop-blur-md border border-white/20 hover:scale-110 active:scale-95 ${isListening ? 'bg-pink-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.5)]' : 'bg-black/20 text-white/70 hover:bg-white/10 hover:text-white'}`}
                         >
                             {isListening ? <X size={18} /> : <Radio size={18} />}
                         </button>
                     </div>
 
                     <div className="mt-8 space-y-2">
-                        <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-gray-400 leading-[0.9] drop-shadow-sm truncate tracking-tighter mix-blend-hard-light">
+                        <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/60 leading-[0.9] drop-shadow-lg truncate tracking-tighter">
                             {nowPlaying?.name || "OFFLINE"}
                         </h2>
-                        <h3 className="text-xl text-cyan-100 font-medium truncate tracking-tight opacity-90">
+                        <h3 className="text-xl text-cyan-50 font-medium truncate tracking-tight opacity-90 drop-shadow-md">
                             {nowPlaying?.artist || "System Standby"}
                         </h3>
                         {nowPlaying?.album && (
@@ -198,11 +223,11 @@ function TiltCard({ children, className }) {
             }}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
-            className={`rounded-3xl border border-white/10 bg-gray-900/40 backdrop-blur-2xl transition-shadow duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden ${className}`}
+            className={`rounded-3xl border border-white/10 bg-gray-900/60 backdrop-blur-2xl transition-shadow duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden ${className}`}
         >
             {/* Gloss Reflection */}
             <motion.div
-                className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-50"
+                className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-50"
                 style={{
                     x: useTransform(x, [-100, 100], [-20, 20]),
                     y: useTransform(y, [-100, 100], [-20, 20]),
