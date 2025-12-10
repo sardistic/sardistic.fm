@@ -129,7 +129,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                     icon={<Clock size={14} />}
                 />
                 <StatBit
-                    label="This Week"
+                    label="Last 7 Days"
                     count={stats.week.count}
                     top={stats.week.top}
                     sparkline={stats.week.sparkline}

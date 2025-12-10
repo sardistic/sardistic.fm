@@ -372,14 +372,17 @@ app.get('/api/recent/:period', async (req, res) => {
             });
             sparkline.push(...hours);
         } else if (period === 'week') {
-            // Group by day (last 7 days)
+            // Change "Week" to "Last 7 Days" rolling window
+            // 0 = 7 days ago, 6 = Today
             const days = new Array(7).fill(0);
+            const nowMs = Date.now();
             tracks.forEach(t => {
                 if (t.date) {
-                    const d = new Date(parseInt(t.date.uts) * 1000);
-                    const diffDays = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
-                    if (diffDays < 7) {
-                        days[6 - diffDays]++; // 6 is today, 0 is 7 days ago
+                    const trackTime = parseInt(t.date.uts) * 1000;
+                    const diffDays = Math.floor((nowMs - trackTime) / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 0 && diffDays < 7) {
+                        // Bucket 6 is "0 days ago" (today), Bucket 0 is "6 days ago"
+                        days[6 - diffDays]++;
                     }
                 }
             });
