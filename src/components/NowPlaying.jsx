@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Disc, Music, BarChart3, Clock, Calendar, Activity, Radio, X } from 'lucide-react';
-import MagneticText from './MagneticText';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Disc, Clock, Calendar, Activity, Radio, X } from 'lucide-react';
 
 const REFRESH_INTERVAL_MS = 10000; // 10 seconds
 
@@ -39,20 +38,15 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
     useEffect(() => {
         // Initial Fetch
         fetchStats();
-
         // Refresh stats less frequently (every minute)
         const statsInterval = setInterval(fetchStats, 60000);
-
-        return () => {
-            clearInterval(statsInterval);
-        };
+        return () => clearInterval(statsInterval);
     }, []);
 
     if (loading && !nowPlaying && !stats.today.count) {
-        // Only show loading if we really have nothing
         return (
-            <div className="w-full h-48 glass-panel animate-pulse flex items-center justify-center text-gray-500">
-                Loading live data...
+            <div className="w-full h-48 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md animate-pulse flex items-center justify-center text-gray-500 font-mono">
+                INITIALIZING_SYSTEM...
             </div>
         );
     }
@@ -64,55 +58,69 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
             className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8"
         >
             {/* 1. Feature: Now Playing Card */}
-            <div className="lg:col-span-1 glass-panel p-0 overflow-hidden relative group">
-                {/* Background Image Blur */}
+            <div className="lg:col-span-1 relative group rounded-3xl overflow-hidden min-h-[220px]">
+                {/* 
+                   Cutting Edge Backdrops:
+                   Deep blur + Saturation boost for that "Vivid Glass" look.
+                */}
+                <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-3xl backdrop-saturate-200" />
+
+                {/* Animated Gradient Mesh Background */}
+                <div className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity duration-700">
+                    <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,_rgba(76,29,149,0.5),transparent_60%)] animate-[spin_12s_linear_infinite]" />
+                    <div className="absolute top-[20%] left-[20%] w-[80%] h-[80%] bg-[radial-gradient(circle_at_50%_50%,_rgba(236,72,153,0.3),transparent_50%)] animate-[pulse_4s_ease-in-out_infinite]" />
+                </div>
+
+                {/* Image Background (if available) */}
                 <div
-                    className="absolute inset-0 bg-cover bg-center opacity-20 blur-xl transition-all duration-700"
+                    className="absolute inset-0 bg-cover bg-center opacity-30 blur-2xl transition-all duration-700 group-hover:scale-110"
                     style={{ backgroundImage: nowPlaying?.image ? `url(${nowPlaying.image})` : 'none' }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/80" />
 
-                <div className="relative z-10 p-6 h-full flex flex-col justify-between min-h-[220px]">
+                {/* Glass Border */}
+                <div className="absolute inset-0 rounded-3xl border border-white/10 z-20 pointer-events-none group-hover:border-white/20 transition-colors" />
+
+                <div className="relative z-30 p-6 h-full flex flex-col justify-between">
                     <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-neon-cyan/80">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest font-mono text-neon-cyan/80">
                             {nowPlaying?.isPlaying ? (
                                 <>
                                     <span className="relative flex h-2 w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-cyan opacity-75"></span>
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-cyan"></span>
                                     </span>
-                                    On Air Now
+                                    LIVE_SIGNAL
                                 </>
                             ) : (
                                 <span className="flex items-center gap-2 text-gray-400">
                                     <Disc size={12} />
                                     {nowPlaying?.timestamp ? (
                                         Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000) < 1
-                                            ? 'Just now'
-                                            : `${Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000)}m ago`
-                                    ) : 'Last Check in'}
+                                            ? 'JUST_NOW'
+                                            : `T-${Math.floor((Date.now() - (nowPlaying.timestamp * 1000)) / 60000)}m`
+                                    ) : 'OFFLINE'}
                                 </span>
                             )}
                         </div>
                         {/* Listen In Toggle */}
                         <button
                             onClick={onToggleListen}
-                            className={`p-2 rounded-full transition-all duration-300 ${isListening ? 'bg-neon-pink text-white shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
+                            className={`p-2 rounded-full transition-all duration-300 backdrop-blur-md border border-white/10 ${isListening ? 'bg-neon-pink/20 text-neon-pink shadow-[0_0_20px_rgba(236,72,153,0.3)]' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
                             title={isListening ? "Stop Listening" : "Start Radio"}
                         >
                             {isListening ? <X size={16} /> : <Radio size={16} />}
                         </button>
                     </div>
 
-                    <div className="mt-4">
-                        <h2 className="text-3xl font-black text-white leading-tight mb-1 drop-shadow-md truncate">
-                            {nowPlaying?.name || "Offline"}
+                    <div className="mt-6">
+                        <h2 className="text-3xl font-black text-white leading-tight mb-2 drop-shadow-lg truncate tracking-tight">
+                            {nowPlaying?.name || "No Signal"}
                         </h2>
-                        <h3 className="text-xl text-gray-300 font-medium truncate">
-                            {nowPlaying?.artist || "Unknown Artist"}
+                        <h3 className="text-lg text-white/70 font-medium truncate font-mono tracking-tight">
+                            {nowPlaying?.artist || "Standby..."}
                         </h3>
-                        <div className="text-sm text-gray-500 mt-1 font-mono">
-                            {nowPlaying?.album || "Unknown Album"}
+                        <div className="text-xs text-white/40 mt-1 font-mono uppercase tracking-widest">
+                            {nowPlaying?.album || "---"}
                         </div>
                     </div>
                 </div>
@@ -149,13 +157,12 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
     );
 }
 
-// Sub-component for formatted small cards
+// Advanced Glass Stat Card
 function StatBit({ label, count, top, sparkline, color, icon }) {
-    // Helper to generate tooltip label based on index and period type
     const getTooltipLabel = (index, totalBars) => {
         const isToday = label.toLowerCase().includes('24h') || label.toLowerCase().includes('today');
         const isWeek = label.toLowerCase().includes('week') || label.toLowerCase().includes('7 days');
-        const isMonth = label.toLowerCase().includes('month') || label.toLowerCase().includes('30 days');
+        const isMonth = label.toLowerCase().includes('30 days') || label.toLowerCase().includes('month');
 
         if (isToday) {
             const hoursAgo = (totalBars - 1) - index;
@@ -173,78 +180,78 @@ function StatBit({ label, count, top, sparkline, color, icon }) {
             d.setDate(d.getDate() - daysAgo);
             return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
         }
-
         return `Bucket ${index + 1}`;
     };
 
     return (
-        <div className="glass-panel p-4 flex flex-col justify-between relative overflow-hidden group hover:bg-black transition-colors duration-300 border border-white/5 hover:border-white/20">
-            {/* Retro Scanline Background (Visible on Hover) */}
-            <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-10 z-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,6px_100%]"></div>
+        <div className="relative group rounded-3xl overflow-hidden p-5 flex flex-col justify-between h-full bg-black/20 backdrop-blur-xl backdrop-saturate-150 border border-white/5 hover:border-white/20 transition-all duration-500 hover:shadow-[0_0_30px_rgba(0,0,0,0.3)]">
+
+            {/* Ambient Light/Glow Background */}
+            <div className="absolute -top-[50%] -right-[50%] w-[100%] h-[100%] rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-700 blur-[80px]"
+                style={{ backgroundColor: color }} />
 
             {/* Header */}
-            <div className="flex justify-between items-start mb-2 relative z-10">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-widest font-mono group-hover:text-white transition-colors">
+            <div className="flex justify-between items-start mb-4 relative z-10">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] font-mono group-hover:text-white transition-colors">
                     {icon} {label}
                 </div>
                 <div
-                    className="text-2xl font-black tabular-nums tracking-tighter transition-all duration-300 group-hover:scale-105 origin-right"
-                    style={{
-                        color: color,
-                        textShadow: `0 0 10px ${color}40`
-                    }}
+                    className="text-3xl font-black tabular-nums tracking-tighter transition-all duration-300 group-hover:scale-110 origin-right drop-shadow-xl"
+                    style={{ color: color }}
                 >
                     {count}
                 </div>
             </div>
 
-            {/* Top Artist */}
-            <div className="relative z-10 mb-3">
-                <div className="text-[10px] text-gray-600 uppercase font-bold mb-0.5 opacity-60 font-mono tracking-wider">Top Artist</div>
-                <div className="text-sm font-bold text-white truncate group-hover:tracking-wide transition-all">
-                    {top && top.length > 0 ? top[0].name : "—"}
+            {/* Content */}
+            <div className="relative z-10">
+                {/* Top Artist */}
+                <div className="mb-4">
+                    <div className="text-[9px] text-white/30 uppercase font-black tracking-widest mb-1 font-mono">Top Artist</div>
+                    <div className="text-sm font-bold text-white truncate group-hover:translate-x-1 transition-transform">
+                        {top && top.length > 0 ? top[0].name : "---"}
+                    </div>
                 </div>
-                <div className="text-[10px] text-gray-400 font-mono">
-                    {top && top.length > 0 ? `${top[0].count} plays` : ""}
-                </div>
-            </div>
 
-            {/* Mini Sparkline Visualization */}
-            <div className="h-10 flex items-end gap-[2px] opacity-60 group-hover:opacity-100 transition-opacity relative z-10">
-                {sparkline.length > 0 ? (
-                    sparkline.map((val, i) => {
-                        const max = Math.max(...sparkline, 1);
-                        const heightPct = (val / max) * 100;
-                        const timeLabel = getTooltipLabel(i, sparkline.length);
+                {/* Modern Bar Chart */}
+                <div className="h-12 flex items-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                    {sparkline.length > 0 ? (
+                        sparkline.map((val, i) => {
+                            const max = Math.max(...sparkline, 1);
+                            const heightPct = (val / max) * 100;
+                            const timeLabel = getTooltipLabel(i, sparkline.length);
 
-                        return (
-                            <div
-                                key={i}
-                                className="flex-1 rounded-sm transition-all duration-300 relative group/bar hover:opacity-100 opacity-80"
-                                style={{
-                                    height: `${Math.max(heightPct, 10)}%`,
-                                    backgroundColor: color,
-                                    boxShadow: `0 0 4px ${color}40`
-                                }}
-                            >
-                                {/* Retro Pixel Tooltip */}
-                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-opacity duration-0 z-30">
-                                    <div className="bg-black border border-white/20 px-2 py-1 shadow-[4px_4px_0px_rgba(255,255,255,0.1)] text-center min-w-[60px]"
-                                        style={{ borderColor: color }}>
-                                        <div className="text-sm font-black leading-none font-mono" style={{ color: color }}>
-                                            {val}
-                                        </div>
-                                        <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wide mt-1 whitespace-nowrap font-mono">
-                                            {timeLabel}
+                            return (
+                                <div key={i} className="flex-1 h-full flex items-end group/bar relative">
+                                    <div
+                                        className="w-full rounded-full transition-all duration-500 ease-out relative"
+                                        style={{
+                                            height: `${Math.max(heightPct, 8)}%`,
+                                            backgroundColor: color,
+                                            boxShadow: `0 0 10px ${color}20`
+                                        }}
+                                    >
+                                        <div className="absolute inset-x-0 top-0 h-1 bg-white/40 rounded-full" />
+                                    </div>
+
+                                    {/* Glass Tooltip */}
+                                    <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-max pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-all duration-300 transform translate-y-2 group-hover/bar:translate-y-0 z-50">
+                                        <div className="bg-gray-900/80 backdrop-blur-md border border-white/10 rounded-lg px-3 py-2 shadow-2xl text-center">
+                                            <div className="text-lg font-black leading-none mb-1" style={{ color: color }}>
+                                                {val}
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 font-mono uppercase tracking-wider whitespace-nowrap">
+                                                {timeLabel}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )
-                    })
-                ) : (
-                    <div className="w-full text-center text-[10px] text-gray-600 font-mono">NO DATA</div>
-                )}
+                            )
+                        })
+                    ) : (
+                        <div className="w-full text-center text-[10px] text-white/20 font-mono">WAITING FOR DATA</div>
+                    )}
+                </div>
             </div>
         </div>
     );
