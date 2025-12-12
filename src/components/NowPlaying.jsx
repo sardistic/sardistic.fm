@@ -124,6 +124,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
 
                     {/* Album Art - Static BG with Filter */}
                     <div
+                        key={finalImage} // Force re-render on image change
                         className={`absolute inset-0 bg-cover bg-center z-0 transition-all duration-1000 ${isInactive && !nowPlaying ? 'grayscale brightness-50' : 'saturate-110 brightness-75'}`}
                         style={{
                             backgroundImage: `url(${finalImage})`,
@@ -153,28 +154,101 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                     {/* HEADER */}
                     <div className="flex flex-col items-start gap-1 mb-2 pointer-events-auto">
                         <div className="flex items-center gap-3">
-                            {/* Start Listening Button (Red Glow) */}
-                            <button
+                            {/* Start Listening Button (Enhanced Cyberpunk) */}
+                            <motion.button
                                 onClick={onToggleListen}
                                 className="relative group outline-none"
                                 aria-label={isListening ? "Stop Listening" : "Start Listening"}
+                                whileHover={{ scale: 1.15 }}
+                                whileTap={{ scale: 0.95 }}
                             >
-                                <div className={`p-2 rounded-full transition-all duration-300 ${isListening ? 'bg-rose-500/20 text-rose-400' : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'} shadow-[0_0_15px_rgba(244,63,94,0.4)] hover:shadow-[0_0_25px_rgba(244,63,94,0.7)]`}>
+                                <motion.div
+                                    className={`p-3 rounded-full transition-all duration-300 ${isListening ? 'bg-rose-500/30 text-rose-400' : 'bg-white/10 text-white hover:bg-white/20 hover:text-white'}`}
+                                    animate={{
+                                        boxShadow: isListening ? [
+                                            '0 0 20px rgba(244,63,94,0.4)',
+                                            '0 0 40px rgba(244,63,94,0.8)',
+                                            '0 0 20px rgba(244,63,94,0.4)'
+                                        ] : [
+                                            '0 0 15px rgba(244,63,94,0.3)',
+                                            '0 0 30px rgba(244,63,94,0.6)',
+                                            '0 0 15px rgba(244,63,94,0.3)'
+                                        ],
+                                        scale: isListening ? [1, 1.05, 1] : [1, 1.02, 1]
+                                    }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                >
                                     <Play
-                                        size={16}
+                                        size={20}
                                         className={`transition-all ${isListening ? 'animate-pulse' : ''}`}
                                         fill={isListening ? "currentColor" : "none"}
+                                        strokeWidth={2.5}
                                     />
-                                    {/* Throb ring */}
-                                    {isListening && <div className="absolute inset-0 rounded-full animate-ping bg-rose-500/20" />}
-                                </div>
-                            </button>
+                                    {/* Pulsing rings */}
+                                    <motion.div
+                                        className="absolute inset-0 rounded-full bg-rose-500/20"
+                                        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                                        transition={{ duration: 2, repeat: Infinity }}
+                                    />
+                                    <motion.div
+                                        className="absolute inset-0 rounded-full bg-rose-500/10"
+                                        animate={{ scale: [1, 1.8, 1], opacity: [0.3, 0, 0.3] }}
+                                        transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                                    />
+                                </motion.div>
+                            </motion.button>
 
-                            <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${indicatorColor}`} />
-                                <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${statusColor}`}>
-                                    {statusLabel}
-                                </span>
+                            {/* Text Stack - CLICK TO LISTEN + ON AIR */}
+                            <div className="flex flex-col gap-0.5">
+                                {/* Cyberpunk Text Label */}
+                                <motion.div
+                                    className="text-[9px] font-mono font-bold tracking-widest uppercase text-rose-400 whitespace-nowrap"
+                                    animate={{
+                                        textShadow: [
+                                            '0 0 5px rgba(244,63,94,0.5), 0 0 10px rgba(244,63,94,0.3)',
+                                            '0 0 10px rgba(244,63,94,0.8), 0 0 20px rgba(244,63,94,0.5)',
+                                            '0 0 5px rgba(244,63,94,0.5), 0 0 10px rgba(244,63,94,0.3)'
+                                        ],
+                                        opacity: [0.7, 1, 0.7]
+                                    }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                >
+                                    ← CLICK TO LISTEN
+                                </motion.div>
+
+                                {/* ON AIR Status - Below Text */}
+                                <motion.div
+                                    className="flex items-center gap-2"
+                                    animate={isActuallyPlaying ? {
+                                        opacity: [0.9, 1, 0.9]
+                                    } : {}}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                >
+                                    <motion.div
+                                        className={`w-2 h-2 rounded-full ${indicatorColor}`}
+                                        animate={isActuallyPlaying ? {
+                                            boxShadow: [
+                                                '0 0 10px rgba(34, 197, 94, 0.8)',
+                                                '0 0 25px rgba(34, 197, 94, 1)',
+                                                '0 0 10px rgba(34, 197, 94, 0.8)'
+                                            ]
+                                        } : {}}
+                                        transition={{ duration: 1.5, repeat: Infinity }}
+                                    />
+                                    <motion.span
+                                        className={`text-[10px] font-bold tracking-[0.2em] uppercase font-mono ${isActuallyPlaying ? 'text-green-400' : statusColor}`}
+                                        animate={isActuallyPlaying ? {
+                                            textShadow: [
+                                                '0 0 8px rgba(34, 197, 94, 0.6)',
+                                                '0 0 20px rgba(34, 197, 94, 1)',
+                                                '0 0 8px rgba(34, 197, 94, 0.6)'
+                                            ]
+                                        } : {}}
+                                        transition={{ duration: 1.5, repeat: Infinity }}
+                                    >
+                                        {statusLabel}
+                                    </motion.span>
+                                </motion.div>
                             </div>
                         </div>
                     </div>
