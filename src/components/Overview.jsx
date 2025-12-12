@@ -1,10 +1,12 @@
-import React, { useState, useMemo, useRef, memo } from 'react';
-import { ArrowRight, BarChart3, Calendar, Disc, Moon, Sun, ChevronLeft, ChevronRight, User as UserIcon, BookOpen, Music, Layers } from 'lucide-react';
+import React, { useState, useMemo, useRef, memo, useEffect } from 'react';
+import { ArrowRight, BarChart3, Calendar, Disc, Moon, Sun, ChevronLeft, ChevronRight, User as UserIcon, BookOpen, Music, Layers, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, ReferenceArea, CartesianGrid } from 'recharts';
-import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 import MagneticText from './MagneticText';
 import NowPlaying from './NowPlaying';
+
+import LocalizedSwarm from './LocalizedSwarm';
 
 function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen }) {
     const [hoveredYear, setHoveredYear] = useState(null);
@@ -738,25 +740,46 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
                 mouseY.set(Infinity);
             }}
             variants={{
-                active: { scale: 1.35, zIndex: 100, opacity: 1, borderColor: '#00ffcc', y: 0, backgroundColor: 'rgba(0, 255, 204, 0.15)' },
-                inactive: { scale: 1, zIndex: 1, opacity: hoveredYear ? 0.3 : 1, borderColor: '#00000000', y: 0, backgroundColor: 'rgba(255, 255, 255, 0)' }
+                active: { zIndex: 100, opacity: 1, borderColor: '#00ffcc', y: 0, backgroundColor: 'rgba(0, 255, 204, 0.15)' },
+                inactive: { zIndex: 1, opacity: hoveredYear ? 0.3 : 1, borderColor: '#00000000', y: 0, backgroundColor: 'rgba(255, 255, 255, 0)' }
             }}
             animate={isActive ? "active" : "inactive"}
             onClick={() => onYearClick(y.year)}
             className={`glass-panel p-4 cursor-pointer relative overflow-hidden group transition-transform duration-300 ease-out`}
             style={{
                 '--spotlight-color': '#00ffcc',
-                transform: isActive ? 'scale(1.35)' : 'scale(1)',
                 zIndex: isActive ? 50 : 1,
                 boxShadow: isActive
                     ? `0 0 ${40 + (y.glowIntensity * 50)}px rgba(0, 255, 204, ${0.6 + (y.glowIntensity * 0.4)})`
                     : `0 0 ${5 + (y.glowIntensity * 10)}px rgba(0, 255, 204, ${0.05 + (y.glowIntensity * 0.05)})`
             }}
         >
-            {/* Waveform Bottom Bar (Background) */}
-            <div
-                className="absolute left-0 right-0 bottom-0 transition-all duration-300 bg-black/60 overflow-hidden rounded-b-md z-0 border-t border-white/5"
-                style={{ height: isActive ? '60%' : '4px' }}
+            {/* Particle Swarm Layer */}
+            <div className="absolute inset-0 z-0 rounded-3xl mix-blend-screen pointer-events-none">
+                <LocalizedSwarm
+                    barPositions={y.months.map((m, i) => {
+                        const height = (m / (Math.max(...y.months) || 1)) * 80;
+                        const barWidth = 100 / 12; // 12 months
+                        return {
+                            x: (i / 12) * 100, // percentage position
+                            width: barWidth,
+                            height: height,
+                            color: isActive ? (i % 2 === 0 ? '#facc15' : '#a78bfa') : '#67e8f9'
+                        };
+                    })}
+                    isHovered={isActive}
+                    barScale={isActive ? 1.35 : 1}
+                />
+            </div>
+            {/* Waveform Bottom Bar (Background) - with scale animation */}
+            <motion.div
+                className="absolute left-0 right-0 bottom-0 transition-all duration-300 bg-black/60 overflow-visible rounded-b-md z-0 border-t border-white/5"
+                style={{
+                    height: isActive ? '60%' : '4px',
+                    transformOrigin: 'bottom center'
+                }}
+                animate={{ scale: isActive ? 1.35 : 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
             >
                 <div className="flex items-end justify-between w-full h-full gap-[1px] px-1 opacity-50 pb-4">
                     {y.months.map((m, i) => {
@@ -811,7 +834,7 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
                     </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-neon-cyan/10 to-transparent pointer-events-none" />
-            </div>
+            </motion.div>
 
             <div className={`transition-all duration-300 relative z-20 px-4`}>
                 {/* Year Title */}
@@ -830,23 +853,11 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
                 <div className="flex justify-between items-end">
                     <div>
                         <div className="text-2xl font-bold text-white transition-colors">
-                            <MagneticText
-                                content={format(mainValue)}
-                                color={isActive ? '#00ffcc' : '#ffffff'}
-                                isActive={isActive}
-                                externalMouseX={mouseX}
-                                externalMouseY={mouseY}
-                            />
+                            {format(mainValue)}
                         </div>
                         {/* Daily Average */}
                         <div className="text-[10px] text-gray-500 font-mono mt-1">
-                            <MagneticText
-                                content={`${format(y.avgDaily)}/day`}
-                                color="#6b7280"
-                                isActive={isActive}
-                                externalMouseX={mouseX}
-                                externalMouseY={mouseY}
-                            />
+                            {format(y.avgDaily)}/day
                         </div>
                     </div>
 
