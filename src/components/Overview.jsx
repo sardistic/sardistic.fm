@@ -6,6 +6,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import MagneticText from './MagneticText';
 import MagneticBar from './MagneticBar';
 import NowPlaying from './NowPlaying';
+import yearMeta from '../data/year_meta.json';
 
 import LocalizedSwarm from './LocalizedSwarm';
 
@@ -20,22 +21,8 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
     const [hoveredYear, setHoveredYear] = useState(null);
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
     const [zoomYear, setZoomYear] = useState(null); // V14: Zoom into a specific year
-    const [topTracksByYear, setTopTracksByYear] = useState({}); // Album art for each year
     const zoomTimer = useRef(null);
     const { meta, timeline, years } = data;
-
-    // Fetch top tracks by year for album art
-    useEffect(() => {
-        const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
-        fetch(`${SERVER_URL}/api/years/top-tracks`)
-            .then(res => res.json())
-            .then(data => {
-                setTopTracksByYear(data);
-            })
-            .catch(err => {
-                console.error('Failed to fetch top tracks by year:', err);
-            });
-    }, []);
 
     // Zoom Logic
     const handleYearHover = (year) => {
@@ -481,7 +468,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                 metric={metric}
                                 onMouseEnter={() => handleYearHover(y.year)}
                                 onMouseLeave={handleYearLeave}
-                                topTrack={topTracksByYear[y.year]}
+                                meta={yearMeta[y.year]}
                             />
                         );
                     })}
@@ -722,7 +709,7 @@ function StatCard({ label, value, icon, color, glowColor = 'rgba(255,255,255,0.5
 
 export default Overview;
 
-const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMouseEnter, onMouseLeave, topTrack }) => {
+const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMouseEnter, onMouseLeave, meta }) => {
     // Determine active state
     const isActive = String(hoveredYear) === String(y.year);
 
@@ -761,8 +748,8 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
         return `${h}h ${m}m`; // "5h 30m"
     };
 
-    const displayImage = topTrack?.imageUrl || y.fallbackImage;
-    const activeColor = topTrack?.dominantColor || '#00ffcc';
+    const displayImage = meta?.imageUrl || y.fallbackImage;
+    const activeColor = meta?.dominantColor || '#00ffcc';
     const activeColorRgb = hexToRgb(activeColor);
 
     return (
