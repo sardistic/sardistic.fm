@@ -53,11 +53,11 @@ function MagneticLetter({ mouseX, mouseY, char, color, isActive }) {
     // 3. Keep it stable (No Y-wave, No Rotation)
 
     // Lens Range: -120px to 120px
-    const scale = useTransform(distance, [-120, 0, 120], [1, 2.0, 1]);
+    const scale = useTransform(distance, [-120, 0, 120], [1, 1.5, 1]);
 
     // Spacing: Push letters apart to make room for the 2x scale
     // At center (0), add 12px margin. At edges, 0px.
-    const marginSync = useTransform(distance, [-120, 0, 120], [0, 12, 0]);
+    const marginSync = useTransform(distance, [-120, 0, 120], [0, 6, 0]);
     const margin = useTransform(marginSync, (val) => val < 0 ? 0 : val);
 
     const activeColor = isActive ? '#00ffcc' : color;

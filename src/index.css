@@ -55,14 +55,14 @@ body {
 }
 
 @layer components {
-  .glass-panel {
+    .glass-panel {
     position: relative;
     /* Restore standard dark glass background */
-    background-color: rgba(0, 0, 0, 0.4) !important;
-    background: rgba(0, 0, 0, 0.4) !important;
+    background-color: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.4);
 
     /* Transparent border to maintain spacing */
-    border: 2px solid transparent !important;
+    border: 2px solid transparent;
     border-radius: 12px;
 
     /* Ensure coordinates default to center */

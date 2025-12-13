@@ -2,6 +2,8 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
+const axios = require('axios');
+const Vibrant = require('node-vibrant');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -59,6 +61,11 @@ function initializeDatabase() {
         duration INTEGER,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    // Ensure dominant_color column exists in scrobbles
+    db.run("ALTER TABLE scrobbles ADD COLUMN dominant_color TEXT", (err) => {
+        // Ignore error if column already exists
+    });
 }
 
 // Routes
@@ -213,15 +220,7 @@ app.get('/api/analytics/timeline', (req, res) => {
     });
 });
 
-// Start Server
-app.listen(PORT, () => {
-    console.log(`PORT Env: ${process.env.PORT}`);
-    console.log(`Server running on http://localhost:${PORT}`);
-});
-
-// --- Last.fm Integration ---
-const axios = require('axios');
-
+// --- Last.fm API Integration ---
 // TODO: Replace with user credentials or use environment variables
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || 'dbcaf1bb203839cba225f01cfc0df0f9';
 const LASTFM_USER = process.env.LASTFM_USER || 'coldhunter'; // Defaulting to username found in paths if specific one not provided, or can simply use placeholder
@@ -663,4 +662,178 @@ app.get('/api/youtube/search', (req, res) => {
 
         res.json({ videoId });
     });
+});
+
+// --- Last.fm Sync Endpoints ---
+const { syncScrobbles } = require('./sync');
+
+// Manual sync endpoint
+app.post('/api/sync/manual', async (req, res) => {
+    try {
+        console.log('Manual sync triggered');
+        const result = await syncScrobbles();
+        res.json({
+            success: true,
+            message: `Synced ${result.synced} new scrobbles`,
+            ...result
+        });
+    } catch (error) {
+        console.error('Sync failed:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Sync status endpoint
+app.get('/api/sync/status', (req, res) => {
+    db.get('SELECT * FROM sync_state WHERE id = 1', (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(row || { last_sync_timestamp: 0, total_scrobbles: 0 });
+    });
+});
+
+// Get scrobbles endpoint
+app.get('/api/scrobbles', (req, res) => {
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+
+    db.all(
+        'SELECT * FROM scrobbles ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+        [limit, offset],
+        (err, rows) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ scrobbles: rows, limit, offset });
+        }
+    );
+});
+
+// Get most played track per year (for year card album art)
+// Get most played track per year (for year card album art)
+app.get('/api/years/top-tracks', (req, res) => {
+    // First, get all tracks with their play counts per year
+    const query = `
+        WITH YearlyTrackCounts AS (
+            SELECT 
+                strftime('%Y', datetime(timestamp, 'unixepoch')) as year,
+                track,
+                artist,
+                album,
+                image_url,
+                dominant_color,
+                COUNT(*) as play_count
+            FROM scrobbles
+            WHERE timestamp IS NOT NULL
+            GROUP BY year, track, artist
+        ),
+        MaxCountsPerYear AS (
+            SELECT 
+                year,
+                MAX(play_count) as max_count
+            FROM YearlyTrackCounts
+            GROUP BY year
+        )
+        SELECT 
+            ytc.year,
+            ytc.track,
+            ytc.artist,
+            ytc.album,
+            ytc.image_url,
+            ytc.dominant_color,
+            ytc.play_count
+        FROM YearlyTrackCounts ytc
+        INNER JOIN MaxCountsPerYear mcy 
+            ON ytc.year = mcy.year AND ytc.play_count = mcy.max_count
+        ORDER BY ytc.year DESC
+    `;
+
+    db.all(query, async (err, rows) => {
+        if (err) {
+            console.error('Error fetching top tracks by year:', err.message);
+            return res.status(500).json({ error: err.message });
+        }
+
+        const topTracksByYear = {};
+
+        // Process each row to ensure we have album art
+        const promises = rows.map(async (row) => {
+            // Check if we've already processed this year (in case of ties)
+            if (topTracksByYear[row.year]) return;
+
+            let imageUrl = row.image_url;
+            let dominantColor = row.dominant_color;
+
+            // If image is missing, fetch from Last.fm
+            if (!imageUrl) {
+                try {
+                    // console.log(`Fetching art for ${row.track} by ${row.artist}...`);
+                    const trackInfo = await fetchLastFm('track.getinfo', {
+                        artist: row.artist,
+                        track: row.track,
+                        autocorrect: 1
+                    });
+
+                    if (trackInfo.track && trackInfo.track.album && trackInfo.track.album.image) {
+                        const img = trackInfo.track.album.image.find(i => i.size === 'extralarge') ||
+                            trackInfo.track.album.image.find(i => i.size === 'large') ||
+                            trackInfo.track.album.image[trackInfo.track.album.image.length - 1];
+
+                        if (img && img['#text']) {
+                            imageUrl = img['#text'];
+
+                            // Update database so we don't fetch again
+                            const updateSql = `UPDATE scrobbles SET image_url = ? WHERE track = ? AND artist = ?`;
+                            db.run(updateSql, [imageUrl, row.track, row.artist], (updateErr) => {
+                                if (updateErr) console.error('Failed to update DB with new image:', updateErr.message);
+                            });
+                        }
+                    }
+                } catch (fetchErr) {
+                    // console.error(`Failed to fetch Last.fm art for ${row.track}:`, fetchErr.message);
+                    // Fail silently and return null image
+                }
+            }
+
+            // 2. If we have an image but NO color, extract it
+            if (imageUrl && !dominantColor) {
+                try {
+                    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+                    const buffer = Buffer.from(response.data);
+                    const palette = await Vibrant.from(buffer).getPalette();
+
+                    const swatch = palette.Vibrant || palette.LightVibrant || palette.DarkVibrant || palette.Muted;
+                    if (swatch) {
+                        dominantColor = swatch.hex;
+                        const updateColorSql = `UPDATE scrobbles SET dominant_color = ? WHERE image_url = ?`;
+                        db.run(updateColorSql, [dominantColor, imageUrl]);
+                    }
+                } catch (colorErr) {
+                    dominantColor = '#00ffcc';
+                }
+            }
+
+            topTracksByYear[row.year] = {
+                track: row.track,
+                artist: row.artist,
+                album: row.album,
+                imageUrl: imageUrl || null,
+                playCount: row.play_count,
+                dominantColor: dominantColor || '#00ffcc'
+            };
+        });
+
+        await Promise.all(promises);
+
+        res.json(topTracksByYear);
+    });
+});
+
+// Start Server
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });

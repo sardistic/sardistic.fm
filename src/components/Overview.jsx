@@ -4,16 +4,38 @@ import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, ReferenceArea, Ca
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 import MagneticText from './MagneticText';
+import MagneticBar from './MagneticBar';
 import NowPlaying from './NowPlaying';
 
 import LocalizedSwarm from './LocalizedSwarm';
+
+const hexToRgb = (hex) => {
+    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+    hex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0, 255, 204';
+};
 
 function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen }) {
     const [hoveredYear, setHoveredYear] = useState(null);
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
     const [zoomYear, setZoomYear] = useState(null); // V14: Zoom into a specific year
+    const [topTracksByYear, setTopTracksByYear] = useState({}); // Album art for each year
     const zoomTimer = useRef(null);
     const { meta, timeline, years } = data;
+
+    // Fetch top tracks by year for album art
+    useEffect(() => {
+        const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+        fetch(`${SERVER_URL}/api/years/top-tracks`)
+            .then(res => res.json())
+            .then(data => {
+                setTopTracksByYear(data);
+            })
+            .catch(err => {
+                console.error('Failed to fetch top tracks by year:', err);
+            });
+    }, []);
 
     // Zoom Logic
     const handleYearHover = (year) => {
@@ -437,7 +459,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                     variants={containerVariants}
                     initial="hidden"
                     animate="show"
-                    className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4"
+                    className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"
                 >
                     {timelineData.map(y => {
                         return (
@@ -450,6 +472,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                 metric={metric}
                                 onMouseEnter={() => handleYearHover(y.year)}
                                 onMouseLeave={handleYearLeave}
+                                topTrack={topTracksByYear[y.year]}
                             />
                         );
                     })}
@@ -690,7 +713,7 @@ function StatCard({ label, value, icon, color, glowColor = 'rgba(255,255,255,0.5
 
 export default Overview;
 
-const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMouseEnter, onMouseLeave }) => {
+const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMouseEnter, onMouseLeave, topTrack }) => {
     // Determine active state
     const isActive = String(hoveredYear) === String(y.year);
 
@@ -699,9 +722,12 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
     const mouseY = useMotionValue(Infinity);
 
     function handleLocalMouseMove(e) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+        e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+
         mouseX.set(e.clientX);
         mouseY.set(e.clientY);
-        // Optimization: Removed redundant setHoveredYear trigger on every pixel move
     }
 
     // Dynamic Metrics
@@ -726,7 +752,8 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
         return `${h}h ${m}m`; // "5h 30m"
     };
 
-
+    const activeColor = topTrack?.dominantColor || '#00ffcc';
+    const activeColorRgb = hexToRgb(activeColor);
 
     return (
         <motion.div
@@ -740,22 +767,37 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
                 mouseY.set(Infinity);
             }}
             variants={{
-                active: { zIndex: 100, opacity: 1, borderColor: '#00ffcc', y: 0, backgroundColor: 'rgba(0, 255, 204, 0.15)' },
-                inactive: { zIndex: 1, opacity: hoveredYear ? 0.3 : 1, borderColor: '#00000000', y: 0, backgroundColor: 'rgba(255, 255, 255, 0)' }
+                active: { zIndex: 100, scale: 1.05, opacity: 1, y: -5 },
+                inactive: { zIndex: 1, scale: 1, opacity: hoveredYear ? 0.3 : 1, y: 0 }
             }}
             animate={isActive ? "active" : "inactive"}
             onClick={() => onYearClick(y.year)}
-            className={`glass-panel p-4 cursor-pointer relative overflow-hidden group transition-transform duration-300 ease-out`}
+            className={`glass-panel p-4 h-48 cursor-pointer relative overflow-hidden group transition-transform duration-300 ease-out`}
             style={{
-                '--spotlight-color': '#00ffcc',
+                '--spotlight-color': activeColor,
                 zIndex: isActive ? 50 : 1,
                 boxShadow: isActive
-                    ? `0 0 ${40 + (y.glowIntensity * 50)}px rgba(0, 255, 204, ${0.6 + (y.glowIntensity * 0.4)})`
-                    : `0 0 ${5 + (y.glowIntensity * 10)}px rgba(0, 255, 204, ${0.05 + (y.glowIntensity * 0.05)})`
+                    ? `0 0 ${40 + (y.glowIntensity * 50)}px rgba(${activeColorRgb}, ${0.6 + (y.glowIntensity * 0.4)})`
+                    : `0 0 ${5 + (y.glowIntensity * 10)}px rgba(${activeColorRgb}, ${0.05 + (y.glowIntensity * 0.05)})`
             }}
         >
+            {/* Album Art Background */}
+            {topTrack?.imageUrl && (
+                <div
+                    className="absolute inset-0 z-0 rounded-3xl overflow-hidden"
+                    style={{
+                        backgroundImage: `url(${topTrack.imageUrl})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        opacity: isActive ? 0.8 : 0.3
+                    }}
+                >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/60" />
+                </div>
+            )}
+
             {/* Particle Swarm Layer */}
-            <div className="absolute inset-0 z-0 rounded-3xl mix-blend-screen pointer-events-none">
+            <div className="absolute inset-0 z-30 rounded-3xl mix-blend-screen pointer-events-none">
                 <LocalizedSwarm
                     barPositions={y.months.map((m, i) => {
                         const height = (m / (Math.max(...y.months) || 1)) * 80;
@@ -771,15 +813,13 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
                     barScale={isActive ? 1.35 : 1}
                 />
             </div>
-            {/* Waveform Bottom Bar (Background) - with scale animation */}
+            {/* Waveform Bottom Bar (Background) */}
             <motion.div
-                className="absolute left-0 right-0 bottom-0 transition-all duration-300 bg-black/60 overflow-visible rounded-b-md z-0 border-t border-white/5"
+                className="absolute left-0 right-0 bottom-0 transition-all duration-300 bg-gradient-to-t from-black/80 to-transparent overflow-visible rounded-b-md z-10 border-t border-white/5"
                 style={{
                     height: isActive ? '60%' : '4px',
                     transformOrigin: 'bottom center'
                 }}
-                animate={{ scale: isActive ? 1.35 : 1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
             >
                 <div className="flex items-end justify-between w-full h-full gap-[1px] px-1 opacity-50 pb-4">
                     {y.months.map((m, i) => {
@@ -790,38 +830,16 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
                         const dayPercent = totalPlays > 0 ? (y.dayPlays / totalPlays) : 0.5;
                         const nightPercent = 1 - dayPercent;
 
-                        // Check if this month is hovered (month index 0-11, format YYYY-MM)
-                        const monthDate = `${y.year}-${String(i + 1).padStart(2, '0')}`;
-                        const isMonthHovered = hoveredMonth === monthDate;
-
-                        if (isMonthHovered) {
-                            console.log(`Month ${monthDate} is hovered! hoveredMonth=${hoveredMonth}`);
-                        }
-
                         return (
-                            <div
+                            <MagneticBar
                                 key={i}
-                                className={`flex-1 mx-[1px] min-w-[2px] flex flex-col justify-end transition-all duration-200 rounded-t-sm overflow-hidden`}
-                                style={{
-                                    height: `${height}%`,
-                                    transform: isMonthHovered ? 'scaleX(1.5)' : 'scaleX(1)',
-                                    zIndex: isMonthHovered ? 10 : 1,
-                                    filter: isMonthHovered ? 'brightness(1.5) drop-shadow(0 0 4px #00ffcc)' : 'none'
-                                }}
-                            >
-                                {/* Day portion (bottom) */}
-                                <div
-                                    className={`w-full transition-colors duration-300 ${isMonthHovered ? 'bg-neon-cyan' : (isActive ? 'bg-yellow-400' : 'bg-white')
-                                        }`}
-                                    style={{ height: `${dayPercent * 100}%` }}
-                                />
-                                {/* Night portion (top) */}
-                                <div
-                                    className={`w-full transition-colors duration-300 ${isMonthHovered ? 'bg-neon-cyan' : (isActive ? 'bg-purple-400' : 'bg-white')
-                                        }`}
-                                    style={{ height: `${nightPercent * 100}%` }}
-                                />
-                            </div>
+                                mouseX={mouseX}
+                                height={height}
+                                dayPercent={dayPercent}
+                                nightPercent={nightPercent}
+                                isActive={isActive}
+                                color={activeColor}
+                            />
                         );
                     })}
                 </div>
@@ -836,7 +854,7 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
                 <div className="absolute inset-0 bg-gradient-to-t from-neon-cyan/10 to-transparent pointer-events-none" />
             </motion.div>
 
-            <div className={`transition-all duration-300 relative z-20 px-4`}>
+            <div className={`transition-all duration-300 relative z-20`}>
                 {/* Year Title */}
                 <div className="text-sm text-gray-400 mb-1 font-mono transition-colors group-hover:text-neon-cyan">
                     <MagneticText
@@ -910,5 +928,10 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
     const nextMonthRelevant = next.hoveredMonth && next.hoveredMonth.startsWith(String(next.y.year));
     if ((prevMonthRelevant || nextMonthRelevant) && prev.hoveredMonth !== next.hoveredMonth) return false; // Month highlight changed -> Render
 
+    // Check if topTrack data changed (album art loaded)
+    if (prev.topTrack !== next.topTrack) return false;
+
     return true;
 });
+
+
