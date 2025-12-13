@@ -278,10 +278,10 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                className="glass-panel no-highlight p-6 h-[400px] flex flex-col relative overflow-hidden group"
+                className="glass-panel no-highlight h-[280px] relative overflow-hidden group"
                 style={{ '--spotlight-color': '#00ffcc' }}
             >
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 relative z-10">
+                <h2 className="absolute top-6 left-6 z-20 text-xl font-bold flex items-center gap-2 pointer-events-none">
                     <span className="w-1 h-6 bg-neon-cyan rounded-full shadow-[0_0_10px_#00ffcc]"></span>
                     {zoomYear ? `History: ${zoomYear}` : "Listening History"}
                 </h2>
@@ -313,7 +313,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                     })}
                 </div>
 
-                <div className="flex-1 relative z-10">
+                <div className="absolute inset-0 z-10">
                     <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <AreaChart
                             data={chartData}
