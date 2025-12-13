@@ -170,6 +170,12 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
             const dayMinutes = Math.round(yearMinutes * dayRatio);
             const nightMinutes = yearMinutes - dayMinutes;
 
+            // Fallback Image (Client-side)
+            const yearEntries = data.history?.filter(h => h.date.startsWith(year)) || [];
+            // Sort by monthly scrobbles to find the "biggest" month's art, or just take the first valid one
+            const bestEntry = yearEntries.sort((a, b) => (b.scrobbles || 0) - (a.scrobbles || 0)).find(h => h.top_albums?.[0]?.url || h.img);
+            const fallbackImage = bestEntry?.top_albums?.[0]?.url || bestEntry?.img || null;
+
             return {
                 year,
                 plays: info.total,
@@ -183,7 +189,10 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 nightMinutes,
                 months: months, // Vital for the mini-waveform
                 maxMonth,
-                glowIntensity: (info.total / maxYearPlays) // 0 to 1
+                months: months, // Vital for the mini-waveform
+                maxMonth,
+                glowIntensity: (info.total / maxYearPlays), // 0 to 1
+                fallbackImage
             };
         }).sort((a, b) => b.year - a.year); // Newest first
     }, [years, maxYearPlays, data.history, metric]);
@@ -752,6 +761,7 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
         return `${h}h ${m}m`; // "5h 30m"
     };
 
+    const displayImage = topTrack?.imageUrl || y.fallbackImage;
     const activeColor = topTrack?.dominantColor || '#00ffcc';
     const activeColorRgb = hexToRgb(activeColor);
 
@@ -782,11 +792,11 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMo
             }}
         >
             {/* Album Art Background */}
-            {topTrack?.imageUrl && (
+            {displayImage && (
                 <div
                     className="absolute inset-0 z-0 rounded-3xl overflow-hidden"
                     style={{
-                        backgroundImage: `url(${topTrack.imageUrl})`,
+                        backgroundImage: `url(${displayImage})`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         opacity: isActive ? 0.8 : 0.3
