@@ -1,4 +1,5 @@
 const express = require('express');
+require('dotenv').config();
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
@@ -222,8 +223,8 @@ app.get('/api/analytics/timeline', (req, res) => {
 
 // --- Last.fm API Integration ---
 // TODO: Replace with user credentials or use environment variables
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY || 'dbcaf1bb203839cba225f01cfc0df0f9';
-const LASTFM_USER = process.env.LASTFM_USER || 'coldhunter'; // Defaulting to username found in paths if specific one not provided, or can simply use placeholder
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
+const LASTFM_USER = process.env.LASTFM_USER || 'coldhunter';
 
 const LASTFM_BASE_URL = 'http://ws.audioscrobbler.com/2.0/';
 

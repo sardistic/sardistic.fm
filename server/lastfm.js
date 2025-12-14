@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY || 'dbcaf1bb203839cba225f01cfc0df0f9';
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 const LASTFM_USER = process.env.LASTFM_USER || 'coldhunter';
 const LASTFM_BASE_URL = 'http://ws.audioscrobbler.com/2.0/';
 
