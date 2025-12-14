@@ -3,6 +3,15 @@ import { ArrowLeft, ArrowRight, Sun, Moon, ChevronLeft, ChevronRight } from 'luc
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, AreaChart, Area, CartesianGrid } from 'recharts';
 import { motion } from 'framer-motion';
 import MagneticText from './MagneticText';
+import LocalizedSwarm from './LocalizedSwarm';
+import monthMeta from '../data/month_meta.json';
+
+const hexToRgb = (hex) => {
+    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+    hex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0, 255, 204';
+};
 
 // Sentiment Analysis Color Logic
 const getSentimentStyle = (text = "") => {
@@ -77,7 +86,7 @@ const formatChartDuration = (mins) => {
 };
 
 // Memoized Chart Component to prevent re-renders on hover
-const DailyHistoryChart = memo(({ data, metric, onHoverMonth }) => {
+const DailyHistoryChart = memo(({ data, metric, onHoverMonth, activeMonth }) => {
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const lastHoveredRef = useRef(null);
 
@@ -130,9 +139,22 @@ const DailyHistoryChart = memo(({ data, metric, onHoverMonth }) => {
                             radius={[2, 2, 0, 0]}
                             isAnimationActive={false} // Disable bar animation for performance
                         >
-                            {data.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
+                            {data.map((entry, index) => {
+                                const isMatch = activeMonth === entry.monthName;
+                                const isDimmed = activeMonth && !isMatch;
+
+                                return (
+                                    <Cell
+                                        key={`cell-${index}`}
+                                        fill={entry.color}
+                                        style={{
+                                            opacity: isDimmed ? 0.2 : 1,
+                                            filter: isDimmed ? 'grayscale(100%)' : 'none',
+                                            transition: 'opacity 0.3s ease, filter 0.3s ease'
+                                        }}
+                                    />
+                                );
+                            })}
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>
@@ -140,10 +162,10 @@ const DailyHistoryChart = memo(({ data, metric, onHoverMonth }) => {
         </motion.div>
     );
 }, (prev, next) => {
-    return prev.metric === next.metric && prev.data === next.data;
+    return prev.metric === next.metric && prev.data === next.data && prev.activeMonth === next.activeMonth;
 });
 
-export default function YearDetail({ year, data, onBack, allData, metric, setMetric, onArtistClick, onMonthClick, onYearClick }) {
+export default function YearDetail({ year, data, onBack, allData, metric, setMetric, onArtistClick, onMonthClick, onYearClick, nowPlaying, isListening, onToggleListen }) {
     if (!data) return <div>No data for {year}</div>;
 
     const requestRef = useRef(null);
@@ -197,11 +219,16 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                 value = scrobbles * avg;
             }
 
+            // Sync Color with Month Cards (Meta > Vibe > Default)
+            const meta = monthMeta[monthKey] || {};
+            const barColor = meta.dominantColor || getMonthVibeColor(currentMonth);
+
             days.push({
                 date: dateKey,
                 label: dateKey,
+                monthName: monthNames[currentMonth], // Add month name for hover matching
                 value: value,
-                color: getMonthVibeColor(currentMonth),
+                color: barColor,
                 // store raw pieces if needed for tooltip customization
                 scrobbles: scrobbles,
                 minutes: metric === 'minutes' ? value : (scrobbles * (monthlyMinutesMap.get(monthKey) || 3.5))
@@ -216,6 +243,35 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
 
         return days;
     }, [allData, year, metric]);
+
+    // Calculate total minutes for the year
+    const { totalMins, formattedTotal } = useMemo(() => {
+        let totalMins = 0;
+        if (allData?.history) {
+            allData.history.forEach(h => {
+                if (h.date.startsWith(year)) {
+                    totalMins += (h.minutes || 0);
+                }
+            });
+        }
+
+        const formattedTotal = totalMins > 10000
+            ? `${(totalMins / 1000).toFixed(0)}k`
+            : totalMins.toLocaleString();
+
+        return {
+            totalMins,
+            formattedTotal
+        };
+    }, [year, allData, metric]);
+
+    const handleLocalMouseMove = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+        e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+    };
 
     // Enhanced Monthly Grid Data
     const monthlyGridData = useMemo(() => {
@@ -237,7 +293,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
 
             const displayFormatted = metric === 'minutes' ? formatDuration(displayValue) : displayValue.toLocaleString();
 
-            const daysCount = daysInMonth.length || 30;
+            const daysCount = new Date(year, i + 1, 0).getDate();
             const avgDaily = Math.round(displayValue / daysCount);
             const vibeColor = getMonthVibeColor(i);
             const textColor = getSentimentStyle(m).textColor;
@@ -481,47 +537,97 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
     const dayPlaysForChart = data.total - nightPlaysForChart;
 
     return (
-        <div className="space-y-12 pb-10">
-            {/* Header & Navigation */}
-            <div className="flex items-center gap-4 mb-4">
-                <button onClick={onBack} className="p-2 rounded-full hover:bg-white/10 transition-colors group">
-                    <ArrowLeft className="text-gray-400 group-hover:text-white" />
+        <div className="space-y-8 pb-10">
+            {/* Header Area: Integrated Now Playing / Back */}
+            <div className="relative flex items-center justify-between h-24 mb-6">
+
+                {/* LEFT: NOW PLAYING / BACK BOX */}
+                <button
+                    onClick={onBack}
+                    className="relative w-80 h-full rounded-xl overflow-hidden group text-left transition-transform hover:scale-[1.02]"
+                >
+                    {/* Dynamic Background Art */}
+                    <div className="absolute inset-0 bg-black">
+                        <div
+                            className="absolute inset-0 bg-cover bg-center opacity-60 transition-all duration-700 group-hover:scale-110 group-hover:opacity-80 grayscale group-hover:grayscale-0"
+                            style={{ backgroundImage: `url(${nowPlaying?.image || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop"})` }}
+                        />
+                        {/* Swarm (Mini) */}
+                        <div className="absolute inset-0 z-10 opacity-50 mix-blend-screen pointer-events-none">
+                            <LocalizedSwarm />
+                        </div>
+                        {/* Overlays */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent z-20" />
+                        <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] z-20 pointer-events-none" />
+                    </div>
+
+                    {/* Content Stack */}
+                    <div className="relative z-30 flex flex-col justify-center h-full px-5">
+                        <div className="flex items-center gap-2 mb-1">
+                            <ArrowLeft size={12} className="text-neon-pink group-hover:-translate-x-1 transition-transform" />
+                            <span className="text-[9px] font-bold text-neon-pink tracking-[0.2em] font-mono uppercase">
+                                {isListening ? "NOW PLAYING" : "Overview"}
+                            </span>
+                        </div>
+
+                        <div className="font-bold text-white text-lg leading-tight truncate w-full drop-shadow-md pr-4">
+                            {nowPlaying?.name || "System Ready"}
+                        </div>
+                        <div className="text-xs text-white/60 font-medium truncate w-full pr-4">
+                            {nowPlaying?.artist || "Select a year to dive in"}
+                        </div>
+                    </div>
+
+                    {/* Cyber Border */}
+                    <div className="absolute inset-0 border border-white/10 rounded-xl z-40 group-hover:border-white/30 transition-colors" />
                 </button>
-                <div className="flex flex-1 items-center gap-4">
-                    {prevYear && (
-                        <button onClick={() => onYearClick(prevYear)} className="p-2 text-gray-500 hover:text-white transition-colors">
-                            <ChevronLeft size={24} />
-                        </button>
-                    )}
-                    <h1 className="text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">
+
+
+                {/* CENTER: YEAR NAVIGATION (Absolutely Centered) */}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-6">
+                    {/* Next (Future) */}
+                    <button
+                        onClick={() => nextYear && onYearClick(nextYear)}
+                        disabled={!nextYear}
+                        className={`p-3 rounded-full transition-all ${nextYear ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-800 cursor-default'}`}
+                    >
+                        <ChevronLeft size={28} />
+                    </button>
+
+                    <h1 className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 drop-shadow-2xl">
                         {year}
                     </h1>
-                    {nextYear && (
-                        <button onClick={() => onYearClick(nextYear)} className="p-2 text-gray-500 hover:text-white transition-colors">
-                            <ChevronRight size={24} />
-                        </button>
-                    )}
+
+                    {/* Prev (Past) */}
+                    <button
+                        onClick={() => prevYear && onYearClick(prevYear)}
+                        disabled={!prevYear}
+                        className={`p-3 rounded-full transition-all ${prevYear ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-800 cursor-default'}`}
+                    >
+                        <ChevronRight size={28} />
+                    </button>
                 </div>
 
-                {/* Metric Toggle */}
-                <div className="flex items-center bg-white/5 rounded-full p-1 border border-white/10">
+
+                {/* RIGHT: METRIC TOGGLE */}
+                <div className="flex items-center bg-black/40 backdrop-blur-md rounded-full p-1.5 border border-white/10 shadow-xl z-20">
                     <button
                         onClick={() => setMetric('minutes')}
-                        className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${metric === 'minutes'
-                            ? 'bg-white/10 text-white shadow-sm'
-                            : 'text-gray-400 hover:text-white'
+                        className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${metric === 'minutes'
+                            ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.4)]'
+                            : 'text-gray-500 hover:text-gray-300'
                             }`}
                     >
-                        Minutes
+                        MINUTES
                     </button>
                     <button
                         onClick={() => setMetric('scrobbles')}
-                        className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${metric === 'scrobbles'
-                            ? 'bg-white/10 text-white shadow-sm'
-                            : 'text-gray-400 hover:text-white'
+                        className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${metric === 'scrobbles'
+                            ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.4)]'
+                            : 'text-gray-500 hover:text-gray-300'
                             }`}
                     >
-                        Scrobbles
+                        PLAYS
                     </button>
                 </div>
             </div>
@@ -531,65 +637,168 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                 data={dailyTimeline}
                 metric={metric}
                 onHoverMonth={setHoveredMonth}
+                activeMonth={hoveredMonth}
             />
 
             {/* Deep Dive by Month Grid */}
             <div>
                 <h2 className="text-xl font-bold mb-4 text-neon-pink drop-shadow-sm">Deep Dive by Month</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {monthlyGridData.map((m) => (
-                        <motion.div
-                            key={m.month}
-                            onMouseEnter={() => setHoveredMonth(m.month)}
-                            onMouseLeave={() => setHoveredMonth(null)}
-                            onClick={() => onMonthClick && onMonthClick(year, m.month)}
-                            whileHover={{ scale: 1.05, y: -5, zIndex: 10 }}
-                            className="glass-panel p-4 cursor-pointer relative overflow-hidden group min-h-[140px] flex flex-col justify-between"
-                            style={{
-                                backgroundColor: hoveredMonth === m.month ? 'rgba(255,255,255,0.05)' : 'transparent',
-                                borderColor: hoveredMonth === m.month ? m.vibeColor : 'transparent'
-                            }}
-                        >
-                            {/* Waveform Sidebar */}
-                            <div
-                                className="absolute left-0 top-0 bottom-0 transition-all duration-300 bg-black/40 overflow-hidden rounded-l-md z-10 border-r border-white/5"
-                                style={{ width: hoveredMonth === m.month ? '4rem' : '0.5rem' }}
+                    {monthlyGridData.map((m, i) => {
+                        const monthKey = `${year}-${String(i + 1).padStart(2, '0')}`;
+                        const meta = monthMeta[monthKey] || {};
+                        const activeColor = meta.dominantColor || m.vibeColor || '#00ffcc';
+                        const displayImage = meta.imageUrl || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop";
+                        const activeColorRgb = hexToRgb(activeColor);
+                        const isHovered = hoveredMonth === m.month;
+                        const cardRef = useRef(null);
+
+                        // Swarm Bar Positions
+                        const barPositions = (m.days || []).map((val, dIdx) => ({
+                            x: (dIdx / (m.days.length || 30)) * 100,
+                            width: (1 / (m.days.length || 30)) * 100,
+                            height: (val / (m.maxDay || 1)) * 100,
+                            color: activeColor
+                        }));
+
+                        const isMins = metric === 'minutes';
+                        const format = (n) => {
+                            if (isMins) return formatDuration(Math.round(n));
+                            return Math.round(n).toLocaleString();
+                        };
+
+                        return (
+                            <motion.div
+                                key={m.month}
+                                onClick={() => onMonthClick?.(year, m.month)}
+                                onMouseEnter={() => setHoveredMonth(m.month)}
+                                onMouseLeave={() => setHoveredMonth(null)}
+                                onMouseMove={handleLocalMouseMove}
+                                className="glass-panel p-0 group min-h-[160px] flex flex-col justify-between transition-all duration-300 rounded-xl cursor-pointer"
+                                style={{
+                                    '--spotlight-color': activeColor,
+                                    zIndex: isHovered ? 50 : 1
+                                }}
                             >
-                                <svg className="w-full h-full" preserveAspectRatio="none" viewBox={`0 0 100 ${31 * 4}`}>
-                                    {(m.days || []).map((val, dIdx) => {
-                                        const widthPercent = (val / m.maxDay) * 100;
-                                        return (
-                                            <rect
-                                                key={dIdx}
-                                                x="0" y={dIdx * 4}
-                                                width={`${widthPercent}%`} height="3"
-                                                fill={m.vibeColor}
-                                                className="opacity-70"
-                                            />
-                                        );
-                                    })}
-                                </svg>
-                                {/* Overlay gradient */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent pointer-events-none" />
-                            </div>
+                                {/* Inner Content Wrapper (Clipped for images) */}
+                                <div className="absolute inset-0 rounded-xl overflow-hidden z-0">
 
-                            <div className="pl-4 group-hover:pl-16 transition-all duration-300">
-                                <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1" style={{ color: m.vibeColor }}>
-                                    {m.month}
-                                </div>
-                                <div className="text-2xl font-bold text-white mb-1">
-                                    <MagneticText content={m.formattedValue} color={m.vibeColor} />
-                                </div>
-                                <div className="text-xs text-gray-500 font-mono">
-                                    {metric === 'minutes' ? `${m.avgDaily}m / day` : `${m.avgDaily} / day`}
-                                </div>
-                            </div>
+                                    {/* 1. Base Album Art (Subtle Tint behind CSS Glass) */}
+                                    <div
+                                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110 opacity-10 pointer-events-none mix-blend-overlay"
+                                        style={{
+                                            backgroundImage: `url(${displayImage})`,
+                                            transform: 'scale(1.1)'
+                                        }}
+                                    />
 
-                            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <ArrowRight size={14} style={{ color: m.vibeColor }} />
-                            </div>
-                        </motion.div>
-                    ))}
+                                    {/* Frosted Gradient Overlay (Unrevealed State) */}
+                                    <div
+                                        className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent backdrop-blur-xl"
+                                        style={{
+                                            maskImage: 'linear-gradient(to right, black 80%, transparent 100%)',
+                                            WebkitMaskImage: 'linear-gradient(to right, black 80%, transparent 100%)'
+                                        }}
+                                    />
+
+                                    {/* 2. Revealed Clear Background (Top Layer) - Wipe Reveal */}
+                                    <div
+                                        className="absolute inset-0 z-0 overflow-hidden rounded-xl transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]"
+                                        style={{
+                                            clipPath: isHovered ? 'inset(0 25% 0 0)' : 'inset(0 100% 0 0)'
+                                        }}
+                                    >
+                                        <div
+                                            className="absolute inset-0 bg-cover bg-center"
+                                            style={{
+                                                backgroundImage: `url(${displayImage})`,
+                                                filter: 'grayscale(0%) contrast(1.1)',
+                                                transform: 'scale(1.1)'
+                                            }}
+                                        />
+
+
+
+                                        {/* Clear Gradient Overlay (Revealed State) */}
+                                        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
+                                    </div>
+                                </div>
+
+                                {/* Left Accent Bar - Always Visible, Pulses on Hover */}
+                                <div
+                                    className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-all duration-300"
+                                    style={{
+                                        background: activeColor,
+                                        boxShadow: isHovered ? `0 0 12px ${activeColor}, 0 0 24px ${activeColor}` : `0 0 6px ${activeColor}`,
+                                        opacity: isHovered ? 1 : 0.6
+                                    }}
+                                />
+
+                                {/* Stationary Expanding Gradient Bar - Expands from Left Accent */}
+                                <div className="absolute bottom-4 left-0 h-[60px] w-[3px] transition-all duration-300 group-hover:w-[160px] group-hover:rounded-r-sm z-30 rounded-l-xl"
+                                    style={{
+                                        background: isHovered ? `linear-gradient(to right, ${activeColor}, transparent)` : activeColor,
+                                        opacity: isHovered ? 1 : 0.3
+                                    }}
+                                />
+
+                                {/* Content Slide Container */}
+                                <div className="relative z-40 p-4 h-full flex flex-col justify-between pointer-events-none">
+                                    <div className="flex justify-between items-start">
+                                        {/* Month Label - Slides RIGHT & ROTATES to Top Right Edge (Balanced) */}
+                                        <div className="flex flex-col transition-all duration-500 ease-out group-hover:translate-x-[185px] group-hover:-translate-y-1 group-hover:rotate-90 origin-top-left relative">
+                                            <span
+                                                className="text-3xl font-black transition-colors relative z-10 whitespace-nowrap"
+                                                style={{ color: activeColor }}
+                                            >
+                                                {m.month}
+                                            </span>
+                                            <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest relative z-10 group-hover:text-white transition-colors">
+                                                {year}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Metrics - Slides UP */}
+                                    <div className="pl-4 transition-all duration-300 group-hover:-translate-y-20 relative z-50">
+                                        <div
+                                            className="text-2xl font-black tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+                                            style={{
+                                                color: activeColor,
+                                                textShadow: '0 2px 10px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            {format(m.value)}
+                                        </div>
+                                        <div className="text-[10px] uppercase tracking-wider text-white/60 font-mono font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" style={{ textShadow: '0 1px 4px rgba(0,0,0,1)' }}>
+                                            {format(m.avgDaily)}/day
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Artistic Text Reveal (Bottom Left) */}
+                                <div className={`absolute inset-x-0 bottom-0 p-4 z-50 transition-all duration-500 delay-100 flex flex-col items-start pointer-events-none ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full'}`}>
+                                    <div className="text-white font-black text-lg leading-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] text-shadow-[0_2px_8px_rgba(0,0,0,0.9)] line-clamp-2 mix-blend-overlay">
+                                        {meta.album || "Unknown Album"}
+                                    </div>
+                                    <div className="text-white font-bold text-xs uppercase tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] mt-1 opacity-90 text-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                                        {meta.artist || "Unknown Artist"}
+                                    </div>
+                                </div>
+
+                                {/* Particle Swarm */}
+                                <div className="absolute inset-0 z-30 pointer-events-none mix-blend-screen rounded-xl overflow-hidden">
+                                    <LocalizedSwarm
+                                        barPositions={barPositions}
+                                        isHovered={isHovered}
+                                        barScale={isHovered ? 1.2 : 0.8}
+                                    />
+                                </div>
+
+
+                            </motion.div>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -882,6 +1091,6 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                     })}
                 </div>
             </section>
-        </div>
+        </div >
     );
 }

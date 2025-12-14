@@ -4,13 +4,19 @@ const Vibrant = require('node-vibrant');
 const axios = require('axios');
 
 const PAYLOAD_PATH = path.join(__dirname, '../src/data/dashboard_payload.json');
-const OUTPUT_PATH = path.join(__dirname, '../src/data/year_meta.json');
+const YEAR_OUTPUT_PATH = path.join(__dirname, '../src/data/year_meta.json');
+const MONTH_OUTPUT_PATH = path.join(__dirname, '../src/data/month_meta.json');
+
+const BLACKLIST = ['prison break', 'westworld'];
 
 // Helper: Color Extraction
 async function getDominantColor(imageUrl) {
     if (!imageUrl) return '#00ffcc';
     try {
-        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        const response = await axios.get(imageUrl, {
+            responseType: 'arraybuffer',
+            timeout: 3000
+        });
         const buffer = Buffer.from(response.data);
         const palette = await Vibrant.from(buffer).getPalette();
         const swatch = palette.Vibrant || palette.LightVibrant || palette.DarkVibrant || palette.Muted;
@@ -21,34 +27,94 @@ async function getDominantColor(imageUrl) {
     }
 }
 
+// Helper: Find valid album object avoiding blacklist
+function getBestAlbumObj(entry) {
+    if (!entry) return null;
+
+    // 1. Try Top Albums array
+    if (entry.top_albums && Array.isArray(entry.top_albums)) {
+        const validAlbum = entry.top_albums.find(album => {
+            if (!album.name) return false;
+            const name = (album.name || "").toLowerCase();
+            return !BLACKLIST.some(term => name.includes(term));
+        });
+        if (validAlbum) {
+            // Ensure we have url
+            if (!validAlbum.url && validAlbum.image && Array.isArray(validAlbum.image)) {
+                validAlbum.url = validAlbum.image[validAlbum.image.length - 1]['#text'];
+            }
+            return validAlbum;
+        }
+    }
+
+    // 2. Fallback to entry.img (limited data, just url)
+    if (entry.img) return { url: entry.img, name: '', artist: '' };
+
+
+
+    return null;
+}
+
 async function generate() {
     console.log('Reading payload...');
     const rawArgs = fs.readFileSync(PAYLOAD_PATH);
     const data = JSON.parse(rawArgs);
 
     const yearData = {};
+    const monthData = {};
 
-    // Group history by year
     const historyByYear = {};
+
+    // Process Months
     if (data.history) {
-        data.history.forEach(entry => {
-            const year = entry.date.substring(0, 4);
+        console.log(`Found ${data.history.length} monthly entries.`);
+
+        for (const entry of data.history) {
+            const dateKey = entry.date;
+            const year = dateKey.substring(0, 4);
+
             if (!historyByYear[year]) historyByYear[year] = [];
             historyByYear[year].push(entry);
-        });
+
+            const bestAlbum = getBestAlbumObj(entry);
+            const imageUrl = bestAlbum?.url || bestAlbum?.image?.[3]?.['#text']; // Last.fm image array fallback
+
+            console.log(`Month ${dateKey}: ${imageUrl ? 'Art Found' : 'No Art'}`);
+
+            let color = '#00ffcc';
+            if (imageUrl) {
+                color = await getDominantColor(imageUrl);
+            }
+
+            monthData[dateKey] = {
+                imageUrl,
+                dominantColor: color,
+                album: bestAlbum?.name || '',
+                artist: bestAlbum?.artist?.name || bestAlbum?.artist || ''
+            };
+        }
     }
 
-    console.log(`Found ${Object.keys(historyByYear).length} years to process.`);
-
+    // Process Years
+    console.log(`Processing Years...`);
     for (const [year, entries] of Object.entries(historyByYear)) {
-        // Find best image (month with most scrobbles or just first valid one)
-        // Sort entries by scrobbles descending
+        // Sort by scrobbles
         entries.sort((a, b) => (b.scrobbles || 0) - (a.scrobbles || 0));
 
-        const bestEntry = entries.find(e => e.top_albums && e.top_albums[0] && e.top_albums[0].url) || entries[0];
-        const imageUrl = bestEntry?.top_albums?.[0]?.url || bestEntry?.img || null;
+        // Find best Entry that has valid art
+        let bestAlbum = null;
+        for (const entry of entries) {
+            bestAlbum = getBestAlbumObj(entry);
+            // Check if valid URL
+            const url = bestAlbum?.url || bestAlbum?.image?.[3]?.['#text'];
+            if (url) {
+                bestAlbum.url = url; // normalize
+                break;
+            }
+        }
 
-        console.log(`Processing ${year}... Image: ${imageUrl ? 'Found' : 'Missing'}`);
+        const imageUrl = bestAlbum?.url;
+        console.log(`Year ${year}: ${imageUrl ? 'Art Found' : 'No Art'}`);
 
         let color = '#00ffcc';
         if (imageUrl) {
@@ -57,12 +123,15 @@ async function generate() {
 
         yearData[year] = {
             imageUrl,
-            dominantColor: color
+            dominantColor: color,
+            album: bestAlbum?.name || '',
+            artist: bestAlbum?.artist?.name || bestAlbum?.artist || ''
         };
     }
 
-    fs.writeFileSync(OUTPUT_PATH, JSON.stringify(yearData, null, 2));
-    console.log(`Done! Saved metadata to ${OUTPUT_PATH}`);
+    fs.writeFileSync(YEAR_OUTPUT_PATH, JSON.stringify(yearData, null, 2));
+    fs.writeFileSync(MONTH_OUTPUT_PATH, JSON.stringify(monthData, null, 2));
+    console.log(`Done! Saved metadata to ${YEAR_OUTPUT_PATH} and ${MONTH_OUTPUT_PATH}`);
 }
 
 generate();

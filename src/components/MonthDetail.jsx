@@ -77,16 +77,36 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
 
     // Top Music Data (Derived from Month Summary)
     const topAlbums = (monthSummary.top_albums || []).slice(0, 5);
+
+    // Build artist map with album art
     const topArtistsMap = new Map();
+    const artistAlbumArt = new Map();
     (monthSummary.top_albums || []).forEach(album => {
         if (album.artist) {
             topArtistsMap.set(album.artist, (topArtistsMap.get(album.artist) || 0) + album.count);
+            // Relaxed check: use any available URL if unset
+            if (!artistAlbumArt.has(album.artist) && (album.url || album.image || album.img)) {
+                artistAlbumArt.set(album.artist, album.url || album.image || album.img);
+            }
         }
     });
+
     const topArtists = Array.from(topArtistsMap.entries())
-        .map(([name, count]) => ({ n: name, c: count }))
+        .map(([name, count]) => ({ n: name, c: count, art: artistAlbumArt.get(name) }))
         .sort((a, b) => b.c - a.c)
         .slice(0, 5);
+
+    console.log('[MonthDetail] Top Artists Data:', topArtists);
+
+    // Mouse tracking for cards
+    const handleCardMouseMove = (e) => {
+        const card = e.currentTarget;
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        card.style.setProperty('--mouse-x', `${x}px`);
+        card.style.setProperty('--mouse-y', `${y}px`);
+    };
 
     // Navigation Handlers
     const handlePrev = () => {
@@ -204,12 +224,22 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
                         {topArtists.length > 0 ? (
                             <div className="divide-y divide-white/5">
                                 {topArtists.map((artist, i) => (
-                                    <div key={i} className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group/item">
-                                        <div className="flex items-center gap-4">
-                                            <span className={`font-mono font-bold text-sm w-6 text-center ${i < 3 ? 'text-neon-purple' : 'text-gray-600'}`}>#{i + 1}</span>
-                                            <span className="font-bold text-gray-200 group-hover/item:text-white transition-colors truncate max-w-[200px] text-lg">{artist.n}</span>
+                                    <div key={i} className="flex items-center justify-between p-4 bg-white/5 backdrop-blur-sm border-b border-white/5 transition-all group/item relative overflow-hidden">
+                                        {/* Reveal Box (Album Art) - Slides from Left */}
+                                        <div
+                                            className="absolute inset-y-0 left-0 w-0 group-hover/item:w-full transition-[width] duration-500 ease-out bg-cover bg-center z-0"
+                                            style={{
+                                                backgroundImage: artist.art ? `url(${artist.art})` : 'linear-gradient(to right, #2a2a2a, #1a1a1a)'
+                                            }}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
                                         </div>
-                                        <span className="text-sm font-mono text-gray-500 group-hover/item:text-neon-purple transition-colors">
+
+                                        <div className="flex items-center gap-4 relative z-10">
+                                            <span className={`font-mono font-bold text-sm w-6 text-center ${i < 3 ? 'text-neon-purple' : 'text-gray-600'} transition-colors group-hover/item:text-neon-purple`}>#{i + 1}</span>
+                                            <span className="font-bold text-gray-200 group-hover/item:text-white transition-colors truncate max-w-[200px] text-lg drop-shadow-md">{artist.n}</span>
+                                        </div>
+                                        <span className="text-sm font-mono text-gray-500 group-hover/item:text-white transition-colors relative z-10 drop-shadow-sm">
                                             {metric === 'minutes' ? formatDuration(Math.round(artist.c * avgDuration)) : `${artist.c} scrobbles`}
                                         </span>
                                     </div>
@@ -270,8 +300,14 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-[#121212] p-6 rounded-2xl border border-white/5 flex flex-col justify-between relative overflow-hidden group hover:border-white/10 transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-                    <div className="flex justify-between items-start mb-4">
+                <div
+                    className="bg-[#121212] p-6 rounded-2xl border border-white/5 flex flex-col justify-between relative overflow-hidden group hover:border-white/10 transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
+                    onMouseMove={handleCardMouseMove}
+                >
+                    {/* Hover Border Gradient */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl" style={{ background: `radial-gradient(600px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.1), transparent 40%)` }} />
+
+                    <div className="flex justify-between items-start mb-4 relative z-10">
                         <div className="text-gray-500 text-xs font-bold uppercase tracking-widest">Daily Average</div>
                         {prevYear && (
                             <div className={`text-xs font-mono font-bold ${yoyColor} flex items-center gap-1 bg-white/5 px-2 py-1 rounded-full`}>
@@ -280,39 +316,54 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
                             </div>
                         )}
                     </div>
-                    <div>
+                    <div className="relative z-10">
                         <div className="text-5xl font-black text-white tracking-tighter mb-1">
                             {metric === 'minutes' ? `${avgDaily}m` : avgDaily}
                         </div>
                         <div className="text-sm text-gray-500">per day on average</div>
                     </div>
                 </div>
-                <div className="bg-[#121212] p-6 rounded-2xl border border-white/5 flex flex-col justify-between relative overflow-hidden group hover:border-white/10 transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-                    <div className="flex justify-between items-start mb-4">
+                <div
+                    className="bg-[#121212] p-6 rounded-2xl border border-white/5 flex flex-col justify-between relative overflow-hidden group hover:border-white/10 transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
+                    onMouseMove={handleCardMouseMove}
+                >
+                    {/* Hover Border Gradient */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl" style={{ background: `radial-gradient(600px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.1), transparent 40%)` }} />
+
+                    <div className="flex justify-between items-start mb-4 relative z-10">
                         <div className="text-gray-500 text-xs font-bold uppercase tracking-widest">Busiest Day</div>
                         <Clock size={16} className="text-neon-cyan opacity-50" />
                     </div>
-                    <div>
+                    <div className="relative z-10">
                         <div className="text-3xl font-bold text-white mb-1 tracking-tight">{busiestDateStr}</div>
                         <div className="text-sm text-neon-cyan font-mono opacity-80">{metric === 'minutes' ? formatDuration(busiestDay.val) : `${busiestDay.val} scrobbles`}</div>
                     </div>
                 </div>
-                <div className="bg-[#121212] p-6 rounded-2xl border border-white/5 flex flex-col justify-between relative overflow-hidden group hover:border-white/10 transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-                    <div className="flex justify-between items-start mb-4">
+                <div
+                    className="bg-[#121212] p-6 rounded-2xl border border-white/5 flex flex-col justify-between relative overflow-hidden group hover:border-white/10 transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
+                    onMouseMove={handleCardMouseMove}
+                >
+                    {/* Hover Border Gradient */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl" style={{ background: `radial-gradient(600px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.1), transparent 40%)` }} />
+
+                    <div className="flex justify-between items-start mb-4 relative z-10">
                         <div className="text-gray-500 text-xs font-bold uppercase tracking-widest">Favorite Weekday</div>
                         <Calendar size={16} style={{ color: vibeColor }} className="opacity-50" />
                     </div>
-                    <div className="text-5xl font-black text-white tracking-tighter" style={{ color: vibeColor }}>{maxWeekday.name}</div>
+                    <div className="text-5xl font-black text-white tracking-tighter relative z-10" style={{ color: vibeColor }}>{maxWeekday.name}</div>
                 </div>
             </div>
 
             {/* Daily Rhythm (Returned to BarChart) */}
             <div className="bg-[#121212] p-8 rounded-3xl border border-white/5 relative group mb-8">
-                <h3 className="text-2xl font-bold mb-8 flex items-center gap-3 text-white">
-                    <BarChart2 size={24} style={{ color: vibeColor }} />
-                    Daily Rhythm
-                </h3>
-                <div className="h-80 w-full">
+                {/* Header Overlay */}
+                <div className="absolute top-8 left-8 z-50 pointer-events-none">
+                    <h3 className="text-2xl font-bold flex items-center gap-3 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                        <BarChart2 size={24} style={{ color: vibeColor }} />
+                        Daily Rhythm
+                    </h3>
+                </div>
+                <div className="h-80 w-full pt-12">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={monthDays} barSize={12}>
                             <defs>

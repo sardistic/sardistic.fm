@@ -239,6 +239,9 @@ function App() {
                   onYearClick={handleYearClick}
                   metric={metric}
                   setMetric={setMetric}
+                  nowPlaying={nowPlaying}
+                  isListening={isGlobalPlayerActive}
+                  onToggleListen={() => setIsGlobalPlayerActive(!isGlobalPlayerActive)}
                 />
               </motion.div>
             )}
