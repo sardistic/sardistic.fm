@@ -5,7 +5,7 @@ A high-fidelity, aesthetic personal analytics dashboard for visualizing Last.fm 
 **Live Demo:** [audio.sardistic.com](https://audio.sardistic.com)
 
 ![Dashboard Preview](https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop) 
-*(Replace with actual screenshot)*
+
 
 ## 🎵 Features
 
@@ -26,6 +26,7 @@ A high-fidelity, aesthetic personal analytics dashboard for visualizing Last.fm 
 
 ### Prerequisites
 *   Node.js (v18+)
+*   Python 3.8+ (For initial data generation)
 *   Last.fm API Key
 
 ### Installation
@@ -59,6 +60,25 @@ A high-fidelity, aesthetic personal analytics dashboard for visualizing Last.fm 
     ```env
     VITE_SERVER_URL=http://localhost:3001
     ```
+
+### 📊 Data Generation (Methodology)
+
+To populate the dashboard with **YOUR** data, you need to generate the static JSON payloads. The app uses a hybrid approach: real-time data from the API and historical data from a static JSON file for speed.
+
+1.  **Export Last.fm Data**: Use a tool like [Last.fm to CSV](https://benjaminbenben.com/lastfm-to-csv/) to get your full listening history. Save it as `recenttracks.csv` in the root folder.
+
+2.  **Run the Processor**:
+    ```bash
+    # From the project root
+    python data_processor.py recenttracks.csv
+    ```
+    This script will:
+    *   Parse your CSV history.
+    *   Calculate deep metrics (binges, streaks, genre vibes).
+    *   Generate `dashboard-app/src/data/dashboard_payload.json`.
+
+3.  **(Optional) Fetch Album Art**:
+    Run `python fetch_art.py` to pre-cache album artwork for your top albums to avoid rate limits during runtime.
 
 ### Running Locally
 
