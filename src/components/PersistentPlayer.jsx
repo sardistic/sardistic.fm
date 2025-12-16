@@ -10,7 +10,8 @@ export default function PersistentPlayer({
     onExpand,
     volume,
     onVolumeChange,
-    onPlayStateChange
+    onPlayStateChange,
+    isEmbedded = false
 }) {
     const iframeRef = useRef(null);
     const [videoUrl, setVideoUrl] = useState(null);
@@ -130,58 +131,20 @@ export default function PersistentPlayer({
         <AnimatePresence>
             {isActive && (
                 <motion.div
-                    initial={{ y: -100, opacity: 0 }}
+                    initial={{ y: -50, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -100, opacity: 0 }}
+                    exit={{ y: -50, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                    className="fixed top-0 left-0 right-0 z-[60] flex justify-start pl-4 md:pl-6 pointer-events-none"
-                // z-60 to be above the nav (z-50)
+                    className="flex justify-center w-full"
                 >
-                    <div className="bg-black/90 backdrop-blur-2xl border border-white/10 rounded-b-xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col select-none relative"
-                        style={{ width: isExpanded ? '400px' : '320px', transition: 'width 0.3s' }}>
+                    <div className={`${isEmbedded ? 'w-full bg-transparent flex flex-row items-center gap-6 h-full px-4' : 'bg-black/90 backdrop-blur-2xl border border-white/10 rounded-b-xl shadow-2xl overflow-hidden flex flex-col relative'}`}
+                        style={!isEmbedded ? { width: isExpanded ? '400px' : '320px', transition: 'width 0.3s' } : {}}>
 
-                        {/* Header / Controls */}
-                        <div className="w-full h-14 flex items-center justify-between px-4 bg-white/5 border-b border-white/5 gap-3">
-                            {/* Left: Indicator or Minified Info */}
-                            <div className="flex items-center gap-3 overflow-hidden flex-1">
-                                <Radio size={16} className="text-neon-pink animate-pulse shrink-0" />
-                                {(!isExpanded || tuning) && (
-                                    <div className="flex flex-col overflow-hidden">
-                                        <span className="text-xs font-bold text-white truncate max-w-[120px]">
-                                            {tuning ? "Scanning..." : (nowPlaying?.name || "Loading...")}
-                                        </span>
-                                        {!tuning && (
-                                            <span className="text-[10px] text-gray-400 truncate max-w-[120px]">
-                                                {nowPlaying?.artist}
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                        {/* MEDIA AREA (Video or Thumbnail) */}
+                        <div className={`${isEmbedded ? 'w-48 h-28 rounded-lg overflow-hidden shrink-0 border border-white/10 bg-black relative' : 'w-full bg-black relative overflow-hidden'}`}
+                            style={!isEmbedded ? { height: isExpanded ? 225 : 0, opacity: isExpanded ? 1 : 0, transition: 'all 0.3s' } : {}}>
 
-                            {/* Right: Window Controls */}
-                            <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                    onClick={() => setIsExpanded(!isExpanded)}
-                                    className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
-                                >
-                                    {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                                </button>
-                                <button
-                                    onClick={onClose}
-                                    className="p-2 hover:bg-neon-pink/20 rounded-full text-gray-400 hover:text-neon-pink transition-colors"
-                                >
-                                    <X size={14} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Player Area (Video) - Height Animated */}
-                        <motion.div
-                            animate={{ height: isExpanded ? 225 : 0, opacity: isExpanded ? 1 : 0 }}
-                            className="w-full bg-black relative overflow-hidden"
-                        >
-                            <div className={`w-full h-full ${!videoUrl ? 'flex items-center justify-center' : ''}`}>
+                            <div className={`w-full h-full ${!videoUrl && !isEmbedded ? 'hidden' : 'flex items-center justify-center'}`}>
                                 {videoUrl ? (
                                     <iframe
                                         ref={iframeRef}
@@ -196,31 +159,75 @@ export default function PersistentPlayer({
                                         className="absolute inset-0"
                                     ></iframe>
                                 ) : (
-                                    <div className="text-neon-cyan animate-pulse">
-                                        <Loader size={24} className="animate-spin" />
-                                    </div>
+                                    /* Fallback Art if Embedded and no video yet */
+                                    isEmbedded ? (
+                                        <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${nowPlaying?.image || 'https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png'})`, opacity: 0.6 }}>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="text-neon-cyan animate-pulse">
+                                                    <Loader size={20} className="animate-spin" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-neon-cyan animate-pulse">
+                                            <Loader size={24} className="animate-spin" />
+                                        </div>
+                                    )
                                 )}
                             </div>
-                        </motion.div>
+                        </div>
 
-                        {/* Collapsed Controls - Volume Front & Center */}
-                        {!isExpanded && (
-                            <div className="w-full px-4 py-3 flex items-center justify-between gap-4 bg-gradient-to-r from-black/80 to-transparent">
+                        {/* CONTROLS AREA (Embedded: Right Side, Popup: Bottom) */}
+                        <div className={`${isEmbedded ? 'flex-1 flex items-center justify-between h-full py-2 pl-4' : 'w-full px-4 py-3 flex items-center justify-between gap-4 bg-gradient-to-r from-black/80 to-transparent'}`}>
 
+                            {/* Standard Header Info (Popup Only) */}
+                            {!isEmbedded && (
+                                <div className="w-full h-14 flex items-center justify-between border-b border-white/5 gap-3 mb-2">
+                                    {/* ... Existing popup header logic ... */}
+                                    {/* Note: I'm simplifying the diff to replace the structural logic,
+                                         assuming the user wants the redundancy GONE in embedded mode.
+                                         For embedded, we show Controls + Volume.
+                                     */}
+                                    <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                        <Radio size={16} className="text-neon-pink animate-pulse shrink-0" />
+                                        <div className="flex flex-col overflow-hidden">
+                                            <span className="text-xs font-bold text-white truncate">{tuning ? "Scanning..." : (nowPlaying?.name || "Loading...")}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <button onClick={() => setIsExpanded(!isExpanded)} className="p-2 text-gray-400 hover:text-white"><Maximize2 size={14} /></button>
+                                        <button onClick={onClose} className="p-2 text-gray-400 hover:text-neon-pink"><X size={14} /></button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Embedded Center Info */}
+                            {isEmbedded && (
+                                <div className="flex flex-col justify-center flex-1 px-4 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-white font-bold text-lg truncate">{nowPlaying?.name}</span>
+                                        {tuning && <span className="text-neon-cyan text-xs animate-pulse">(Scanning...)</span>}
+                                    </div>
+                                    <span className="text-neon-pink text-sm font-mono truncate">{nowPlaying?.artist}</span>
+                                </div>
+                            )}
+
+                            {/* CONTROLS ROW */}
+                            <div className={`flex items-center gap-6 ${isEmbedded ? 'shrink-0' : ''}`}>
                                 {/* Play/Pause */}
                                 <button
                                     onClick={togglePlay}
-                                    className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all active:scale-95"
+                                    className={`rounded-full text-white transition-all active:scale-95 flex items-center justify-center ${isEmbedded ? 'w-12 h-12 bg-white/10 hover:bg-white/20' : 'p-2 bg-white/10 hover:bg-white/20'}`}
                                 >
                                     {isPaused ?
-                                        <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg> :
-                                        <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                                        <svg width={isEmbedded ? "20" : "12"} height={isEmbedded ? "20" : "12"} fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg> :
+                                        <svg width={isEmbedded ? "20" : "12"} height={isEmbedded ? "20" : "12"} fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
                                     }
                                 </button>
 
                                 {/* Volume Slider */}
-                                <div className="flex-1 flex items-center gap-2 group">
-                                    <Volume2 size={14} className={`text-gray-400 ${volume > 0 ? 'group-hover:text-neon-cyan' : ''}`} />
+                                <div className="flex-1 flex items-center gap-3 group max-w-[200px]">
+                                    <Volume2 size={isEmbedded ? 18 : 14} className={`text-gray-400 ${volume > 0 ? 'group-hover:text-neon-cyan' : ''}`} />
                                     <div className="relative flex-1 h-6 flex items-center">
                                         <input
                                             type="range"
@@ -228,17 +235,27 @@ export default function PersistentPlayer({
                                             max="100"
                                             value={volume}
                                             onChange={handleVolumeChange}
-                                            className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(255,255,255,0.5)] hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
+                                            className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
                                         />
-                                        {/* Progress Fill Hack */}
-                                        <div
-                                            className="absolute left-0 h-1 bg-neon-cyan rounded-l-lg pointer-events-none"
-                                            style={{ width: `${volume}%` }}
-                                        />
+                                        <div className="absolute left-0 h-1 bg-neon-cyan rounded-l-lg pointer-events-none" style={{ width: `${volume}%` }} />
                                     </div>
                                 </div>
+
+                                {/* External Link (Embedded Only) */}
+                                {isEmbedded && (
+                                    <>
+                                        {videoUrl && (
+                                            <a href={videoUrl} target="_blank" rel="noreferrer" className="text-gray-500 hover:text-white transition-colors" title="Open in YouTube">
+                                                <Maximize2 size={16} />
+                                            </a>
+                                        )}
+                                        <button onClick={onClose} className="text-gray-500 hover:text-neon-pink transition-colors ml-2" title="Close Player">
+                                            <X size={18} />
+                                        </button>
+                                    </>
+                                )}
                             </div>
-                        )}
+                        </div>
 
                     </div>
                 </motion.div>

@@ -5,18 +5,18 @@ function FluidBackground({ intensity = 0 }) {
     const canvasRef = useRef(null);
     const intensityRef = useRef(intensity);
 
-    // Audio Context
+    // Audio Hook
     const { audioStateRef, isListening } = useAudioReactive();
+    const isListeningRef = useRef(isListening);
 
-    // Fix Stale Closure
-    const listeningRef = useRef(isListening);
-    useEffect(() => {
-        listeningRef.current = isListening;
-    }, [isListening]);
-
+    // Update refs
     useEffect(() => {
         intensityRef.current = intensity;
     }, [intensity]);
+
+    useEffect(() => {
+        isListeningRef.current = isListening;
+    }, [isListening]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -26,13 +26,11 @@ function FluidBackground({ intensity = 0 }) {
         let width, height;
         let animationFrame;
 
-        // Visual Config
+        // Physics Config
         const STRING_COUNT = 15;
-        const POINTS = 80;
-        // Physics - "Silky" tuning
-        const VISCOSITY = 0.15;
+        const POINTS = 200;
+        const VISCOSITY = 0.05;
         const DAMPING = 0.95;
-        const TENSION = 0.1;
 
         // State
         const strings = [];
@@ -41,79 +39,76 @@ function FluidBackground({ intensity = 0 }) {
         let time = 0;
 
         class StringLine {
-            constructor(y, color, speed, index) {
+            constructor(y, color, speed) {
                 this.baseY = y;
                 this.y = y;
                 this.color = color;
-                this.speed = speed * 0.3; // Very slow, graceful idle
-                this.index = index;
+                this.speed = speed * 0.5; // Slower speed
                 this.points = [];
 
-                const totalWidth = window.innerWidth + 400; // Extra bleed
+                // IMPORTANT: Extend width significantly to prevent right-side cut-off
+                const totalWidth = window.innerWidth + 200;
 
                 for (let i = 0; i <= POINTS; i++) {
-                    // FIX WOBBLE on LOAD: Initialize Y at the wave position!
-                    // If we start at 'y' (flat), the springs instantly snap to the wave, creating wobble.
-                    const initialWave = Math.sin(i * 0.2) * 10;
-
                     this.points.push({
-                        x: (totalWidth / POINTS) * i - 200, // Center offset
-                        y: y + initialWave, // Start exactly where we want to be
+                        x: (totalWidth / POINTS) * i,
+                        y: y,
                         vx: 0,
                         vy: 0,
+                        baseX: (totalWidth / POINTS) * i
                     });
                 }
             }
 
             update(mouse, time) {
                 let currentIntensity = intensityRef.current || 0;
-                let isAudio = false;
-                let audioData = null;
+                let audioEnergy = 0;
+                let bass = 0, mid = 0, treble = 0;
 
-                if (audioStateRef.current && listeningRef.current) {
-                    currentIntensity = audioStateRef.current.energy * 3.0;
-                    isAudio = true;
-                    audioData = audioStateRef.current.data;
+                // Override with Audio Energy if Active
+                // USE REF TO AVOID STALE CLOSURE
+                if (audioStateRef.current && isListeningRef.current) {
+                    audioEnergy = audioStateRef.current.energy;
+                    ({ bass, mid, treble } = audioStateRef.current.bands);
+
+                    // Blend prop intensity with direct audio energy
+                    // 'Goldilocks' Multiplier: 3.5
+                    currentIntensity = Math.max(currentIntensity, audioEnergy * 3.5);
                 }
 
                 for (let i = 0; i < this.points.length; i++) {
                     const p = this.points[i];
 
-                    // 1. Audio Displacement (Vibration, not Thickness)
-                    let audioOffset = 0;
-                    if (isAudio && audioData) {
-                        const binIndex = (this.index * 3) + Math.floor((i / this.points.length) * 50);
-                        const safeBin = Math.min(127, Math.max(0, binIndex));
-                        const val = audioData[safeBin] || 0;
+                    // 1. Base Wave (Swooping)
+                    // 'Goldilocks' Amp: 35
+                    const amp = 8 + (currentIntensity * 35);
+                    const waveY = Math.sin(i * 0.05 + time * this.speed) * amp;
 
-                        // Map energy to Amplitude
-                        audioOffset = (val / 255) * 60 * currentIntensity;
-                        if (i % 2 !== 0) audioOffset *= -1; // Zig-zag vibrate
+                    // 2. High Frequency Audio Jitter (The "Reactivity")
+                    let jitter = 0;
+                    if (isListeningRef.current && audioEnergy > 0.01) {
+                        const bassWave = Math.sin(i * 0.05 + time * 3.0) * (bass * 25);
+                        const midWave = Math.sin(i * 0.3 + time * 5.0) * (mid * 20);
+                        const trebleWave = Math.sin(i * 1.5 + time * 10.0) * (treble * 15);
+
+                        jitter = bassWave + midWave + trebleWave;
                     }
 
-                    // 2. Ambient Wave (Liquid)
-                    const waveSpeed = this.speed + (currentIntensity * 0.1);
-                    const waveY = Math.sin(i * 0.2 + time * waveSpeed) * (10 + currentIntensity * 20);
+                    const targetY = this.baseY + waveY + jitter;
 
-                    let targetY = this.baseY + waveY - audioOffset;
-
-                    // 3. Mouse Interaction (Stronger Drag/Repel)
+                    // 3. Interaction
                     const dx = mouse.x - p.x;
                     const dy = mouse.y - p.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < 300) { // Bigger Radius (300px)
-                        const force = (300 - dist) / 300;
-                        // "Drag" - Transfer mouse velocity directly
-                        p.vy += force * (mouse.vy * 0.8);
-                        // "Repel" - Push away slightly to create Volume
-                        if (Math.abs(dy) < 100) {
-                            p.vy += (dy < 0 ? -1 : 1) * force * 15;
-                        }
+                    if (dist < 150) {
+                        const force = (150 - dist) / 150;
+                        p.vy += force * mouse.vy * 0.4;
+                        if (Math.abs(dy) < 40) p.vy += (dy < 0 ? -1 : 1) * 2;
                     }
 
-                    // 4. Physics Engine
-                    const forceY = (targetY - p.y) * TENSION;
+                    // 4. Elasticity & Damping
+                    const forceY = (targetY - p.y) * 0.05;
                     p.vy += forceY;
                     p.vx *= DAMPING;
                     p.vy *= DAMPING;
@@ -122,77 +117,55 @@ function FluidBackground({ intensity = 0 }) {
                     p.y += p.vy;
                 }
 
-                // 5. Smoothing (Silky Look)
-                for (let k = 0; k < 2; k++) {
-                    for (let i = 1; i < this.points.length - 1; i++) {
-                        const prev = this.points[i - 1];
-                        const curr = this.points[i];
-                        const next = this.points[i + 1];
-                        const smoothY = (prev.y + next.y) / 2;
-                        curr.vy += (smoothY - curr.y) * VISCOSITY;
-                    }
+                // 5. Neighbor Smoothing
+                for (let i = 1; i < this.points.length - 1; i++) {
+                    const prev = this.points[i - 1];
+                    const curr = this.points[i];
+                    const next = this.points[i + 1];
+                    const smoothY = (prev.y + next.y) / 2;
+                    curr.vy += (smoothY - curr.y) * VISCOSITY;
                 }
             }
 
-            draw(ctx, mouse) { // Added height param if needed, but using global access or passing it down is better. 
-                // We'll calculate height-based fade using this.baseY relative to window.innerHeight
-
+            draw(ctx, mouse) {
                 let currentIntensity = intensityRef.current || 0;
-                if (audioStateRef.current && listeningRef.current) {
-                    currentIntensity = audioStateRef.current.energy * 3.0;
+                // USE REF TO AVOID STALE CLOSURE
+                if (audioStateRef.current && isListeningRef.current) {
+                    currentIntensity = Math.max(currentIntensity, audioStateRef.current.energy * 2.0); // Boost for visual glow
                 }
 
-                // GLOW LOGIC: Additive Blending handles the "Glow"
-                // Audio controls OPACITY, not THICKNESS
                 ctx.strokeStyle = this.color;
 
-                // Base thin elegant line
-                const baseWidth = 2;
-                ctx.lineWidth = baseWidth;
+                // Calculate distance from mouse Y to string Y (approx glow)
+                const distY = Math.abs(mouse.y - this.y);
 
-                // --- FADE LOGIC (Aggressive) ---
-
-                // 1. VERTICAL FADE
-                const screenH = window.innerHeight;
-                const normalizeY = this.baseY / screenH;
-                const vertFade = Math.sin(normalizeY * Math.PI);
-
-                // 2. MOUSE DISTANCE FADE (Flashlight Effect)
-                let mouseFade = 0.02; // Practically invisible by default
-                if (mouse.x > 0) {
-                    const dy = Math.abs(mouse.y - this.baseY); // Use baseY for stable bands
-                    const distFactor = Math.max(0, 1.0 - (dy / 600)); // 600px spread
-                    mouseFade += distFactor * 0.98;
+                // Dynamic Glow Intensity based on proximity OR music intensity
+                let glowIntensity = currentIntensity * 0.5; // Base glow from music
+                if (distY < 200) {
+                    glowIntensity += (200 - distY) / 200;
                 }
 
-                // Combine: Base Fade + Audio Boost (Audio lights up the room slightly)
-                let opacity = mouseFade;
-                // Add a bit of global light when music hits hard (optional, keeps it interactive)
-                opacity += currentIntensity * 0.2;
+                // Base opacity + extra glow
+                // Thinner lines to reduce "close up" feeling
+                const alphaCore = 0.3 + (glowIntensity * 0.5);
+                const lineWidth = 1.0 + (glowIntensity * 1.5); // Thicker peaks
 
-                opacity *= vertFade;
-
-                // Clamp
-                opacity = Math.min(opacity, 1.0);
-                opacity = Math.max(opacity, 0.0);
-
-                ctx.globalAlpha = opacity;
-
-                this.trace(ctx);
-                ctx.stroke();
-
-                // Double stroke for core (hot center) if loud
-                if (currentIntensity > 0.5) {
-                    ctx.lineWidth = 1;
-                    ctx.globalAlpha = opacity; // Match fade
-                    ctx.strokeStyle = '#ffffff'; // White hot core
+                if (glowIntensity > 0.1) {
+                    ctx.beginPath();
+                    ctx.lineWidth = lineWidth * 3;
+                    ctx.globalAlpha = 0.1 * glowIntensity;
                     this.trace(ctx);
                     ctx.stroke();
                 }
+
+                ctx.beginPath();
+                ctx.lineWidth = lineWidth;
+                ctx.globalAlpha = Math.min(1, alphaCore);
+                this.trace(ctx);
+                ctx.stroke();
             }
 
             trace(ctx) {
-                ctx.beginPath();
                 ctx.moveTo(this.points[0].x, this.points[0].y);
                 for (let i = 0; i < this.points.length - 1; i++) {
                     const p_curr = this.points[i];
@@ -209,20 +182,13 @@ function FluidBackground({ intensity = 0 }) {
             height = canvas.height = window.innerHeight;
 
             strings.length = 0;
-            // "Aurora" Palette
-            const colors = [
-                '#00ffcc', // Cyan
-                '#00ccff', // Sky
-                '#0066ff', // Blue
-                '#cc00ff', // Violet
-                '#ff00cc', // Magenta
-            ];
+            const colors = ['#880044', '#008877', '#4400aa', '#886600'];
 
             for (let i = 0; i < STRING_COUNT; i++) {
                 const y = (height / (STRING_COUNT + 1)) * (i + 1);
                 const color = colors[i % colors.length];
-                const speed = 0.8 + Math.random() * 0.5;
-                strings.push(new StringLine(y, color, speed, i));
+                const speed = 0.5 + Math.random() * 1.5;
+                strings.push(new StringLine(y, color, speed));
             }
         };
 
@@ -234,21 +200,44 @@ function FluidBackground({ intensity = 0 }) {
             prevMouse = { x: e.clientX, y: e.clientY };
         };
 
-        const draw = () => {
-            time += 0.05;
+        const handleClick = (e) => {
+            const clickX = e.clientX;
+            const clickY = e.clientY;
 
-            // Deep Fade Background (Trailing effect)
-            ctx.fillStyle = '#050508'; // Very dark blue/black
-            // Use lighter composite for lines
-            ctx.globalCompositeOperation = 'source-over';
+            strings.forEach(s => {
+                s.points.forEach(p => {
+                    const dx = clickX - p.x;
+                    const dy = clickY - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 400) {
+                        const force = (400 - dist) / 400;
+                        p.vy += (dy < 0 ? -1 : 1) * force * 40;
+                    }
+                });
+            });
+        };
+
+        const draw = () => {
+            // Speed up time based on intensity OR audio energy
+            let speedBoost = intensityRef.current || 0;
+            // USE REF TO AVOID STALE CLOSURE
+            if (audioStateRef.current && isListeningRef.current) {
+                speedBoost = Math.max(speedBoost, audioStateRef.current.energy * 0.4);
+            }
+            // Base speed 0.05, max speed ~0.15
+            time += 0.05 + speedBoost * 0.2;
+
+            // Lighter background (less pure black, more dark grey-ish to show depth)
+            ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, width, height);
 
-            // AUTO-GLOW: Additive Blending
-            ctx.globalCompositeOperation = 'lighter';
+            // Standard mixing
+            ctx.globalCompositeOperation = 'source-over';
 
             strings.forEach(s => {
                 s.update(mouse, time);
-                s.draw(ctx, mouse); // PASS MOUSE HERE
+                s.draw(ctx, mouse);
             });
 
             mouse.vx *= 0.1;
@@ -259,6 +248,7 @@ function FluidBackground({ intensity = 0 }) {
 
         window.addEventListener('resize', init);
         window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mousedown', handleClick);
 
         init();
         draw();
@@ -266,9 +256,10 @@ function FluidBackground({ intensity = 0 }) {
         return () => {
             window.removeEventListener('resize', init);
             window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mousedown', handleClick);
             cancelAnimationFrame(animationFrame);
         };
-    }, []);
+    }, []); // Empty dependency array -> Init once. Logic uses ref.
 
     return (
         <canvas
