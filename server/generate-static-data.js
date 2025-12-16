@@ -19,7 +19,7 @@ async function getDominantColor(imageUrl) {
         });
         const buffer = Buffer.from(response.data);
         const palette = await Vibrant.from(buffer).getPalette();
-        const swatch = palette.Vibrant || palette.LightVibrant || palette.DarkVibrant || palette.Muted;
+        const swatch = palette.LightVibrant || palette.Vibrant || palette.Muted || palette.DarkVibrant;
         return swatch ? swatch.getHex() : '#00ffcc';
     } catch (error) {
         console.error(`Error extracting color from ${imageUrl}:`, error.message);

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { useAudioReactive } from './AudioReactiveContext';
 
 export default function LocalizedSwarm({ barPositions = [], isHovered = false, barScale = 1 }) {
     const canvasRef = useRef(null);
@@ -23,6 +24,9 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, [isHovered]);
 
+    // Audio Context - Read from REF to avoid re-renders
+    const { audioStateRef, isListening } = useAudioReactive();
+
     // Animation Loop
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -45,6 +49,16 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
             const my = mousePos.current.y;
             const isMouseInside = mx >= -50 && mx <= W + 50 && my >= -50 && my <= H + 50;
 
+            // Audio Modifiers - Poll the Ref
+            const bands = audioStateRef.current?.bands || { bass: 0, mid: 0, treble: 0 };
+            const bass = isListening ? bands.bass : 0;
+            const mid = isListening ? bands.mid : 0;
+            const treble = isListening ? bands.treble : 0;
+
+            // Normalize for effects (bands are 0-1)
+            const bassForce = bass * 3;
+            const trebleJitter = treble * 2;
+
             ctx.clearRect(0, 0, W, H);
             ctx.globalCompositeOperation = 'screen';
 
@@ -61,7 +75,8 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
                     const distToBar = Math.abs(my - barY);
 
                     const proximity = Math.max(0, 1 - distToBar / 150);
-                    const emitChance = isOverBar ? 0.9 : proximity * 0.4;
+                    // Bass increases spawn rate heavily
+                    const emitChance = (isOverBar ? 0.9 : proximity * 0.4) + (bassForce * 0.5);
 
                     if (Math.random() < emitChance) {
                         const startX = barX + Math.random() * effectiveWidth;
@@ -73,11 +88,11 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
                         particleSystem.current.push({
                             x: startX,
                             y: startY,
-                            vx: (dx / dist) * (0.5 + Math.random() * 2.5),
-                            vy: (dy / dist) * (0.5 + Math.random() * 2.5) - 1.0,
-                            size: isOverBar ? (Math.random() * 2.5 + 1.0) : (Math.random() * 1.5 + 0.5),
+                            vx: (dx / dist) * (0.5 + Math.random() * 2.5 + bassForce), // Bass kicks velocity
+                            vy: (dy / dist) * (0.5 + Math.random() * 2.5 + bassForce) - 1.0,
+                            size: (isOverBar ? (Math.random() * 2.5 + 1.0) : (Math.random() * 1.5 + 0.5)), // Base size
                             color: bar.color,
-                            opacity: isOverBar ? (0.8 + Math.random() * 0.2) : (0.4 + Math.random() * 0.3),
+                            opacity: (isOverBar ? (0.8 + Math.random() * 0.2) : (0.4 + Math.random() * 0.3)),
                             life: 1.0,
                             decay: 0.01 + Math.random() * 0.02
                         });
@@ -88,6 +103,12 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
             // --- UPDATE & DRAW ---
             const activeParticles = [];
             for (let p of particleSystem.current) {
+                // Apply WOBBLE (Treble Jitter) to active particles
+                if (isListening && trebleJitter > 0.1) {
+                    p.vx += (Math.random() - 0.5) * trebleJitter * 0.5;
+                    p.vy += (Math.random() - 0.5) * trebleJitter * 0.5;
+                }
+
                 p.vx *= 0.95;
                 p.vy *= 0.95;
                 p.x += p.vx;
@@ -96,10 +117,15 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
 
                 if (p.life > 0) {
                     ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    // Pulse size with Bass
+                    const currentSize = p.size * (1 + (bassForce * 0.8));
+                    ctx.arc(p.x, p.y, currentSize, 0, Math.PI * 2);
                     ctx.fillStyle = p.color;
-                    ctx.globalAlpha = p.opacity * p.life;
-                    // Note: Removed shadowBlur for performance
+
+                    // Modulate opacity with Mid
+                    const currentOpacity = Math.min((p.opacity + mid) * p.life, 1);
+                    ctx.globalAlpha = currentOpacity;
+
                     ctx.fill();
                     activeParticles.push(p);
                 }
@@ -111,7 +137,7 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
 
         update();
         return () => cancelAnimationFrame(frameId);
-    }, [barPositions, isHovered, barScale]);
+    }, [barPositions, isHovered, barScale, isListening, audioStateRef]); // Removed 'bands' from dep array
 
     return (
         <canvas

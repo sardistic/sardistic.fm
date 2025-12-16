@@ -40,22 +40,41 @@ body {
   @apply bg-dark-bg text-gray-200 font-sans antialiased overflow-x-hidden;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar for Webkit browsers */
 ::-webkit-scrollbar {
   width: 8px;
-  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-dark-bg;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-dark-border rounded-full hover:bg-neon-pink transition-colors;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Force Recharts Bar Hover Effects */
+.recharts-bar-rectangles path {
+  transition: all 0.2s ease !important;
+}
+
+.recharts-bar-rectangles path:hover {
+  filter: drop-shadow(0 0 15px currentColor) !important;
+  stroke: white !important;
+  stroke-width: 2px !important;
+  opacity: 1 !important;
+  transform: scaleY(1.05);
+  /* Subtle pop */
+  transform-origin: bottom;
 }
 
 @layer components {
-    .glass-panel {
+  .glass-panel {
     position: relative;
     /* Restore standard dark glass background */
     background-color: rgba(0, 0, 0, 0.4);

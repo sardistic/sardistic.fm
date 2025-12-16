@@ -1,7 +1,7 @@
-import React, { useMemo, useState, memo, useRef } from 'react';
-import { ArrowLeft, ArrowRight, Sun, Moon, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useMemo, useState, memo, useRef, useEffect } from 'react';
+import { ArrowLeft, ArrowRight, Sun, Moon, ChevronLeft, ChevronRight, Disc, Music } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, AreaChart, Area, CartesianGrid } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import MagneticText from './MagneticText';
 import LocalizedSwarm from './LocalizedSwarm';
 import monthMeta from '../data/month_meta.json';
@@ -90,76 +90,167 @@ const DailyHistoryChart = memo(({ data, metric, onHoverMonth, activeMonth }) => 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const lastHoveredRef = useRef(null);
 
+    const [hoveredIndex, setHoveredIndex] = useState(null);
+    const [tooltipData, setTooltipData] = useState(null);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="glass-panel no-highlight p-6 h-[300px] flex flex-col relative overflow-hidden group"
+            className="glass-panel no-highlight p-6 h-[300px] flex flex-col relative group" // Removed overflow-hidden
+            onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMousePos({
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                });
+            }}
+            onMouseLeave={() => {
+                lastHoveredRef.current = null;
+                onHoverMonth(null);
+                setTooltipData(null);
+            }}
         >
             <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent"></div>
             <h2 className="text-xl font-bold flex items-center gap-2 mb-4 relative z-10">
                 <span className={`w-1 h-6 rounded-full shadow-[0_0_10px] ${metric === 'minutes' ? 'bg-yellow-400 shadow-yellow-400' : 'bg-neon-cyan shadow-neon-cyan'}`}></span>
                 Listening History <span className="text-xs text-gray-500 font-normal ml-2">(Daily)</span>
             </h2>
-            <div className="flex-1 relative z-10 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <BarChart
-                        data={data}
-                        barCategoryGap={1}
-                        onMouseMove={(e) => {
-                            if (e && e.activeLabel) {
-                                const dateStr = e.activeLabel;
-                                const monthIndex = new Date(dateStr).getMonth();
-                                const newMonth = monthNames[monthIndex];
+            <div className="flex-1 relative z-10 w-full flex items-end gap-[1px]">
+                {/* Custom Bar Chart Replacement */}
+                {(() => {
+                    // CRITICAL: Calculate Max based on BOTH metrics to ensure a shared Y-Axis scale.
+                    // We normalize Minutes by 2.4 (instead of 3.5) to ensuring the Minutes graph is VISUALLY TALLER
+                    // than the Plays graph for average songs, satisfying the "Visible Difference" requirement.
+                    const VISUAL_MINUTES_FACTOR = 2.4;
 
-                                // Only trigger update if month changed
-                                if (lastHoveredRef.current !== newMonth) {
-                                    lastHoveredRef.current = newMonth;
-                                    onHoverMonth(newMonth);
-                                }
-                            }
-                        }}
-                        onMouseLeave={() => {
-                            lastHoveredRef.current = null;
-                            onHoverMonth(null);
+                    const maxPlays = Math.max(...data.map(d => d.scrobbles || 0), 1);
+                    const maxMinsNorm = Math.max(...data.map(d => (d.realMinutes || 0) / VISUAL_MINUTES_FACTOR), 1);
+                    const sharedMax = Math.max(maxPlays, maxMinsNorm);
+
+                    return data.map((entry, index) => {
+                        const isMatch = activeMonth === entry.monthName;
+                        const isDimmed = activeMonth && !isMatch;
+
+                        // Use sharedMax for height calculation
+                        // Determine value based on metric
+                        const val = metric === 'minutes'
+                            ? ((entry.realMinutes || 0) / VISUAL_MINUTES_FACTOR)
+                            : (entry.scrobbles || 0);
+
+                        const heightPercent = Math.max((val / sharedMax) * 100, 2); // Min height 2%
+
+                        return (
+                            <motion.div
+                                key={index}
+                                className="flex-1 h-full flex items-end justify-center relative group"
+                                initial="initial" // Use variant name
+                                animate="idle"
+                                whileHover="hover"
+                                onMouseEnter={() => {
+                                    if (lastHoveredRef.current !== entry.monthName) {
+                                        lastHoveredRef.current = entry.monthName;
+                                        onHoverMonth(entry.monthName);
+                                    }
+                                    setTooltipData(entry);
+                                }}
+                            >
+                                <motion.div
+                                    className="w-full rounded-t-sm origin-bottom"
+                                    variants={{
+                                        initial: { height: 0, opacity: 0 },
+                                        idle: {
+                                            height: `${heightPercent}%`,
+                                            opacity: isDimmed ? 0.2 : 0.7,
+                                            scaleY: 1,
+                                            boxShadow: `0 0 4px ${entry.color}40`,
+                                            zIndex: 1
+                                        },
+                                        hover: {
+                                            height: `${heightPercent}%`,
+                                            opacity: 1,
+                                            scaleY: 1.5,
+                                            zIndex: 50,
+                                            boxShadow: `0 0 25px ${entry.color}, 0 0 5px white`,
+                                            transition: { duration: 0.1, type: "spring", stiffness: 300, damping: 20 }
+                                        }
+                                    }}
+                                    style={{
+                                        background: `linear-gradient(to top, ${entry.color}, ${entry.color}80)`,
+                                        filter: isDimmed ? 'grayscale(100%)' : 'none'
+                                    }}
+                                />
+                            </motion.div>
+                        );
+                    });
+                })()}
+            </div>
+
+            {/* Custom Floating Tooltip (Mimicking Overview AreaChart Tooltip) */}
+            <AnimatePresence>
+                {tooltipData && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.1 }}
+                        className="absolute z-[100] pointer-events-none"
+                        style={{
+                            left: Math.min(Math.max(mousePos.x + 20, 0), 1000), // Clamp logic simplified
+                            top: Math.min(Math.max(mousePos.y - 150, 0), 200),
+                            transform: 'translate3d(0, 0, 0)'
                         }}
                     >
-                        <XAxis dataKey="label" hide />
-                        <Tooltip
-                            cursor={{ fill: 'rgba(255,255,255,0.1)' }}
-                            contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
-                            labelStyle={{ color: '#fff' }}
-                            formatter={(val) => [
-                                metric === 'minutes' ? formatChartDuration(val) : `${Math.round(val).toLocaleString()} scrobbles`,
-                                metric === 'minutes' ? 'Duration' : 'Volume'
-                            ]}
-                        />
-                        <Bar
-                            dataKey="value"
-                            radius={[2, 2, 0, 0]}
-                            isAnimationActive={false} // Disable bar animation for performance
-                        >
-                            {data.map((entry, index) => {
-                                const isMatch = activeMonth === entry.monthName;
-                                const isDimmed = activeMonth && !isMatch;
-
-                                return (
-                                    <Cell
-                                        key={`cell-${index}`}
-                                        fill={entry.color}
-                                        style={{
-                                            opacity: isDimmed ? 0.2 : 1,
-                                            filter: isDimmed ? 'grayscale(100%)' : 'none',
-                                            transition: 'opacity 0.3s ease, filter 0.3s ease'
-                                        }}
+                        <div className="bg-[#0a0a0a]/95 p-3 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md min-w-[320px] max-w-[400px]">
+                            <div className="flex gap-4 items-start">
+                                {/* Art */}
+                                <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden shadow-lg bg-[#1a1a1a]">
+                                    <img
+                                        src={tooltipData.top_albums?.[0]?.url || tooltipData.img || 'https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png'}
+                                        alt="Art"
+                                        className="w-full h-full object-cover"
                                     />
-                                );
-                            })}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-        </motion.div>
+                                </div>
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="mb-2">
+                                        <p className="text-white font-bold text-base leading-tight">{tooltipData.label}</p>
+                                        <p className="text-neon-cyan text-sm font-mono font-bold">
+                                            {metric === 'minutes'
+                                                ? `Time: ${formatChartDuration(tooltipData.originalValue || tooltipData.value)}`
+                                                : `Plays: ${Math.round(tooltipData.value).toLocaleString()}`}
+                                        </p>
+                                    </div>
+                                    {/* Top Album */}
+                                    {tooltipData.top_albums?.[0] && (
+                                        <div className="mb-1.5">
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1">
+                                                <Disc size={8} /> Top Album
+                                            </p>
+                                            <p className="text-white text-xs font-semibold truncate w-full">{tooltipData.top_albums[0].name}</p>
+                                            <p className="text-gray-400 text-[10px] truncate w-full">{tooltipData.top_albums[0].artist}</p>
+                                        </div>
+                                    )}
+                                    {/* Top Track */}
+                                    {tooltipData.top_tracks?.[0] && (
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1">
+                                                <Music size={8} /> Top Track
+                                            </p>
+                                            <p className="text-white text-xs font-semibold truncate w-full">{tooltipData.top_tracks[0].name}</p>
+                                            <p className="text-gray-400 text-[10px] truncate w-full">{tooltipData.top_tracks[0].artist}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div >
+
     );
 }, (prev, next) => {
     return prev.metric === next.metric && prev.data === next.data && prev.activeMonth === next.activeMonth;
@@ -181,6 +272,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const [hoveredMonth, setHoveredMonth] = useState(null);
 
+
     // Daily Timeline Data (generated from allData.timeline for true daily granularity)
     const dailyTimeline = useMemo(() => {
         if (!allData?.timeline || !year) return [];
@@ -189,14 +281,22 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
         const isLeap = (y) => (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
         const daysInMonth = [31, isLeap(parseInt(year)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-        // faster lookup for monthly averages
+        // faster lookup for monthly averages and metadata
         const monthlyMinutesMap = new Map();
+        const monthlyMetaMap = new Map();
+
         if (allData.history) {
             allData.history.forEach(h => {
                 if (h.date.startsWith(year)) {
                     // Avoid division by zero
                     const avg = h.scrobbles > 0 ? (h.minutes || 0) / h.scrobbles : 3.5;
                     monthlyMinutesMap.set(h.date, avg);
+                    // Store metadata for fallback
+                    monthlyMetaMap.set(h.date, {
+                        top_albums: h.top_albums,
+                        top_tracks: h.top_tracks,
+                        img: h.img
+                    });
                 }
             });
         }
@@ -213,25 +313,60 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
 
             const scrobbles = allData.timeline[dateKey] || 0;
             let value = scrobbles;
+            let originalValueVal = scrobbles;
 
             if (metric === 'minutes') {
-                const avg = monthlyMinutesMap.get(monthKey) || 3.5; // fallback to 3.5m if no month data
-                value = scrobbles * avg;
+                let rawMinutes = 0;
+                // Try to use precise daily minutes from calendar
+                if (allData.calendar && allData.calendar[dateKey]) {
+                    rawMinutes = allData.calendar[dateKey].minutes || 0;
+                } else {
+                    // Fallback to monthly average estimate
+                    const avg = monthlyMinutesMap.get(monthKey) || 3.5;
+                    rawMinutes = scrobbles * avg;
+                }
+
+                // CRITICAL: Normalize visual height by 3.5 to align with Scrobble scale
+                // This makes "Long Song" days taller than "Short Song" days relative to the Plays graph.
+                value = rawMinutes / 3.5;
+                originalValueVal = rawMinutes; // Tooltip shows real minutes
             }
 
             // Sync Color with Month Cards (Meta > Vibe > Default)
             const meta = monthMeta[monthKey] || {};
             const barColor = meta.dominantColor || getMonthVibeColor(currentMonth);
 
+            const monthMetaEntry = monthlyMetaMap.get(monthKey) || {};
+
+            // Daily Granularity Override
+            let dailyMeta = {};
+            if (allData.calendar && allData.calendar[dateKey]) {
+                const c = allData.calendar[dateKey];
+                dailyMeta = {
+                    top_tracks: c.top_track ? [c.top_track] : [],
+                    top_albums: c.top_album ? [c.top_album] : [],
+                    img: c.top_track?.img || c.top_album?.img
+                };
+            } else {
+                dailyMeta = monthMetaEntry;
+            }
+
+            // Always store real minutes for global scaling calculations
+            // If calendar data is missing, fallback to the monthly average estimate just like we do for 'value' logic
+            const fallbackAvg = monthlyMinutesMap.get(monthKey) || 3.5;
+            const actualRealMinutes = allData.calendar?.[dateKey]?.minutes || (scrobbles * fallbackAvg);
+
             days.push({
                 date: dateKey,
                 label: dateKey,
-                monthName: monthNames[currentMonth], // Add month name for hover matching
+                monthName: monthNames[currentMonth],
                 value: value,
+                originalValue: originalValueVal,
+                realMinutes: actualRealMinutes, // PERSISTENT FIELD FOR SCALING
                 color: barColor,
-                // store raw pieces if needed for tooltip customization
                 scrobbles: scrobbles,
-                minutes: metric === 'minutes' ? value : (scrobbles * (monthlyMinutesMap.get(monthKey) || 3.5))
+                minutes: (metric === 'minutes' && allData.calendar?.[dateKey]) ? allData.calendar[dateKey].minutes : (scrobbles * 3.5),
+                ...dailyMeta
             });
 
             currentDay++;
@@ -277,30 +412,53 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
     const monthlyGridData = useMemo(() => {
         return monthNames.map((m, i) => {
             const monthPrefix = `${year}-${String(i + 1).padStart(2, '0')}`;
-            const daysInMonth = (allData?.history || [])
-                .filter(d => d.date.startsWith(monthPrefix))
-                .map(d => metric === 'minutes' ? (d.minutes || 0) : (d.scrobbles || 0));
+            const daysInMonthCount = new Date(year, i + 1, 0).getDate();
 
-            // Calculate aggregations
-            const val = metric === 'minutes'
-                ? daysInMonth.reduce((a, b) => a + b, 0)
-                : rawMonthPlays(i); // Fallback to raw data if history issue, or consistent
+            const dailyScrobbles = [];
+            const dailyMinutes = [];
 
-            function rawMonthPlays(idx) { return months[idx] || 0; }
+            // Calculate Monthly Ratio for fallback
+            const monthTotalScrobbles = months[i] || 1;
+            const monthHistoryEntry = (allData.history || []).find(h => h.date === monthPrefix);
+            const monthTotalMinutes = monthHistoryEntry?.minutes || (monthTotalScrobbles * 3.5);
+            const fallbackRatio = monthTotalMinutes / monthTotalScrobbles;
 
-            // Use existing data for consistency if history check fails or for scrobbles
-            const displayValue = metric === 'minutes' ? val : (months[i] || 0);
+            if (allData?.timeline) {
+                for (let d = 1; d <= daysInMonthCount; d++) {
+                    const dayKey = `${year}-${String(i + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const sVal = allData.timeline[dayKey] || 0;
 
+                    // Precise Minutes or Fallback
+                    let mVal = 0;
+                    if (allData.calendar && allData.calendar[dayKey]) {
+                        mVal = allData.calendar[dayKey].minutes;
+                    } else {
+                        mVal = sVal * fallbackRatio;
+                    }
+
+                    dailyScrobbles.push(sVal);
+                    dailyMinutes.push(mVal);
+                }
+            } else {
+                // Empty override
+                for (let d = 1; d <= daysInMonthCount; d++) {
+                    dailyScrobbles.push(0);
+                    dailyMinutes.push(0);
+                }
+            }
+
+            // Aggregates
+            const totalScrobbles = months[i] || 0;
+            const totalMinutes = dailyMinutes.reduce((a, b) => a + b, 0);
+
+            // Legacy/Display Values based on current Metric to keep compatibility
+            const displayValue = metric === 'minutes' ? totalMinutes : totalScrobbles;
             const displayFormatted = metric === 'minutes' ? formatDuration(displayValue) : displayValue.toLocaleString();
+            const avgDaily = Math.round(displayValue / daysInMonthCount);
 
-            const daysCount = new Date(year, i + 1, 0).getDate();
-            const avgDaily = Math.round(displayValue / daysCount);
+            // Layout Props
             const vibeColor = getMonthVibeColor(i);
             const textColor = getSentimentStyle(m).textColor;
-
-            // Faux waveform if missing history, otherwise real
-            const waveform = daysInMonth.length > 0 ? daysInMonth : Array(30).fill(displayValue / 30);
-            const maxDay = Math.max(...waveform, 1);
 
             return {
                 month: m,
@@ -309,11 +467,14 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                 avgDaily,
                 vibeColor,
                 textColor,
-                days: waveform,
-                maxDay
+                daysScrobbles: dailyScrobbles, // NEW
+                daysMinutes: dailyMinutes,     // NEW
+                days: metric === 'minutes' ? dailyMinutes : dailyScrobbles, // Fallback for old usages
+                maxDayScrobbles: Math.max(...dailyScrobbles, 1),
+                maxDayMinutes: Math.max(...dailyMinutes, 1)
             };
         });
-    }, [year, data, allData?.history, metric, months]);
+    }, [year, data, allData?.history, allData?.calendar, metric, months]);
 
     const handleMouseMove = (e) => {
         if (requestRef.current) return;
@@ -634,6 +795,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
 
             {/* Listening History Chart (Daily) */}
             <DailyHistoryChart
+                key={metric} // FORCE REMOUNT for proper scaling update
                 data={dailyTimeline}
                 metric={metric}
                 onHoverMonth={setHoveredMonth}
@@ -653,13 +815,28 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                         const isHovered = hoveredMonth === m.month;
                         const cardRef = useRef(null);
 
-                        // Swarm Bar Positions
-                        const barPositions = (m.days || []).map((val, dIdx) => ({
-                            x: (dIdx / (m.days.length || 30)) * 100,
-                            width: (1 / (m.days.length || 30)) * 100,
-                            height: (val / (m.maxDay || 1)) * 100,
-                            color: activeColor
-                        }));
+                        // Swarm Bar Positions (Shared Scale Logic) - HORIZONTAL LAYOUT
+                        const VISUAL_MINUTES_FACTOR = 2.4;
+                        const localMaxPlays = m.maxDayScrobbles || 1;
+                        const localMaxMinsNorm = (m.maxDayMinutes || 1) / VISUAL_MINUTES_FACTOR;
+                        const localSharedMax = Math.max(localMaxPlays, localMaxMinsNorm);
+                        const MAX_WIDTH_PERCENT = 85; // Prevent hitting the absolute right edge
+
+                        const barPositions = (m.days || []).map((val, dIdx) => {
+                            // Calculate WIDTH based on metric's normalization
+                            let normalizedVal = val;
+                            if (metric === 'minutes') {
+                                normalizedVal = val / VISUAL_MINUTES_FACTOR;
+                            }
+
+                            const widthPct = (normalizedVal / localSharedMax) * MAX_WIDTH_PERCENT;
+
+                            return {
+                                val: val, // Keep original for tooltip
+                                width: Math.min(Math.max(widthPct, 1), 100), // Clamp
+                                color: activeColor
+                            };
+                        });
 
                         const isMins = metric === 'minutes';
                         const format = (n) => {
@@ -692,14 +869,8 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                                         }}
                                     />
 
-                                    {/* Frosted Gradient Overlay (Unrevealed State) */}
-                                    <div
-                                        className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent backdrop-blur-xl"
-                                        style={{
-                                            maskImage: 'linear-gradient(to right, black 80%, transparent 100%)',
-                                            WebkitMaskImage: 'linear-gradient(to right, black 80%, transparent 100%)'
-                                        }}
-                                    />
+                                    {/* Frosted Background (Unrevealed) - CLEAN GLASS */}
+                                    <div className="absolute inset-0 bg-black/40 backdrop-blur-md" />
 
                                     {/* 2. Revealed Clear Background (Top Layer) - Wipe Reveal */}
                                     <div
@@ -716,31 +887,46 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                                                 transform: 'scale(1.1)'
                                             }}
                                         />
-
-
-
-                                        {/* Clear Gradient Overlay (Revealed State) */}
-                                        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
                                     </div>
                                 </div>
 
-                                {/* Left Accent Bar - Always Visible, Pulses on Hover */}
+                                {/* Left Accent Bar - Always Visible */}
                                 <div
-                                    className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-all duration-300"
+                                    className="absolute left-0 top-0 bottom-0 w-[4px] rounded-l-xl z-30 transition-all duration-300"
                                     style={{
                                         background: activeColor,
-                                        boxShadow: isHovered ? `0 0 12px ${activeColor}, 0 0 24px ${activeColor}` : `0 0 6px ${activeColor}`,
-                                        opacity: isHovered ? 1 : 0.6
+                                        boxShadow: `0 0 10px ${activeColor}`,
                                     }}
                                 />
 
-                                {/* Stationary Expanding Gradient Bar - Expands from Left Accent */}
-                                <div className="absolute bottom-4 left-0 h-[60px] w-[3px] transition-all duration-300 group-hover:w-[160px] group-hover:rounded-r-sm z-30 rounded-l-xl"
-                                    style={{
-                                        background: isHovered ? `linear-gradient(to right, ${activeColor}, transparent)` : activeColor,
-                                        opacity: isHovered ? 1 : 0.3
-                                    }}
-                                />
+                                {/* "Left-Growth" Daily Graph */}
+                                <div className="absolute left-[4px] top-4 bottom-4 w-full flex flex-col justify-center gap-[1px] z-50 pointer-events-auto mix-blend-screen">
+                                    {barPositions.map((bar, dIdx) => {
+                                        const dayLabel = `${m.month} ${dIdx + 1}`;
+                                        return (
+                                            <motion.div
+                                                key={dIdx}
+                                                className="h-full rounded-r-full origin-left cursor-crosshair"
+                                                initial={{ width: 0, opacity: 0 }}
+                                                animate={{ width: `${bar.width}%`, opacity: 1 }}
+                                                whileHover={{
+                                                    scaleY: 1.5, // Scale Y for thicker bar on hover
+                                                    opacity: 1,
+                                                    boxShadow: `0 0 25px ${activeColor}, 0 0 10px ${activeColor}`, // SUPER STRONG GLOW
+                                                    zIndex: 60, // Pop above neighbors
+                                                    transition: { duration: 0.1 }
+                                                }}
+                                                title={`${dayLabel}: ${metric === 'minutes' ? formatDuration(bar.val) : bar.val.toLocaleString()} ${metric === 'minutes' ? 'mins' : 'plays'}`}
+                                                transition={{ duration: 0.5, delay: dIdx * 0.015 }}
+                                                style={{
+                                                    background: `linear-gradient(90deg, ${activeColor}, transparent)`, // Stronger gradient
+                                                    boxShadow: `0 0 8px ${activeColor}60`, // Stronger permanent shadow
+                                                    opacity: 0.8
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </div>
 
                                 {/* Content Slide Container */}
                                 <div className="relative z-40 p-4 h-full flex flex-col justify-between pointer-events-none">
