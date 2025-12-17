@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, motionValue } from 'framer-motion';
-import { Play, Pause, SkipForward, SkipBack, Volume2, Disc, Radio, X, MessageSquare, Clock, Calendar, Activity } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, Disc, Radio, X, MessageSquare, Clock, Calendar, Activity, Music } from 'lucide-react';
 import TiltCard from './TiltCard';
 
 const REFRESH_INTERVAL_MS = 10000; // 10 seconds
@@ -521,7 +521,7 @@ function StatCard3D({ label, count, top, topTracks, topAlbums, sparkline, color,
 
                 {/* HEADER */}
                 <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-gray-300 uppercase tracking-widest font-mono group-hover:text-white transition-colors drop-shadow-md">
+                    <div className="flex items-center gap-2 text-sm font-bold text-gray-300 uppercase tracking-widest font-mono group-hover:text-white transition-colors drop-shadow-md">
                         {icon} {label}
                     </div>
                     <div
@@ -545,6 +545,15 @@ function StatCard3D({ label, count, top, topTracks, topAlbums, sparkline, color,
                             <div className="text-xl font-bold text-white truncate drop-shadow-md leading-tight">
                                 {top && top.length > 0 ? top[0].name : "---"}
                             </div>
+                            {/* NEW: Passive Data (Top Track) */}
+                            {topTracks && topTracks.length > 0 && !isHovered && (
+                                <div className="mt-1.5 flex items-center gap-1.5 opacity-70">
+                                    <Music size={10} className="text-gray-400" />
+                                    <span className="text-[10px] text-gray-300 font-medium truncate font-mono uppercase tracking-wider">
+                                        {topTracks[0].name}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* HOVER REVEAL: Top Tracks List */}

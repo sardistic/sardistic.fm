@@ -528,7 +528,7 @@ app.get('/api/recent/:period', async (req, res) => {
 
                 topTracks = tList.map(t => ({
                     name: t.name,
-                    artist: t.artist.name
+                    artist: (t.artist && t.artist.name) ? t.artist.name : t.artist
                 }));
             }
         }
@@ -583,7 +583,7 @@ app.get('/api/recent/:period', async (req, res) => {
 
                     return {
                         name: a.name,
-                        artist: a.artist.name,
+                        artist: (a.artist && a.artist.name) ? a.artist.name : a.artist,
                         count: parseInt(a.playcount),
                         image
                     };
@@ -597,12 +597,15 @@ app.get('/api/recent/:period', async (req, res) => {
             fetchedCount: tracks.length,
             topArtists: topArtists,
             topTracks: topTracks,
-            recentTracks: tracks.slice(0, 3).map(t => ({ name: t.name, artist: t.artist['#text'] })), // ADDED RAW RECENT TRACKS
+            recentTracks: tracks.slice(0, 3).map(t => ({ name: t.name, artist: (t.artist && t.artist['#text']) ? t.artist['#text'] : t.artist })), // ADDED RAW RECENT TRACKS
             topAlbums: topAlbums,
             sparkline: sparkline
         });
 
     } catch (error) {
+        console.error("Stats API Error:", error);
+        console.error("Stack:", error.stack);
+
         if (error.message === 'MISSING_API_KEY') {
             // Mock data
             return res.json({
