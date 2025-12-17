@@ -307,10 +307,11 @@ function MainDashboard() {
     }
   }, [activeLineIndex]);
 
-  // Auto-fetch if panel is open and song changes
+  // Auto-fetch lyrics when song changes or panel opens
   useEffect(() => {
-    if (showLyrics && nowPlaying && (!lyrics || lyrics === "Lyrics not found.")) {
+    if (showLyrics && nowPlaying) {
       setLyricsLoading(true);
+      setLyrics(null); // Clear previous lyrics
       fetch(`${SERVER_URL}/api/lyrics?artist=${encodeURIComponent(nowPlaying.artist)}&track=${encodeURIComponent(nowPlaying.name)}`)
         .then(res => res.json())
         .then(data => {
@@ -319,7 +320,7 @@ function MainDashboard() {
         .catch(err => setLyrics("Lyrics not found."))
         .finally(() => setLyricsLoading(false));
     }
-  }, [nowPlaying, showLyrics]);
+  }, [nowPlaying?.name, nowPlaying?.artist, showLyrics]);
 
   // Reset lyrics on song change
   useEffect(() => {
@@ -513,7 +514,7 @@ function MainDashboard() {
           </div>
 
           {/* 2. Center: Player Blurb / Trigger (Mobile: Top Right, Desktop: Center) */}
-          <div className={`flex justify-end md:justify-center order-2 md:order-2 transition-all duration-500 relative z-50 ${isGlobalPlayerActive ? 'w-full order-last' : 'w-auto md:w-1/3'}`}>
+          <div className={`flex justify-end md:justify-center transition-all duration-500 relative z-50 ${isGlobalPlayerActive ? 'w-full order-first md:w-auto md:flex-1 md:order-2' : 'w-auto md:w-1/3 order-2 md:order-2'}`}>
             <AnimatePresence mode="wait">
               {!isGlobalPlayerActive ? (
                 nowPlaying && (
