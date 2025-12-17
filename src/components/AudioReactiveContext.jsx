@@ -15,6 +15,9 @@ export const AudioReactiveProvider = ({ children }) => {
     const [isListening, setIsListening] = useState(false);
     const [audioSource, setAudioSource] = useState('mic'); // 'mic' or 'tab'
 
+    const volumeRef = useRef(50); // Default 50
+    const updateVolume = (vol) => { volumeRef.current = vol; };
+
     // Use Ref for high-frequency data to avoid global re-renders
     const audioStateRef = useRef({
         energy: 0,
@@ -174,8 +177,13 @@ export const AudioReactiveProvider = ({ children }) => {
         }
         const avg = sum / dataArray.length;
 
-        // SENSITIVITY BOOST
-        const SENSITIVITY = 2.5;
+        // SENSITIVITY BOOST (Normalized by Volume)
+        // If volume is low, we boost sensitivity to keep visuals active.
+        const currentVol = Math.max(volumeRef.current, 5); // Clamp bottom at 5%
+        const normFactor = 50 / currentVol; // Reference volume 50%
+        // Base sensitivity 2.5, scaled by sqrt of volume factor to be less aggressive than linear
+        const SENSITIVITY = 2.5 * Math.pow(normFactor, 0.6);
+
         const normEnergy = Math.min((avg / 255) * SENSITIVITY, 1);
 
         // Calculate Bands
@@ -222,7 +230,8 @@ export const AudioReactiveProvider = ({ children }) => {
         toggleListening,
         audioSource,
         setAudioSource,
-        audioStateRef // Expose Ref
+        audioStateRef, // Expose Ref
+        updateVolume
     };
 
     return (

@@ -15,6 +15,36 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
     const [loading, setLoading] = useState(true);
     const [lastActiveTime, setLastActiveTime] = useState(Date.now());
 
+    // Lyrics State
+    const [showLyrics, setShowLyrics] = useState(false);
+    const [lyrics, setLyrics] = useState(null);
+    const [lyricsLoading, setLyricsLoading] = useState(false);
+
+    // Fetch Lyrics when Song Changes or Toggle is active
+    useEffect(() => {
+        if (showLyrics && nowPlaying && (!lyrics || lyrics === "Lyrics not found.")) {
+            // Only fetch if we don't have them or retrying
+            setLyricsLoading(true);
+            fetch(`${serverUrl}/api/lyrics?artist=${encodeURIComponent(nowPlaying.artist)}&track=${encodeURIComponent(nowPlaying.name)}`)
+                .then(res => res.json())
+                .then(data => {
+                    setLyrics(data.lyrics || "Lyrics not found in database.");
+                })
+                .catch(err => {
+                    console.error("Lyrics fetch error:", err);
+                    setLyrics("Lyrics not found or connection failed.");
+                })
+                .finally(() => setLyricsLoading(false));
+        }
+    }, [nowPlaying, showLyrics]);
+
+    // Reset lyrics when song changes
+    useEffect(() => {
+        setLyrics(null);
+        // Optional: Close lyrics on song change? No, keep it open if user wants to sing along continuously.
+    }, [nowPlaying?.name, nowPlaying?.artist]);
+
+
     // Update last active time when we have a track
     useEffect(() => {
         if (nowPlaying) {
@@ -199,23 +229,25 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                                 </motion.div>
                             </motion.button>
 
-                            {/* Text Stack - CLICK TO LISTEN + ON AIR */}
+                            {/* TEXT STACK & LYRICS TOGGLE */}
                             <div className="flex flex-col gap-0.5">
-                                {/* Cyberpunk Text Label */}
-                                <motion.div
-                                    className="text-[9px] font-mono font-bold tracking-widest uppercase text-rose-400 whitespace-nowrap"
-                                    animate={{
-                                        textShadow: [
-                                            '0 0 5px rgba(244,63,94,0.5), 0 0 10px rgba(244,63,94,0.3)',
-                                            '0 0 10px rgba(244,63,94,0.8), 0 0 20px rgba(244,63,94,0.5)',
-                                            '0 0 5px rgba(244,63,94,0.5), 0 0 10px rgba(244,63,94,0.3)'
-                                        ],
-                                        opacity: [0.7, 1, 0.7]
-                                    }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                >
-                                    ← CLICK TO LISTEN
-                                </motion.div>
+                                <div className="flex items-center gap-3">
+                                    {/* Cyberpunk Text Label */}
+                                    <motion.div
+                                        className="text-[9px] font-mono font-bold tracking-widest uppercase text-rose-400 whitespace-nowrap"
+                                        animate={{
+                                            textShadow: [
+                                                '0 0 5px rgba(244,63,94,0.5), 0 0 10px rgba(244,63,94,0.3)',
+                                                '0 0 10px rgba(244,63,94,0.8), 0 0 20px rgba(244,63,94,0.5)',
+                                                '0 0 5px rgba(244,63,94,0.5), 0 0 10px rgba(244,63,94,0.3)'
+                                            ],
+                                            opacity: [0.7, 1, 0.7]
+                                        }}
+                                        transition={{ duration: 2, repeat: Infinity }}
+                                    >
+                                        ← CLICK TO LISTEN
+                                    </motion.div>
+                                </div>
 
                                 {/* ON AIR Status - Below Text */}
                                 <motion.div
@@ -255,34 +287,85 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                     </div>
 
                     {/* MAIN CONTENT */}
-                    <div className="mt-2 pointer-events-auto">
-                        <h2 className="text-4xl font-black text-white leading-[0.9] drop-shadow-xl truncate tracking-tighter">
-                            {displayItem?.name || "WAITING..."}
-                        </h2>
-                        <h3 className="text-xl text-cyan-200 font-medium truncate tracking-tight opacity-95 drop-shadow-md">
-                            {displayItem?.artist || "---"}
-                        </h3>
-                        {displayItem?.album && (
-                            <div className="text-xs text-white/70 font-mono uppercase tracking-widest border-l-2 border-white/40 pl-2 mt-2">
-                                {displayItem.album}
-                            </div>
-                        )}
-
-                        {/* Recent Tracks List for Now Playing Card */}
-                        {stats.today.recentTracks && stats.today.recentTracks.length > 0 && (
-                            <div className="pt-6 mt-4 border-t border-white/10">
-                                <div className="text-[9px] text-cyan-200/70 uppercase font-black tracking-widest mb-2 font-mono">Recently Played</div>
-                                <div className="space-y-1.5">
-                                    {stats.today.recentTracks.slice(0, 3).map((t, i) => (
-                                        <div key={i} className="flex items-center gap-2 text-[10px] text-white/60">
-                                            <div className="w-1 h-1 rounded-full bg-cyan-400/50" />
-                                            <span className="text-white/90 font-bold truncate max-w-[120px]">{t.name}</span>
-                                            <span className="text-white/40 truncate">- {t.artist}</span>
+                    <div className="mt-2 pointer-events-auto relative">
+                        <AnimatePresence mode="wait">
+                            {!showLyrics ? (
+                                <motion.div
+                                    key="info"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <h2 className="text-4xl font-black text-white leading-[0.9] drop-shadow-xl truncate tracking-tighter">
+                                        {displayItem?.name || "WAITING..."}
+                                    </h2>
+                                    <h3 className="text-xl text-cyan-200 font-medium truncate tracking-tight opacity-95 drop-shadow-md">
+                                        {displayItem?.artist || "---"}
+                                    </h3>
+                                    {displayItem?.album && (
+                                        <div className="text-xs text-white/70 font-mono uppercase tracking-widest border-l-2 border-white/40 pl-2 mt-2">
+                                            {displayItem.album}
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                                    )}
+
+                                    {/* Recent Tracks List for Now Playing Card */}
+                                    {stats.today.recentTracks && stats.today.recentTracks.length > 0 && (
+                                        <div className="pt-6 mt-4 border-t border-white/10">
+                                            <div className="text-[9px] text-cyan-200/70 uppercase font-black tracking-widest mb-2 font-mono">Recently Played</div>
+                                            <div className="space-y-1.5">
+                                                {stats.today.recentTracks.slice(0, 3).map((t, i) => (
+                                                    <div key={i} className="flex items-center gap-2 text-[10px] text-white/60">
+                                                        <div className="w-1 h-1 rounded-full bg-cyan-400/50" />
+                                                        <span className="text-white/90 font-bold truncate max-w-[120px]">{t.name}</span>
+                                                        <span className="text-white/40 truncate">- {t.artist}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="lyrics"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="absolute top-0 left-0 right-0 bottom-0 h-[280px] -mt-10 -ml-4 -mr-4 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/30 scrollbar-track-transparent pr-2 mask-linear"
+                                >
+                                    <div className="bg-black/80 backdrop-blur-xl rounded-xl p-4 min-h-full border border-white/10 shadow-2xl">
+                                        <div className="flex justify-between items-center mb-4 sticky top-0 bg-black/90 p-2 z-10 border-b border-white/10">
+                                            <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest">
+                                                Lyrics_Module.v1
+                                            </div>
+                                            <button onClick={() => setShowLyrics(false)} className="text-white/50 hover:text-white">
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+
+                                        {lyricsLoading ? (
+                                            <div className="flex flex-col items-center justify-center py-10 gap-3">
+                                                <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                                                <span className="text-xs font-mono text-cyan-500 animate-pulse">Scanning database...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="text-sm font-medium text-white/90 leading-relaxed whitespace-pre-wrap font-mono relative">
+                                                {/* Glitch Overlay Text */}
+                                                <div className="absolute inset-0 text-cyan-500/20 blur-[1px] select-none pointer-events-none translate-x-[1px] translate-y-[1px]">
+                                                    {lyrics}
+                                                </div>
+                                                <div className="relative z-10">{lyrics}</div>
+                                            </div>
+                                        )}
+
+                                        <div className="mt-8 text-[9px] text-center text-white/30 font-mono">
+                                            END OF TRANSMISSION
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
             </TiltCard>
@@ -338,6 +421,7 @@ function StatCard3D({ label, count, top, topTracks, topAlbums, sparkline, color,
     // We want the peek to start engaging around 60% of width
     const peekInput = useTransform(mouseX, [0, 0.6, 1], [0, 0, 1]);
     const peekProgress = useSpring(peekInput, { stiffness: 200, damping: 20 });
+
 
     // Transformations based on peek
     // 0 = Artist View, 1 = Album View

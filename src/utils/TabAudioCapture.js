@@ -24,29 +24,19 @@ export class TabAudioCapture {
         console.log('[TabAudioCapture.start] This will show browser permission dialog');
 
         // Must be called from a user gesture (click/tap) or many browsers will block.
-        // We need to request video to get tab sharing, but we'll stop it immediately
-        let stream;
-        try {
-            // Add timeout to prevent indefinite stall
-            const streamPromise = navigator.mediaDevices.getDisplayMedia({
-                video: true,  // Required for tab sharing, but we'll stop it immediately
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false
-                }
-            });
-
-            // Race between the stream and a timeout
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Screen share dialog timed out after 60 seconds')), 60000)
-            );
-
-            stream = await Promise.race([streamPromise, timeoutPromise]);
-        } catch (err) {
-            console.error('[TabAudioCapture.start] getDisplayMedia failed:', err);
-            throw new Error(`Failed to capture tab: ${err.message}. Make sure to allow screen sharing and select a tab with audio.`);
-        }
+        // CRITICAL: Add video constraints to prevent browser freeze
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+                width: { max: 640 },
+                height: { max: 480 },
+                frameRate: { max: 1 }  // Very low frame rate since we only need audio
+            },
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            }
+        });
 
         console.log('[TabAudioCapture.start] getDisplayMedia returned stream:', stream);
 
@@ -57,33 +47,15 @@ export class TabAudioCapture {
             throw new Error("No audio track captured. User must share the tab WITH audio enabled.");
         }
 
-        // CRITICAL FIX: Stop video tracks immediately since we only need audio
-        // This prevents browser crashes and memory issues
-        const videoTracks = stream.getVideoTracks();
-        videoTracks.forEach(track => {
-            console.log('[TabAudioCapture.start] Stopping video track:', track.label);
-            track.stop();
-        });
-
-        // Create a new stream with ONLY the audio tracks
-        // This prevents the browser from stalling on stopped video tracks
-        const audioOnlyStream = new MediaStream(audioTracks);
-        this.stream = audioOnlyStream;
-
-        console.log('[TabAudioCapture.start] Created audio-only stream with', audioTracks.length, 'track(s)');
+        this.stream = stream;
 
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        console.log('[TabAudioCapture.start] Created AudioContext, state:', this.audioContext.state);
 
         if (this.audioContext.state === "suspended") {
-            console.log('[TabAudioCapture.start] Resuming suspended AudioContext...');
             await this.audioContext.resume();
-            console.log('[TabAudioCapture.start] AudioContext resumed, state:', this.audioContext.state);
         }
 
-        // Use the audio-only stream for the source
-        this.sourceNode = this.audioContext.createMediaStreamSource(audioOnlyStream);
-        console.log('[TabAudioCapture.start] Created MediaStreamSource from audio-only stream');
+        this.sourceNode = this.audioContext.createMediaStreamSource(stream);
 
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = this.fftSize;

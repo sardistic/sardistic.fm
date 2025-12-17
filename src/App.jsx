@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useAnimationFrame } from 'framer-motion';
-import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers } from 'lucide-react';
+import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
 import Overview from './components/Overview';
 import YearDetail from './components/YearDetail';
@@ -196,7 +196,8 @@ const PulsingMicButton = () => {
       </div>
 
       {/* Source Toggle */}
-      <button
+      <div
+        role="button"
         onClick={(e) => {
           e.stopPropagation();
           if (isListening) {
@@ -205,11 +206,11 @@ const PulsingMicButton = () => {
           }
           setAudioSource(audioSource === 'mic' ? 'tab' : 'mic');
         }}
-        className="text-xs px-2 py-1 rounded border border-white/20 hover:border-neon-cyan hover:bg-white/5 transition-colors relative z-10"
+        className="text-xs px-2 py-1 rounded border border-white/20 hover:border-neon-cyan hover:bg-white/5 transition-colors relative z-10 cursor-pointer select-none"
         title={`Switch to ${audioSource === 'mic' ? 'Tab Audio' : 'Microphone'}`}
       >
         {audioSource === 'mic' ? 'Mic' : 'Tab'}
-      </button>
+      </div>
 
       {/* Mini Graph Canvas */}
       <div className="flex flex-col gap-0.5 relative z-10">
@@ -253,6 +254,78 @@ function MainDashboard() {
   // Background Intensity
   const playerIntensity = isGlobalPlaying ? (globalVolume / 100) : 0;
 
+  // --- Lyrics Logic ---
+  const [showLyrics, setShowLyrics] = useState(false);
+  const [lyrics, setLyrics] = useState(null);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+
+  // Helper: Parse LRC
+  const parseLrc = (lrcString) => {
+    if (!lrcString) return [];
+    const lines = lrcString.split('\n');
+    const regex = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/;
+    return lines.map(line => {
+      const match = regex.exec(line);
+      if (!match) return null;
+      const minutes = parseInt(match[1]);
+      const seconds = parseInt(match[2]);
+      const milliseconds = parseInt(match[3]);
+      const time = minutes * 60 + seconds + milliseconds / 1000;
+      const text = match[4].trim();
+      return { time, text };
+    }).filter(l => l !== null);
+  };
+
+  const syncedLines = useMemo(() => {
+    if (lyrics && lyrics.trim().startsWith('[')) {
+      return parseLrc(lyrics);
+    }
+    return null;
+  }, [lyrics]);
+
+  const activeLineIndex = useMemo(() => {
+    if (!syncedLines) return -1;
+    // Offset to trigger highlights slightly earlier (user request: "a sec before")
+    const SYNC_OFFSET = 1.5;
+    return syncedLines.findLastIndex(l => l.time <= currentPlaybackTime + SYNC_OFFSET);
+  }, [syncedLines, currentPlaybackTime]);
+
+  // Auto-scroll lyrics
+  const lyricsContainerRef = useRef(null);
+  useEffect(() => {
+    if (activeLineIndex !== -1 && lyricsContainerRef.current && lyricsContainerRef.current.children[0]) {
+      // The first child is the wrapper div, children are the lines
+      // Wait, I rendered a wrapper div in the JSX below.
+      // Let's target the wrapper's children
+      const wrapper = lyricsContainerRef.current.children[0]; // If I wrap in a div
+      if (!wrapper) return;
+      const activeEl = wrapper.children[activeLineIndex];
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [activeLineIndex]);
+
+  // Auto-fetch if panel is open and song changes
+  useEffect(() => {
+    if (showLyrics && nowPlaying && (!lyrics || lyrics === "Lyrics not found.")) {
+      setLyricsLoading(true);
+      fetch(`${SERVER_URL}/api/lyrics?artist=${encodeURIComponent(nowPlaying.artist)}&track=${encodeURIComponent(nowPlaying.name)}`)
+        .then(res => res.json())
+        .then(data => {
+          setLyrics(data.lyrics || "Lyrics not found in database.");
+        })
+        .catch(err => setLyrics("Lyrics not found."))
+        .finally(() => setLyricsLoading(false));
+    }
+  }, [nowPlaying, showLyrics]);
+
+  // Reset lyrics on song change
+  useEffect(() => {
+    setLyrics(null);
+  }, [nowPlaying?.name, nowPlaying?.artist]);
+
   // Memoize data
   const data = useMemo(() => rawData, []);
 
@@ -284,7 +357,12 @@ function MainDashboard() {
   }, [isManualPlayback]);
 
   // Audio State for UI adjustments
-  const { isListening } = useAudioReactive();
+  const { isListening, updateVolume } = useAudioReactive();
+
+  // Sync Global Volume to Audio Visualizer Sensitivity
+  useEffect(() => {
+    if (updateVolume) updateVolume(globalVolume);
+  }, [globalVolume, updateVolume]);
 
   // --- Queue Logic ---
   const playContext = (tracks, contextId = null) => {
@@ -384,30 +462,29 @@ function MainDashboard() {
       {/* Header */}
       <motion.nav
         initial={false}
-        animate={{ height: isGlobalPlayerActive ? 'auto' : '5rem' }}
-        transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className="fixed top-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-b border-white/10 z-50 flex flex-col overflow-hidden"
+        animate={{ height: isGlobalPlayerActive ? 'auto' : 'auto' }}
+        className="fixed top-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-b border-white/10 z-50 flex flex-col"
       >
-        {/* Top Row: Branding, Visuals, Interaction Trigger, Nav */}
-        <div className={`w-full flex items-center px-6 justify-between shrink-0 transition-all duration-500 ${isGlobalPlayerActive ? 'py-4 items-start' : 'h-20'}`}>
+        {/* Responsive Container */}
+        <div className={`w-full flex flex-wrap items-center justify-between px-4 py-3 gap-y-4 md:gap-y-0 transition-all duration-500 ${isGlobalPlayerActive ? 'md:h-auto md:py-4' : 'md:h-20'}`}>
 
-          {/* Left: Branding & Visual Controls */}
-          <div className={`flex items-center gap-4 transition-all duration-500 ${isGlobalPlayerActive ? 'w-auto' : 'w-1/3'}`}>
-            <div className="flex items-center gap-2 cursor-pointer group mr-4" onClick={goHome}>
+          {/* 1. Branding & Visuals (Mobile: Only Branding, Desktop: Branding + Visuals) */}
+          <div className="flex items-center gap-4 order-1 md:w-1/3">
+            <div className="flex items-center gap-2 cursor-pointer group" onClick={goHome}>
               <span className="text-lg tracking-tight font-mono transition-opacity hover:opacity-80">
                 <span className="text-white font-bold">AUDIO</span>
-                <span className="text-white/30">.sardistic.com</span>
+                <span className="text-white/30 hidden sm:inline">.sardistic.com</span>
               </span>
             </div>
 
-            {/* Visual Controls (Always Visible) */}
-            <div className={`flex items-center transition-all duration-500 ${isListening ? 'gap-12 ml-6' : 'gap-2'}`}>
+            {/* Desktop Visual Controls (Hidden on Mobile) */}
+            <div className={`hidden md:flex items-center transition-all duration-500 ${isListening ? 'gap-12 ml-12' : 'gap-4 ml-6'}`}>
               <PulsingMicButton />
 
-              {/* Background Toggle */}
+              {/* Full Text Background Toggle (Desktop) */}
               <div
                 onClick={() => setBackgroundType(prev => prev === 'shader' ? 'fluid' : 'shader')}
-                className="relative flex items-center bg-black/40 border border-white/10 rounded-full cursor-pointer h-8 w-36 px-1 select-none"
+                className="relative flex items-center bg-white/5 border border-white/10 rounded-full cursor-pointer h-8 w-36 px-1 select-none hover:bg-white/10 transition-colors"
                 title="Switch Background Visuals"
               >
                 <motion.div
@@ -422,12 +499,21 @@ function MainDashboard() {
                   <Zap size={12} /> GLSL
                 </div>
               </div>
+
+              {/* Lyrics Toggle (Desktop) */}
+              {(nowPlaying || playbackQueue.length > 0) && (
+                <button
+                  onClick={() => setShowLyrics(!showLyrics)}
+                  className={`p-2 rounded-full border transition-all ${showLyrics ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan' : 'bg-transparent border-white/10 text-gray-400 hover:text-white'}`}
+                >
+                  <MessageSquare size={14} />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Center: Blurb / Trigger / Player */}
-          {/* We allow this to grow when active */}
-          <div className={`flex justify-center transition-all duration-500 relative z-50 ${isGlobalPlayerActive ? 'flex-1 w-full' : 'w-1/3'}`}>
+          {/* 2. Center: Player Blurb / Trigger (Mobile: Top Right, Desktop: Center) */}
+          <div className={`flex justify-end md:justify-center order-2 md:order-2 transition-all duration-500 relative z-50 ${isGlobalPlayerActive ? 'w-full order-last' : 'w-auto md:w-1/3'}`}>
             <AnimatePresence mode="wait">
               {!isGlobalPlayerActive ? (
                 nowPlaying && (
@@ -437,28 +523,24 @@ function MainDashboard() {
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.9, opacity: 0 }}
-                    className="rounded-full px-6 py-2 flex items-center gap-3 bg-black/50 border border-white/10 hover:border-neon-pink/50 backdrop-blur-md transition-all group"
+                    className="rounded-full pl-3 pr-4 py-1.5 flex items-center gap-3 bg-white/5 border border-white/10 hover:border-neon-pink/50 backdrop-blur-md transition-all relative z-10 max-w-[200px] md:max-w-none"
                   >
-                    <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-                    <div className="flex flex-col text-left">
-                      <span className="text-xs text-white/50 font-mono leading-none">NOW PLAYING</span>
-                      <div className="flex items-center gap-2 max-w-[200px]">
-                        <span className="text-sm text-white font-bold truncate">{nowPlaying.name}</span>
-                        <span className="text-xs text-neon-pink truncate">- {nowPlaying.artist}</span>
-                      </div>
+                    <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse shrink-0" />
+                    <div className="flex flex-col text-left overflow-hidden">
+                      <span className="text-[10px] text-white/50 font-mono leading-none md:block hidden">NOW PLAYING</span>
+                      <span className="text-sm text-white font-bold truncate max-w-[120px]">{nowPlaying.name}</span>
                     </div>
                     <Music size={14} className="text-white/30 group-hover:text-white transition-colors" />
                   </motion.button>
                 )
               ) : (
-                /* Center Embedded Player */
+                /* Global Player Expanded */
                 <motion.div
                   key="embedded-player"
-                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  initial={{ opacity: 0, y: -20, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  className="w-full max-w-5xl flex justify-center"
+                  exit={{ opacity: 0, y: -20, scale: 0.98 }}
+                  className="w-full max-w-5xl flex justify-center pt-4 md:pt-0"
                 >
                   <ErrorBoundary>
                     <PersistentPlayer
@@ -471,6 +553,7 @@ function MainDashboard() {
                       onPlayStateChange={setIsGlobalPlaying}
                       isEmbedded={true}
                       onEnded={handleTrackEnded}
+                      onProgress={setCurrentPlaybackTime}
                     />
                   </ErrorBoundary>
                 </motion.div>
@@ -478,22 +561,116 @@ function MainDashboard() {
             </AnimatePresence>
           </div>
 
-          {/* Right: Navigation */}
-          <div className={`flex gap-3 justify-end transition-all duration-500 ${isGlobalPlayerActive ? 'w-auto opacity-100 pt-3' : 'w-1/3'}`}>
-            <button onClick={() => setView('analytics')} className={`nav-btn ${view === 'analytics' ? 'active' : ''}`}>
-              Analytics
-            </button>
-            <button onClick={handleBingeClick} className={`nav-btn ${view === 'binges' ? 'active' : ''}`}>
-              Binges
-            </button>
-            <button onClick={goHome} className={`nav-btn ${view === 'overview' ? 'active' : ''}`}>
-              Overview
-            </button>
+          {/* 3. Controls & Nav (Mobile: Bottom Row full width, Desktop: Separated) */}
+          <div className={`flex items-center justify-between w-full md:w-1/3 md:justify-end gap-4 order-3 md:order-3 ${isGlobalPlayerActive ? 'md:absolute md:right-4 md:top-0 md:h-20' : ''}`}>
+
+            {/* Visual Controls (Mobile Only: Left side of bottom row) */}
+            <div className="flex md:hidden items-center gap-2">
+              <PulsingMicButton />
+
+              {/* Compact Background Toggle (Mobile) */}
+              <div
+                onClick={() => setBackgroundType(prev => prev === 'shader' ? 'fluid' : 'shader')}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 border border-white/10 cursor-pointer text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                title="Switch Visuals"
+              >
+                {backgroundType === 'fluid' ? <Layers size={14} /> : <Zap size={14} />}
+              </div>
+
+              {/* Lyrics (Mobile) */}
+              {(nowPlaying || playbackQueue.length > 0) && (
+                <button
+                  onClick={() => setShowLyrics(!showLyrics)}
+                  className={`p-2 rounded-full border transition-all ${showLyrics ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan' : 'bg-transparent border-white/10 text-gray-400 hover:text-white'}`}
+                >
+                  <MessageSquare size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Nav Links (Right side of bottom row on mobile) */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => setView('analytics')} className={`nav-btn px-3 py-1.5 text-xs ${view === 'analytics' ? 'active' : ''}`}>
+                Analytics
+              </button>
+              <button onClick={handleBingeClick} className={`nav-btn px-3 py-1.5 text-xs ${view === 'binges' ? 'active' : ''}`}>
+                Binges
+              </button>
+              <button onClick={goHome} className={`nav-btn px-3 py-1.5 text-xs ${view === 'overview' ? 'active' : ''}`}>
+                Overview
+              </button>
+            </div>
           </div>
+
         </div >
       </motion.nav >
 
-      <style jsx>{`
+      {/* FLOATING LYRICS OVERLAY (Moved to Root Level) */}
+      <AnimatePresence>
+        {showLyrics && (
+          <motion.div
+            initial={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
+            className="fixed top-28 left-6 z-[100] w-[350px] h-[500px] pointer-events-none"
+          >
+            <div className="w-full h-full bg-black/80 backdrop-blur-3xl rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.7)] flex flex-col pointer-events-auto overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5 cursor-move">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-neon-cyan shadow-[0_0_10px_rgba(0,255,255,0.5)] animate-pulse" />
+                  <span className="text-xs font-mono font-bold tracking-widest text-white/90">LYRICS STREAM</span>
+                </div>
+                <button
+                  onClick={() => setShowLyrics(false)}
+                  className="p-1 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent relative" ref={lyricsContainerRef}>
+                {lyricsLoading ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-3">
+                    <div className="w-5 h-5 border-2 border-neon-cyan border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[10px] font-mono text-neon-cyan/80 animate-pulse tracking-widest">SEARCHING FREQUENCIES...</span>
+                  </div>
+                ) : (
+                  syncedLines ? (
+                    <div className="flex flex-col gap-6 py-[50%]">
+                      {syncedLines.map((line, i) => (
+                        <motion.div
+                          key={i}
+                          initial={false}
+                          animate={{
+                            opacity: i === activeLineIndex ? 1 : 0.6,
+                            scale: i === activeLineIndex ? 1.05 : 1,
+                            filter: 'blur(0px)',
+                            y: 0
+                          }}
+                          className={`text-center font-sans font-bold transition-all duration-300 ${i === activeLineIndex ? 'text-neon-cyan text-xl drop-shadow-[0_0_15px_rgba(0,255,255,0.4)]' : 'text-white/60 text-base'}`}
+                        >
+                          {line.text}
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm font-medium text-white/90 leading-loose font-sans whitespace-pre-wrap text-center tracking-wide">
+                      {lyrics || <span className="text-gray-500 italic text-xs">Signal lost. No lyrics data found.</span>}
+                    </div>
+                  )
+                )}
+                {/* Aesthetic Top/Bottom Fades */}
+                <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/90 to-transparent pointer-events-none sticky top-0 z-10" />
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/90 to-transparent pointer-events-none sticky bottom-0 z-10" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <style jsx="true">{`
         .nav-pill {
             @apply px-4 py-2 rounded-full text-sm font-medium transition-all text-gray-400 hover:text-white hover:bg-white/5;
         }
@@ -504,9 +681,9 @@ function MainDashboard() {
 
       <AnalyticsProvider currentView={view}>
         <motion.main
-          animate={{ paddingTop: isGlobalPlayerActive ? '13rem' : '8rem' }}
+          animate={{ paddingTop: isGlobalPlayerActive ? '13rem' : 'auto' }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="px-4 max-w-7xl mx-auto min-h-[80vh]"
+          className="px-4 max-w-7xl mx-auto min-h-[80vh] md:pt-32"
         >
           <AnimatePresence mode="wait">
             {view === 'overview' && (

@@ -13,6 +13,7 @@ export default function PersistentPlayer({
     onVolumeChange,
     onPlayStateChange,
     onEnded,
+    onProgress,
     isEmbedded = false
 }) {
     const iframeRef = useRef(null);
@@ -66,23 +67,52 @@ export default function PersistentPlayer({
         }
     }, [volume]);
 
-    // Listener for Player Ready (Legacy/Standard method)
+    // Playback Progress (Dead Reckoning for Lyrics Sync)
+    const [currentTime, setCurrentTime] = useState(0);
+    const progressInterval = useRef(null);
+
+    // Reset progress on track change
+    useEffect(() => {
+        setCurrentTime(0);
+        if (onProgress) onProgress(0);
+    }, [nowPlaying?.name, nowPlaying?.artist]);
+
+    // Timer Loop
+    useEffect(() => {
+        if (!isPaused && videoUrl) {
+            progressInterval.current = setInterval(() => {
+                setCurrentTime(prev => {
+                    const next = prev + 0.1;
+                    if (onProgress) onProgress(next);
+                    return next;
+                });
+            }, 100);
+        } else {
+            if (progressInterval.current) clearInterval(progressInterval.current);
+        }
+        return () => {
+            if (progressInterval.current) clearInterval(progressInterval.current);
+        };
+    }, [isPaused, videoUrl, onProgress]);
+
+    // Handle External Time Updates (if YouTube sends them via postMessage)
     useEffect(() => {
         const handleMessage = (event) => {
             if (event.origin.includes('youtube.com')) {
                 try {
                     const data = JSON.parse(event.data);
-
                     // Volume Init
                     if (data.event === 'onReady' || data.info?.playerState) {
                         sendCommand('setVolume', [volume]);
                     }
-
-                    // Detect Ended (State 0)
+                    // Ended
                     if (data.info && data.info.playerState === 0) {
                         if (onEnded) onEnded();
                     }
-
+                    // Time Sync (Rare but possible)
+                    if (data.info && typeof data.info.currentTime === 'number') {
+                        setCurrentTime(data.info.currentTime);
+                    }
                 } catch (e) { }
             }
         };

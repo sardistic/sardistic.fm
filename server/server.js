@@ -834,6 +834,90 @@ app.get('/api/years/top-tracks', (req, res) => {
     });
 });
 
+
+// GET Lyrics
+// GET Lyrics
+app.get('/api/lyrics', async (req, res) => {
+    const { artist, track } = req.query;
+    if (!artist || !track) {
+        return res.status(400).json({ error: 'Artist and track are required' });
+    }
+
+    // Helper to clean artist name (e.g., "The Chainsmokers, Beau Nox" -> "The Chainsmokers")
+    const cleanArtist = (name) => {
+        return name.split(/,|&|\sft\.|\sfeat\./i)[0].trim();
+    };
+
+    const fetchLrclib = async (a, t) => {
+        try {
+            const response = await axios.get('https://lrclib.net/api/get', {
+                params: {
+                    artist_name: a,
+                    track_name: t
+                },
+                timeout: 5000
+            });
+            // Prefer synced, then plain
+            if (response.data) {
+                return response.data.syncedLyrics || response.data.plainLyrics;
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const fetchOvh = async (a, t) => {
+        try {
+            const response = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(a)}/${encodeURIComponent(t)}`, {
+                timeout: 5000
+            });
+            return response.data.lyrics;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    try {
+        console.log(`Fetching lyrics for ${artist} - ${track}`);
+
+        let lyrics = null;
+
+        // 1. Try Lrclib (Best quality)
+        lyrics = await fetchLrclib(artist, track);
+        if (!lyrics) {
+            const cleaned = cleanArtist(artist);
+            if (cleaned !== artist) {
+                console.log(`Lrclib retry with: ${cleaned}`);
+                lyrics = await fetchLrclib(cleaned, track);
+            }
+        }
+
+        // 2. Fallback to Lyrics.ovh
+        if (!lyrics) {
+            console.log('Falling back to Lyrics.ovh...');
+            lyrics = await fetchOvh(artist, track);
+            if (!lyrics) {
+                const cleaned = cleanArtist(artist);
+                if (cleaned !== artist) {
+                    console.log(`Lyrics.ovh retry with: ${cleaned}`);
+                    lyrics = await fetchOvh(cleaned, track);
+                }
+            }
+        }
+
+        if (lyrics) {
+            res.json({ lyrics });
+        } else {
+            // Return null instead of 404 to avoid console errors
+            res.json({ lyrics: null, message: 'Lyrics not found' });
+        }
+    } catch (error) {
+        console.error('Error fetching lyrics:', error.message);
+        res.json({ lyrics: null, error: 'Failed to fetch lyrics' });
+    }
+});
+
 // Start Server
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
