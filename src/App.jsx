@@ -681,9 +681,9 @@ function MainDashboard() {
 
       <AnalyticsProvider currentView={view}>
         <motion.main
-          animate={{ paddingTop: isGlobalPlayerActive ? '13rem' : 'auto' }}
+          animate={{ paddingTop: isGlobalPlayerActive ? '18rem' : '8rem' }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="px-4 max-w-7xl mx-auto min-h-[80vh] md:pt-32"
+          className="px-4 max-w-7xl mx-auto min-h-[80vh]"
         >
           <AnimatePresence mode="wait">
             {view === 'overview' && (

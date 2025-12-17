@@ -219,7 +219,7 @@ export default function PersistentPlayer({
                         </div>
 
                         {/* CONTROLS AREA (Embedded: Right Side, Popup: Bottom) */}
-                        <div className={`${isEmbedded ? 'flex-1 flex items-center justify-between h-full py-2 pl-4' : 'w-full px-4 py-3 flex items-center justify-between gap-4 bg-gradient-to-r from-black/80 to-transparent'}`}>
+                        <div className={`${isEmbedded ? 'flex-1 flex flex-col justify-center items-start h-full py-2 pl-4' : 'w-full px-4 py-3 flex items-center justify-between gap-4 bg-gradient-to-r from-black/80 to-transparent'}`}>
 
                             {/* Standard Header Info (Popup Only) */}
                             {!isEmbedded && (
@@ -244,7 +244,7 @@ export default function PersistentPlayer({
 
                             {/* Embedded Center Info */}
                             {isEmbedded && (
-                                <div className="flex flex-col justify-center flex-1 px-4 min-w-0">
+                                <div className="flex flex-col justify-end px-0 mb-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="text-white font-bold text-lg truncate">{nowPlaying?.name}</span>
                                         {tuning && <span className="text-neon-cyan text-xs animate-pulse">(Scanning...)</span>}
