@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, memo, useEffect } from 'react';
-import { ArrowRight, BarChart3, Calendar, Disc, Moon, Sun, ChevronLeft, ChevronRight, User as UserIcon, BookOpen, Music, Layers, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { ArrowRight, BarChart3, Calendar, Disc, Moon, Sun, ChevronLeft, ChevronRight, User as UserIcon, BookOpen, Music, Layers, TrendingUp, TrendingDown, Minus, Play } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, ReferenceArea, CartesianGrid } from 'recharts';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
@@ -17,7 +17,7 @@ const hexToRgb = (hex) => {
     return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0, 255, 204';
 };
 
-function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen }) {
+function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen, onPlayContext }) {
     const [hoveredYear, setHoveredYear] = useState(null);
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
     const [zoomYear, setZoomYear] = useState(null); // V14: Zoom into a specific year
@@ -479,13 +479,14 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
             <FavoritesSection
                 data={data}
                 onArtistClick={onArtistClick}
+                onPlayContext={onPlayContext}
             />
         </div>
     );
 }
 
 
-function FavoritesSection({ data, onArtistClick }) {
+function FavoritesSection({ data, onArtistClick, onPlayContext }) {
     const [tab, setTab] = useState('artists'); // 'artists', 'albums', 'tracks'
     const [highlightBooks, setHighlightBooks] = useState(false);
     const [page, setPage] = useState(1);
@@ -637,7 +638,81 @@ function FavoritesSection({ data, onArtistClick }) {
                             )}
 
                             {/* Overlay */}
-                            <div className={`absolute inset-0 transition-colors ${shouldHighlight ? 'bg-neon-pink/10 group-hover:bg-neon-pink/20' : 'bg-black/40 group-hover:bg-black/20'}`} />
+                            <div className={`absolute inset-0 transition-colors ${shouldHighlight ? 'bg-neon-pink/10 group-hover:bg-neon-pink/20' : 'bg-black/40 group-hover:bg-black/60'}`} />
+
+                            {/* Play Button Overlay (Tracks Only) */}
+                            {tab === 'tracks' && (
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (onPlayContext) {
+                                                const globalIdx = (page - 1) * PER_PAGE + idx;
+                                                const queue = items.slice(globalIdx, globalIdx + 50).map(i => ({
+                                                    name: i.name,
+                                                    artist: i.sub,
+                                                    image: i.img
+                                                }));
+                                                onPlayContext(queue);
+                                            }
+                                        }}
+                                        className="bg-neon-cyan text-black rounded-full p-3 transform hover:scale-110 transition-transform shadow-[0_0_20px_rgba(0,255,204,0.5)]"
+                                    >
+                                        <Play size={24} fill="currentColor" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Play Button Overlay (Artists) */}
+                            {tab === 'artists' && (
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const stats = data.artists[item.name];
+                                            if (onPlayContext && stats && stats.albums) {
+                                                const allTracks = Object.values(stats.albums)
+                                                    .flatMap(a => a.tracks)
+                                                    .map(t => ({ ...t, artist: item.name }))
+                                                    .sort((a, b) => b.count - a.count);
+                                                onPlayContext(allTracks);
+                                            }
+                                        }}
+                                        className="bg-neon-cyan text-black rounded-full p-3 transform hover:scale-110 transition-transform shadow-[0_0_20px_rgba(0,255,204,0.5)]"
+                                    >
+                                        <Play size={24} fill="currentColor" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Play Button Overlay (Albums) */}
+                            {tab === 'albums' && (
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const artistStats = data.artists[item.sub];
+                                            const albumStats = artistStats?.albums?.[item.name];
+
+                                            // Fallback search if exact key match fails (sometimes keys differ from display names)
+                                            let targetAlbum = albumStats;
+                                            if (!targetAlbum && artistStats && artistStats.albums) {
+                                                targetAlbum = Object.values(artistStats.albums).find(a => a.name === item.name);
+                                            }
+
+                                            if (onPlayContext && targetAlbum && targetAlbum.tracks) {
+                                                const tracks = targetAlbum.tracks
+                                                    .map(t => ({ ...t, artist: item.sub }))
+                                                    .sort((a, b) => b.count - a.count);
+                                                onPlayContext(tracks);
+                                            }
+                                        }}
+                                        className="bg-neon-cyan text-black rounded-full p-3 transform hover:scale-110 transition-transform shadow-[0_0_20px_rgba(0,255,204,0.5)]"
+                                    >
+                                        <Play size={24} fill="currentColor" />
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Content */}
                             <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Calendar, Music, Clock, BarChart2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Calendar, Music, Clock, BarChart2, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, CartesianGrid } from 'recharts';
 
 // Reuse sentiment logic
@@ -19,7 +19,7 @@ const formatDuration = (mins) => {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-export default function MonthDetail({ year, month, allData, onBack, metric, setMetric, onMonthClick }) {
+export default function MonthDetail({ year, month, allData, onBack, metric, setMetric, onMonthClick, onPlayContext }) {
     if (!allData || !year || !month) return null;
 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -172,12 +172,20 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
                                 className="text-center min-w-[300px]"
                             >
                                 <h1
-                                    className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400"
+                                    className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400 leading-tight"
                                     style={{ textShadow: `0 0 40px ${vibeColor}50` }}
                                 >
                                     {fullMonthName}
                                 </h1>
-                                <div className="text-xl font-mono mt-2 text-gray-500 tracking-widest">{year}</div>
+                                <button
+                                    onClick={() => onPlayContext && monthSummary.top_tracks && onPlayContext(monthSummary.top_tracks)}
+                                    className="group/btn flex items-center justify-center gap-2 mx-auto mt-2 hover:scale-105 transition-transform"
+                                >
+                                    <div className="text-xl font-mono text-gray-500 tracking-widest">{year}</div>
+                                    <div className="bg-white/10 p-1.5 rounded-full text-white opacity-0 group-hover/btn:opacity-100 transition-opacity">
+                                        <Play size={14} fill="currentColor" />
+                                    </div>
+                                </button>
                             </motion.div>
 
                             <motion.button onClick={handleNext} whileHover={{ x: 2 }} className="p-2 hover:text-white text-gray-500 cursor-pointer">
@@ -235,13 +243,52 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
                                             <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
                                         </div>
 
-                                        <div className="flex items-center gap-4 relative z-10">
+                                        <div className="flex items-center gap-4 relative z-10 flex-1 min-w-0">
                                             <span className={`font-mono font-bold text-sm w-6 text-center ${i < 3 ? 'text-neon-purple' : 'text-gray-600'} transition-colors group-hover/item:text-neon-purple`}>#{i + 1}</span>
-                                            <span className="font-bold text-gray-200 group-hover/item:text-white transition-colors truncate max-w-[200px] text-lg drop-shadow-md">{artist.n}</span>
+                                            <span className="font-bold text-gray-200 group-hover/item:text-white transition-colors truncate text-lg drop-shadow-md">{artist.n}</span>
                                         </div>
-                                        <span className="text-sm font-mono text-gray-500 group-hover/item:text-white transition-colors relative z-10 drop-shadow-sm">
-                                            {metric === 'minutes' ? formatDuration(Math.round(artist.c * avgDuration)) : `${artist.c} scrobbles`}
-                                        </span>
+                                        <div className="flex items-center gap-4 relative z-10 shrink-0">
+                                            <span className="text-sm font-mono text-gray-500 group-hover/item:text-white transition-colors drop-shadow-sm">
+                                                {metric === 'minutes' ? formatDuration(Math.round(artist.c * avgDuration)) : `${artist.c} scrobbles`}
+                                            </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    console.log('[MonthDetail] Artist clicked:', artist.n);
+
+                                                    if (onPlayContext && allData && allData.artists) {
+                                                        const artistData = allData.artists[artist.n];
+                                                        console.log('[MonthDetail] Artist data:', artistData);
+
+                                                        if (artistData && artistData.albums) {
+                                                            // Extract all tracks from all albums
+                                                            const tracks = Object.values(artistData.albums)
+                                                                .flatMap(album => album.tracks || [])
+                                                                .map(track => ({
+                                                                    name: track.name || track.n,
+                                                                    artist: artist.n,
+                                                                    image: track.image || track.img || artistData.img
+                                                                }))
+                                                                .sort((a, b) => (b.count || 0) - (a.count || 0));
+
+                                                            console.log('[MonthDetail] Extracted tracks:', tracks.length);
+                                                            if (tracks.length > 0) {
+                                                                onPlayContext(tracks);
+                                                            } else {
+                                                                console.warn('[MonthDetail] No tracks found');
+                                                            }
+                                                        } else {
+                                                            console.warn('[MonthDetail] No albums for artist');
+                                                        }
+                                                    } else {
+                                                        console.warn('[MonthDetail] Missing allData or onPlayContext');
+                                                    }
+                                                }}
+                                                className="p-1.5 rounded-full bg-white/10 hover:bg-neon-purple text-white opacity-0 group-hover/item:opacity-100 transition-all hover:scale-110"
+                                            >
+                                                <Play size={14} fill="currentColor" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -270,21 +317,46 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
                                         {/* Subtle Album Art BG */}
                                         {album.url && <div className="absolute inset-0 bg-cover bg-center opacity-0 group-hover/item:opacity-20 transition-opacity duration-500 pointer-events-none blur-sm" style={{ backgroundImage: `url(${album.url})` }} />}
 
-                                        <div className="flex items-center gap-4 relative z-10">
+                                        <div className="flex items-center gap-4 relative z-10 flex-1 min-w-0">
                                             <span className={`font-mono font-bold text-sm w-6 text-center ${i < 3 ? 'text-neon-green' : 'text-gray-600'}`}>#{i + 1}</span>
                                             {album.url ? (
                                                 <img src={album.url} alt={album.name} className="w-10 h-10 rounded shadow-md object-cover" />
                                             ) : (
                                                 <div className="w-10 h-10 rounded bg-white/10 flex items-center justify-center"><Music size={16} /></div>
                                             )}
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-gray-200 group-hover/item:text-white transition-colors truncate max-w-[180px] leading-tight text-lg">{album.name}</span>
-                                                <span className="text-xs text-gray-500 font-medium tracking-wide">{album.artist}</span>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="font-bold text-gray-200 group-hover/item:text-white transition-colors truncate leading-tight text-lg">{album.name}</span>
+                                                <span className="text-xs text-gray-500 font-medium tracking-wide truncate">{album.artist}</span>
                                             </div>
                                         </div>
-                                        <span className="text-sm font-mono text-gray-500 group-hover/item:text-neon-green transition-colors relative z-10">
-                                            {metric === 'minutes' ? formatDuration(Math.round(album.count * avgDuration)) : album.count}
-                                        </span>
+                                        <div className="flex items-center gap-4 relative z-10 shrink-0">
+                                            <span className="text-sm font-mono text-gray-500 group-hover/item:text-neon-green transition-colors relative z-10">
+                                                {metric === 'minutes' ? formatDuration(Math.round(album.count * avgDuration)) : album.count}
+                                            </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Lookup deep album data
+                                                    const artistStats = allData.artists[album.artist];
+                                                    let targetAlbum = artistStats?.albums?.[album.name];
+
+                                                    // Fallback check
+                                                    if (!targetAlbum && artistStats && artistStats.albums) {
+                                                        targetAlbum = Object.values(artistStats.albums).find(a => a.name === album.name);
+                                                    }
+
+                                                    if (onPlayContext && targetAlbum && targetAlbum.tracks) {
+                                                        const tracks = targetAlbum.tracks
+                                                            .map(t => ({ ...t, artist: album.artist }))
+                                                            .sort((a, b) => b.count - a.count);
+                                                        onPlayContext(tracks);
+                                                    }
+                                                }}
+                                                className="p-1.5 rounded-full bg-white/10 hover:bg-neon-green text-white opacity-0 group-hover/item:opacity-100 transition-all hover:scale-110"
+                                            >
+                                                <Play size={14} fill="currentColor" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

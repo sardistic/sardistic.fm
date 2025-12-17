@@ -1,5 +1,5 @@
 import React, { useMemo, useState, memo, useRef, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, Sun, Moon, ChevronLeft, ChevronRight, Disc, Music } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Sun, Moon, ChevronLeft, ChevronRight, Disc, Music, Play } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, AreaChart, Area, CartesianGrid } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import MagneticText from './MagneticText';
@@ -256,7 +256,7 @@ const DailyHistoryChart = memo(({ data, metric, onHoverMonth, activeMonth }) => 
     return prev.metric === next.metric && prev.data === next.data && prev.activeMonth === next.activeMonth;
 });
 
-export default function YearDetail({ year, data, onBack, allData, metric, setMetric, onArtistClick, onMonthClick, onYearClick, nowPlaying, isListening, onToggleListen }) {
+export default function YearDetail({ year, data, onBack, allData, metric, setMetric, onArtistClick, onMonthClick, onYearClick, nowPlaying, isListening, onToggleListen, onPlayContext, queueLoading }) {
     if (!data) return <div>No data for {year}</div>;
 
     const requestRef = useRef(null);
@@ -471,7 +471,8 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                 daysMinutes: dailyMinutes,     // NEW
                 days: metric === 'minutes' ? dailyMinutes : dailyScrobbles, // Fallback for old usages
                 maxDayScrobbles: Math.max(...dailyScrobbles, 1),
-                maxDayMinutes: Math.max(...dailyMinutes, 1)
+                maxDayMinutes: Math.max(...dailyMinutes, 1),
+                topTracks: monthHistoryEntry?.top_tracks
             };
         });
     }, [year, data, allData?.history, allData?.calendar, metric, months]);
@@ -755,9 +756,15 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                         <ChevronLeft size={28} />
                     </button>
 
-                    <h1 className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 drop-shadow-2xl">
-                        {year}
-                    </h1>
+                    <div className="flex flex-col items-center group/title cursor-pointer" onClick={() => onPlayContext && onPlayContext(data.top_tracks)}>
+                        <h1 className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 drop-shadow-2xl group-hover/title:to-white transition-all">
+                            {year}
+                        </h1>
+                        <div className="flex items-center gap-2 text-neon-pink opacity-0 group-hover/title:opacity-100 transition-all -mt-2">
+                            <Play size={12} fill="currentColor" />
+                            <span className="text-[10px] uppercase font-bold tracking-widest">Play Year</span>
+                        </div>
+                    </div>
 
                     {/* Prev (Past) */}
                     <button
@@ -813,6 +820,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                         const displayImage = meta.imageUrl || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop";
                         const activeColorRgb = hexToRgb(activeColor);
                         const isHovered = hoveredMonth === m.month;
+                        const isLoading = queueLoading === `${year}-${String(i + 1).padStart(2, '0')}`;
                         const cardRef = useRef(null);
 
                         // Swarm Bar Positions (Shared Scale Logic) - HORIZONTAL LAYOUT
@@ -854,7 +862,9 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                                 className="glass-panel p-0 group min-h-[160px] flex flex-col justify-between transition-all duration-300 rounded-xl cursor-pointer"
                                 style={{
                                     '--spotlight-color': activeColor,
-                                    zIndex: isHovered ? 50 : 1
+                                    zIndex: isHovered ? 50 : 1,
+                                    boxShadow: isLoading ? `0 0 30px 5px ${activeColor}, 0 0 60px 10px ${activeColor}` : undefined,
+                                    animation: isLoading ? 'pulse 1s ease-in-out infinite' : undefined
                                 }}
                             >
                                 {/* Inner Content Wrapper (Clipped for images) */}
@@ -930,7 +940,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
 
                                 {/* Content Slide Container */}
                                 <div className="relative z-40 p-4 h-full flex flex-col justify-between pointer-events-none">
-                                    <div className="flex justify-between items-start">
+                                    <div className="flex justify-between items-start pointer-events-none">
                                         {/* Month Label - Slides RIGHT & ROTATES to Top Right Edge (Balanced) */}
                                         <div className="flex flex-col transition-all duration-500 ease-out group-hover:translate-x-[185px] group-hover:-translate-y-1 group-hover:rotate-90 origin-top-left relative">
                                             <span
@@ -946,7 +956,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                                     </div>
 
                                     {/* Metrics - Slides UP */}
-                                    <div className="pl-4 transition-all duration-300 group-hover:-translate-y-20 relative z-50">
+                                    <div className="pl-4 transition-all duration-300 group-hover:-translate-y-20 relative z-50 pointer-events-none">
                                         <div
                                             className="text-2xl font-black tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
                                             style={{
@@ -961,6 +971,25 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Play Button - Bottom Right (Moved outside content container) */}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        const contextId = `${year}-${String(i + 1).padStart(2, '0')}`;
+                                        console.log('[YearDetail] Play clicked, contextId:', contextId, 'topTracks:', m.topTracks);
+                                        if (onPlayContext && m.topTracks) {
+                                            onPlayContext(m.topTracks, contextId);
+                                        } else {
+                                            console.warn('[YearDetail] Missing data');
+                                        }
+                                    }}
+                                    className="absolute bottom-3 right-3 p-2 bg-white text-black rounded-full opacity-0 group-hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.5)] hover:scale-110 transition-all duration-300 z-[100] pointer-events-auto"
+                                    title="Play Top Tracks of Month"
+                                >
+                                    <Play size={16} fill="currentColor" />
+                                </button>
 
                                 {/* Artistic Text Reveal (Bottom Left) */}
                                 <div className={`absolute inset-x-0 bottom-0 p-4 z-50 transition-all duration-500 delay-100 flex flex-col items-start pointer-events-none ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full'}`}>

@@ -1,9 +1,9 @@
 import React from 'react';
-import { ArrowLeft, TrendingUp, Music, Moon, Sun, Zap } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Music, Moon, Sun, Zap, Play } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 
-function ArtistProfile({ artist, stats, onBack, allData, onTagClick, metric = 'scrobbles' }) {
+function ArtistProfile({ artist, stats, onBack, allData, onTagClick, metric = 'scrobbles', onPlayContext }) {
     if (!stats) return <div>Artist not found</div>;
 
     // Transform year stats into array
@@ -70,7 +70,24 @@ function ArtistProfile({ artist, stats, onBack, allData, onTagClick, metric = 's
                 )}
 
                 <div className="relative z-10">
-                    <h1 className="text-6xl font-black mb-4 text-white tracking-tighter drop-shadow-lg">{artist}</h1>
+                    <div className="flex items-center gap-4 mb-4">
+                        <h1 className="text-6xl font-black text-white tracking-tighter drop-shadow-lg leading-none">{artist}</h1>
+                        <button
+                            onClick={() => {
+                                if (onPlayContext && stats.albums) {
+                                    const allTracks = Object.values(stats.albums)
+                                        .flatMap(a => a.tracks)
+                                        .map(t => ({ ...t, artist: artist }))
+                                        .sort((a, b) => b.count - a.count);
+                                    onPlayContext(allTracks);
+                                }
+                            }}
+                            className="bg-neon-pink text-black p-3 rounded-full hover:scale-110 transition-transform shadow-[0_0_15px_rgba(255,0,85,0.4)]"
+                            title="Play All Top Tracks"
+                        >
+                            <Play size={20} fill="currentColor" />
+                        </button>
+                    </div>
 
                     <div className="flex flex-wrap gap-2 mb-6">
                         {stats.tags && stats.tags.map(tag => (
@@ -161,7 +178,19 @@ function ArtistProfile({ artist, stats, onBack, allData, onTagClick, metric = 's
                                                     )}
                                                     <div>
                                                         <h4 className="text-xl font-bold text-white">{expandedAlbum}</h4>
-                                                        <div className="text-xs text-neon-pink font-mono uppercase tracking-widest">Tracklist</div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="text-xs text-neon-pink font-mono uppercase tracking-widest">Tracklist</div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const tracks = stats.albums[expandedAlbum].tracks.map(t => ({ ...t, artist: artist }));
+                                                                    if (onPlayContext) onPlayContext(tracks);
+                                                                }}
+                                                                className="flex items-center gap-1 text-[10px] bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded-full transition-colors"
+                                                            >
+                                                                <Play size={10} fill="currentColor" /> PLAY
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <button

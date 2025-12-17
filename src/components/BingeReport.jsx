@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Zap, Moon, Sun, Sunrise, Sunset } from 'lucide-react';
+import { ArrowLeft, Zap, Moon, Sun, Sunrise, Sunset, Play } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-function BingeReport({ data, onBack, onArtistClick }) {
+function BingeReport({ data, onBack, onArtistClick, onPlayContext }) {
     // Process Binge Data
     const bingeArtists = useMemo(() => {
         return Object.entries(data.artists)
@@ -13,7 +13,8 @@ function BingeReport({ data, onBack, onArtistClick }) {
                 binges: stats.b.count,
                 maxStreak: stats.b.max_streak,
                 total: stats.t,
-                img: stats.img
+                img: stats.img,
+                allStats: stats
             }))
             .sort((a, b) => b.binges - a.binges)
             .slice(0, 20);
@@ -53,7 +54,25 @@ function BingeReport({ data, onBack, onArtistClick }) {
                             )}
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className="text-4xl font-black text-white/10">#{idx + 1}</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-4xl font-black text-white/10">#{idx + 1}</span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (onPlayContext && artist.allStats.albums) {
+                                                    const tracks = Object.values(artist.allStats.albums)
+                                                        .flatMap(a => a.tracks)
+                                                        .map(t => ({ ...t, artist: artist.name }))
+                                                        .sort((a, b) => b.count - a.count);
+                                                    onPlayContext(tracks);
+                                                }
+                                            }}
+                                            className="bg-white/10 hover:bg-neon-yellow hover:text-black text-white p-2 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                            title="Play Top Tracks"
+                                        >
+                                            <Play size={16} fill="currentColor" />
+                                        </button>
+                                    </div>
                                     <div className="bg-neon-yellow/10 text-neon-yellow px-2 py-1 rounded text-xs font-bold uppercase">
                                         {artist.maxStreak} track streak
                                     </div>

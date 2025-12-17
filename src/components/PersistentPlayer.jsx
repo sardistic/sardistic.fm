@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Radio, X, Loader, Volume2, Maximize2, Minimize2 } from 'lucide-react';
+import RetroAlbumPlaceholder from './RetroAlbumPlaceholder';
 
 export default function PersistentPlayer({
     serverUrl = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'),
@@ -11,6 +12,7 @@ export default function PersistentPlayer({
     volume,
     onVolumeChange,
     onPlayStateChange,
+    onEnded,
     isEmbedded = false
 }) {
     const iframeRef = useRef(null);
@@ -70,15 +72,23 @@ export default function PersistentPlayer({
             if (event.origin.includes('youtube.com')) {
                 try {
                     const data = JSON.parse(event.data);
+
+                    // Volume Init
                     if (data.event === 'onReady' || data.info?.playerState) {
                         sendCommand('setVolume', [volume]);
                     }
+
+                    // Detect Ended (State 0)
+                    if (data.info && data.info.playerState === 0) {
+                        if (onEnded) onEnded();
+                    }
+
                 } catch (e) { }
             }
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [volume]);
+    }, [volume, onEnded]);
 
     const handleVolumeChange = (e) => {
         const newVol = parseInt(e.target.value);
@@ -161,7 +171,8 @@ export default function PersistentPlayer({
                                 ) : (
                                     /* Fallback Art if Embedded and no video yet */
                                     isEmbedded ? (
-                                        <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${nowPlaying?.image || 'https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png'})`, opacity: 0.6 }}>
+                                        <div className="w-full h-full relative bg-black">
+                                            <RetroAlbumPlaceholder size={300} className="w-full h-full object-cover opacity-80" />
                                             <div className="absolute inset-0 flex items-center justify-center">
                                                 <div className="text-neon-cyan animate-pulse">
                                                     <Loader size={20} className="animate-spin" />

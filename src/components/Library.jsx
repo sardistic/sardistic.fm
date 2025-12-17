@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'scrobbles' }) {
+function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'scrobbles', onPlayContext }) {
     const [search, setSearch] = useState(initialSearch);
     const [sort, setSort] = useState(metric === 'minutes' ? 'minutes' : 'plays');
     const [order, setOrder] = useState('desc');
@@ -163,6 +163,25 @@ function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'sc
                                             {artist.name.slice(0, 2).toUpperCase()}
                                         </div>
                                     )}
+                                    {/* Play Overlay */}
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const stats = data.artists[artist.name];
+                                                if (onPlayContext && stats && stats.albums) {
+                                                    const allTracks = Object.values(stats.albums)
+                                                        .flatMap(a => a.tracks)
+                                                        .map(t => ({ ...t, artist: artist.name }))
+                                                        .sort((a, b) => b.count - a.count);
+                                                    onPlayContext(allTracks);
+                                                }
+                                            }}
+                                            className="p-2 bg-neon-cyan text-black rounded-full hover:scale-110 transition-transform shadow-[0_0_10px_rgba(0,255,204,0.5)]"
+                                        >
+                                            <Play size={16} fill="currentColor" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="font-bold text-gray-200 truncate group-hover:text-neon-cyan transition-colors">

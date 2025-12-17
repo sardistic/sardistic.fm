@@ -22,7 +22,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 // Optimized Button Component that animates without re-rendering parent
 const PulsingMicButton = () => {
-  const { isListening, toggleListening, audioStateRef } = useAudioReactive();
+  const { isListening, toggleListening, audioSource, setAudioSource, audioStateRef } = useAudioReactive();
   const buttonRef = useRef(null);
   const canvasRef = useRef(null);
   const borderCanvasRef = useRef(null); // New canvas for the border
@@ -179,7 +179,7 @@ const PulsingMicButton = () => {
     <button
       ref={buttonRef}
       onClick={toggleListening}
-      className={`relative flex items-center gap-3 px-4 py-2 rounded-full border transition-colors duration-300 ${isListening ? 'bg-black/80 border-transparent' : 'border-white/10 text-gray-400 hover:text-white hover:bg-white/5'}`}
+      className={`group relative flex items-center gap-3 px-4 py-2 rounded-full border transition-colors duration-300 ${isListening ? 'bg-black/80 border-transparent' : 'border-white/10 text-gray-400 hover:text-white hover:bg-white/5'}`}
       title="Visualize Audio (Speaker/Mic Required)"
     >
       {/* Waveform Border Canvas (Absolute Overlay) */}
@@ -194,6 +194,22 @@ const PulsingMicButton = () => {
       <div className={`relative z-10 ${isListening ? "text-neon-cyan animate-pulse" : ""}`}>
         {isListening ? <Zap size={18} fill="currentColor" /> : <MicOff size={18} />}
       </div>
+
+      {/* Source Toggle */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isListening) {
+            alert('Stop audio first');
+            return;
+          }
+          setAudioSource(audioSource === 'mic' ? 'tab' : 'mic');
+        }}
+        className="text-xs px-2 py-1 rounded border border-white/20 hover:border-neon-cyan hover:bg-white/5 transition-colors relative z-10"
+        title={`Switch to ${audioSource === 'mic' ? 'Tab Audio' : 'Microphone'}`}
+      >
+        {audioSource === 'mic' ? 'Mic' : 'Tab'}
+      </button>
 
       {/* Mini Graph Canvas */}
       <div className="flex flex-col gap-0.5 relative z-10">
@@ -225,8 +241,14 @@ function MainDashboard() {
   const [nowPlaying, setNowPlaying] = useState(null);
   const [isGlobalPlayerActive, setIsGlobalPlayerActive] = useState(false);
 
-  const [globalVolume, setGlobalVolume] = useState(3);
+  const [globalVolume, setGlobalVolume] = useState(25);
   const [isGlobalPlaying, setIsGlobalPlaying] = useState(false);
+
+  // Queue / Manual Playback State
+  const [playbackQueue, setPlaybackQueue] = useState([]);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [isManualPlayback, setIsManualPlayback] = useState(false);
+  const [queueLoading, setQueueLoading] = useState(null); // Track which context is loading
 
   // Background Intensity
   const playerIntensity = isGlobalPlaying ? (globalVolume / 100) : 0;
@@ -237,6 +259,8 @@ function MainDashboard() {
   // Poll for Now Playing Data Globally
   useEffect(() => {
     const fetchNowPlaying = async () => {
+      if (isManualPlayback) return; // Skip polling if manual queue is active
+
       try {
         const res = await fetch(`${SERVER_URL}/api/now-playing`);
         const data = await res.json();
@@ -257,10 +281,52 @@ function MainDashboard() {
     fetchNowPlaying();
     const interval = setInterval(fetchNowPlaying, REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [isManualPlayback]);
 
   // Audio State for UI adjustments
   const { isListening } = useAudioReactive();
+
+  // --- Queue Logic ---
+  const playContext = (tracks, contextId = null) => {
+    if (!tracks || tracks.length === 0) return;
+
+    // Set loading state
+    setQueueLoading(contextId);
+
+    // Normalize tracks
+    const formattedTracks = tracks.map(t => ({
+      name: t.name || t.trackName,
+      artist: t.artist || t.artistName,
+      image: t.image || null,
+      isPlaying: true
+    }));
+
+    setPlaybackQueue(formattedTracks);
+    setCurrentTrackIndex(0);
+    setIsManualPlayback(true);
+    setNowPlaying(formattedTracks[0]);
+    setIsGlobalPlayerActive(true);
+    setIsGlobalPlaying(true);
+
+    // Clear loading state after a short delay (when player starts)
+    setTimeout(() => setQueueLoading(null), 1000);
+  };
+
+  const handleTrackEnded = () => {
+    if (isManualPlayback && playbackQueue.length > 0) {
+      if (currentTrackIndex < playbackQueue.length - 1) {
+        const nextIndex = currentTrackIndex + 1;
+        setCurrentTrackIndex(nextIndex);
+        setNowPlaying(playbackQueue[nextIndex]);
+      } else {
+        // End of queue
+        setIsManualPlayback(false);
+        setIsGlobalPlaying(false);
+      }
+    }
+  };
+
+
 
   // View Handlers
   const handleYearClick = (year, metric) => {
@@ -404,6 +470,7 @@ function MainDashboard() {
                       onVolumeChange={setGlobalVolume}
                       onPlayStateChange={setIsGlobalPlaying}
                       isEmbedded={true}
+                      onEnded={handleTrackEnded}
                     />
                   </ErrorBoundary>
                 </motion.div>
@@ -460,6 +527,7 @@ function MainDashboard() {
                   nowPlaying={nowPlaying}
                   isListening={isGlobalPlayerActive}
                   onToggleListen={() => setIsGlobalPlayerActive(!isGlobalPlayerActive)}
+                  onPlayContext={playContext}
                 />
               </motion.div>
             )}
@@ -476,6 +544,7 @@ function MainDashboard() {
                   data={data}
                   onBack={goHome}
                   onArtistClick={handleArtistClick}
+                  onPlayContext={playContext}
                 />
               </motion.div>
             )}
@@ -494,6 +563,7 @@ function MainDashboard() {
                   onBack={goHome}
                   onArtistClick={handleArtistClick}
                   initialSearch={initialLibrarySearch}
+                  onPlayContext={playContext}
                 />
               </motion.div>
             )}
@@ -519,6 +589,8 @@ function MainDashboard() {
                   nowPlaying={nowPlaying}
                   isListening={isGlobalPlayerActive}
                   onToggleListen={() => setIsGlobalPlayerActive(!isGlobalPlayerActive)}
+                  onPlayContext={playContext}
+                  queueLoading={queueLoading}
                 />
               </motion.div>
             )}
@@ -539,6 +611,7 @@ function MainDashboard() {
                   setMetric={setMetric}
                   onBack={() => setView('year')}
                   onMonthClick={handleMonthClick}
+                  onPlayContext={playContext}
                 />
               </motion.div>
             )}
@@ -558,6 +631,7 @@ function MainDashboard() {
                   allData={data}
                   onBack={() => setView(selectedYear ? 'year' : 'overview')}
                   onTagClick={handleTagClick}
+                  onPlayContext={playContext}
                 />
               </motion.div>
             )}
