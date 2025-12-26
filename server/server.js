@@ -5,6 +5,9 @@ const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
 const Vibrant = require('node-vibrant');
+const cron = require('node-cron');
+const { syncScrobbles } = require('./sync');
+const { generatePayload } = require('./regenerate_payload');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -669,7 +672,8 @@ app.get('/api/youtube/search', (req, res) => {
 });
 
 // --- Last.fm Sync Endpoints ---
-const { syncScrobbles } = require('./sync');
+// Removed requires that are now at the top
+
 
 // Manual sync endpoint
 app.post('/api/sync/manual', async (req, res) => {
@@ -698,6 +702,18 @@ app.get('/api/sync/status', (req, res) => {
         }
         res.json(row || { last_sync_timestamp: 0, total_scrobbles: 0 });
     });
+});
+
+// GET Full Dashboard Data (Dynamic)
+app.get('/api/dashboard/data', async (req, res) => {
+    try {
+        // Pass the existing db instance
+        const payload = await generatePayload(db);
+        res.json(payload);
+    } catch (error) {
+        console.error('Failed to generate dashboard payload:', error);
+        res.status(500).json({ error: 'Failed to generate data' });
+    }
 });
 
 // Get scrobbles endpoint
@@ -918,6 +934,30 @@ app.get('/api/lyrics', async (req, res) => {
     } catch (error) {
         console.error('Error fetching lyrics:', error.message);
         res.json({ lyrics: null, error: 'Failed to fetch lyrics' });
+    }
+});
+
+// Schedule Auto-Sync (Every 10 minutes)
+cron.schedule('*/10 * * * *', async () => {
+    console.log('[Cron] Starting scheduled sync...');
+    try {
+        const result = await syncScrobbles();
+        if (result.synced > 0) {
+            console.log(`[Cron] Synced ${result.synced} new scrobbles. Regenerating payload...`);
+            // Regenerate the dashboard payload
+            const payload = await generatePayload(db);
+            // Optionally write to file if using static file serving, 
+            // but the API /api/dashboard/data generates it on fly or caches it
+            // For file-based caching used by `generate-static-data.js` conventions:
+            const fs = require('fs');
+            const PAYLOAD_PATH = path.resolve(__dirname, '../src/data/dashboard_payload.json');
+            fs.writeFileSync(PAYLOAD_PATH, JSON.stringify(payload));
+            console.log('[Cron] Dashboard payload updated.');
+        } else {
+            console.log('[Cron] No new scrobbles found.');
+        }
+    } catch (error) {
+        console.error('[Cron] Sync failed:', error.message);
     }
 });
 
