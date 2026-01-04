@@ -800,6 +800,11 @@
     "album": "Something Comforting",
     "artist": "Porter Robinson"
   },
+  "2026-01": {
+    "dominantColor": "#00ffcc",
+    "album": "New Year, New Data",
+    "artist": "System"
+  },
   "2021-02": {
     "imageUrl": "https://archive.org/download/mbid-174e9cf8-4593-494f-bc34-96e898cd3108/mbid-174e9cf8-4593-494f-bc34-96e898cd3108-33580932565.jpg",
     "dominantColor": "#9cbcdc",

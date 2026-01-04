@@ -7,29 +7,23 @@ const PAYLOAD_PATH = path.resolve(__dirname, '../src/data/dashboard_payload.json
 const DURATIONS_PATH = path.resolve(__dirname, 'track_durations.json'); // New source
 
 
-const db = new sqlite3.Database(DB_PATH);
+async function generatePayload(dbInstance = null) {
+    let localDb = false;
+    const database = dbInstance || new sqlite3.Database(DB_PATH);
+    if (!dbInstance) localDb = true;
 
-async function getAllScrobbles() {
-    return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM scrobbles ORDER BY timestamp ASC", [], (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
-}
-
-function getVibe(text) {
-    if (!text) return 'Neutral';
-    const t = text.toLowerCase();
-    if (t.includes('summer') || t.includes('sun')) return 'High Energy';
-    if (t.includes('dark') || t.includes('night')) return 'Mystery';
-    return 'Neutral';
-}
-
-async function regenerate() {
     try {
         console.log('Reading all scrobbles from DB...');
-        const scrobbles = await getAllScrobbles();
+
+        // Helper to query promise
+        const queryAll = (sql) => new Promise((resolve, reject) => {
+            database.all(sql, [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+
+        const scrobbles = await queryAll("SELECT * FROM scrobbles ORDER BY timestamp ASC");
         console.log(`Loaded ${scrobbles.length} scrobbles. Processing...`);
 
         // Load Duration Cache
@@ -37,7 +31,6 @@ async function regenerate() {
         if (fs.existsSync(DURATIONS_PATH)) {
             try {
                 durationCache = JSON.parse(fs.readFileSync(DURATIONS_PATH, 'utf8'));
-                console.log(`Loaded ${Object.keys(durationCache).length} track durations.`);
             } catch (e) {
                 console.error('Failed to load duration cache:', e);
             }
@@ -54,6 +47,20 @@ async function regenerate() {
         const timeline = {}; // YYYY-MM-DD -> count
         const historyMap = {}; // YYYY-MM -> { count, minutes, albums: {}, tracks: {}, img: null }
         const yearsMap = {}; // YYYY -> { count, minutes, albums: {}, tracks: {}, artists: {}, months: [0]*12, days: [0]*7 }
+
+        // Force initialize current year (2026) ensuring it appears even if empty
+        const currentYear = new Date().getFullYear().toString();
+        yearsMap[currentYear] = {
+            count: 0,
+            minutes: 0,
+            albums: {},
+            tracks: {},
+            artists: {},
+            months: Array(12).fill(0),
+            days: Array(7).fill(0),
+            hours: Array(24).fill(0)
+        };
+
         const dailyStats = {}; // YYYY-MM-DD -> { tracks: {}, albums: {} }
         const artistStats = {}; // Name -> { count, minutes, years: {}, apples: {}, tod: [0,0,0,0], first: ts, albums: {} }
 
@@ -100,7 +107,8 @@ async function regenerate() {
                 tracks: {},
                 artists: {},
                 months: Array(12).fill(0),
-                days: Array(7).fill(0)
+                days: Array(7).fill(0),
+                hours: Array(24).fill(0)
             };
             yearsMap[yearKey].count++;
 
@@ -114,6 +122,9 @@ async function regenerate() {
             const jsDay = new Date(s.timestamp * 1000).getDay();
             const yearDetailDayIndex = jsDay === 0 ? 6 : jsDay - 1;
             yearsMap[yearKey].days[yearDetailDayIndex]++;
+
+            // Hourly Counts
+            yearsMap[yearKey].hours[parseInt(hh)]++;
 
             // Daily Stats
             if (!dailyStats[keyDay]) {
@@ -203,8 +214,6 @@ async function regenerate() {
 
         meta.unique_artists = artistSet.size;
 
-        console.log('Transformation complete. Formatting output...');
-
         // Finalize History Array
         const history = Object.keys(historyMap).sort().map(date => {
             const d = historyMap[date];
@@ -229,8 +238,10 @@ async function regenerate() {
                 year: parseInt(y),
                 total: d.count,
                 minutes: Math.round(d.minutes), // Use aggregated real minutes
+                minutes: Math.round(d.minutes), // Use aggregated real minutes
                 months: d.months,
                 days: d.days,
+                hours: d.hours,
                 top_albums: getTop(d.albums, 10),
                 top_tracks: getTop(d.tracks, 10),
                 top_artists: getTop(d.artists, 10)
@@ -269,8 +280,6 @@ async function regenerate() {
         });
 
         // Finalize Artists Object (Filter top 500 to save space)
-        // Convert Album object to Array structure expected by component?
-        // Component expects: stats.albums is Object { "Name": { count, url, tracks: [ {name, count, verified} ] } }
         const artists = {};
         const topArtists = Object.entries(artistStats)
             .sort(([, a], [, b]) => b.t - a.t)
@@ -303,15 +312,28 @@ async function regenerate() {
             artists
         };
 
-        fs.writeFileSync(PAYLOAD_PATH, JSON.stringify(payload));
-        const sizeMB = (fs.statSync(PAYLOAD_PATH).size / 1024 / 1024).toFixed(2);
-        console.log(`Payload written to ${PAYLOAD_PATH} (${sizeMB} MB)`);
+        return payload;
 
     } catch (err) {
         console.error('Error generating payload:', err);
+        throw err;
     } finally {
-        db.close();
+        if (localDb) database.close();
     }
 }
 
-regenerate();
+// Allow running as standalone script
+if (require.main === module) {
+    (async () => {
+        try {
+            const payload = await generatePayload();
+            fs.writeFileSync(PAYLOAD_PATH, JSON.stringify(payload));
+            const sizeMB = (fs.statSync(PAYLOAD_PATH).size / 1024 / 1024).toFixed(2);
+            console.log(`Payload written to ${PAYLOAD_PATH} (${sizeMB} MB)`);
+        } catch (e) {
+            console.error(e);
+        }
+    })();
+}
+
+module.exports = { generatePayload };

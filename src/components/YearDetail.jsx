@@ -472,7 +472,8 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                 days: metric === 'minutes' ? dailyMinutes : dailyScrobbles, // Fallback for old usages
                 maxDayScrobbles: Math.max(...dailyScrobbles, 1),
                 maxDayMinutes: Math.max(...dailyMinutes, 1),
-                topTracks: monthHistoryEntry?.top_tracks
+                topTracks: monthHistoryEntry?.top_tracks,
+                topAlbums: monthHistoryEntry?.top_albums
             };
         });
     }, [year, data, allData?.history, allData?.calendar, metric, months]);
@@ -815,7 +816,18 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {monthlyGridData.map((m, i) => {
                         const monthKey = `${year}-${String(i + 1).padStart(2, '0')}`;
-                        const meta = monthMeta[monthKey] || {};
+
+                        // Merge static meta with dynamic data
+                        const dynamicMetric = m.topAlbums?.[0] || m.topTracks?.[0];
+                        const meta = {
+                            ...(monthMeta[monthKey] || {}),
+                            ...(dynamicMetric ? {
+                                album: dynamicMetric.name,
+                                artist: dynamicMetric.artist,
+                                imageUrl: dynamicMetric.url || dynamicMetric.image
+                            } : {})
+                        };
+
                         const activeColor = meta.dominantColor || m.vibeColor || '#00ffcc';
                         const displayImage = meta.imageUrl || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop";
                         const activeColorRgb = hexToRgb(activeColor);
