@@ -1,6 +1,11 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Explicit path to be safe
+
 const { getAllTracksSince } = require('./lastfm');
+
+console.log('API Key Status:', process.env.LASTFM_API_KEY ? 'Present' : 'Missing');
+console.log('User:', process.env.LASTFM_USER);
 
 const dbPath = path.resolve(__dirname, 'analytics.db');
 const db = new sqlite3.Database(dbPath);
@@ -14,7 +19,8 @@ async function check() {
         console.log('Current Sync State:', row);
 
         if (row) {
-            const since = row.last_sync_timestamp;
+            // const since = row.last_sync_timestamp;
+            const since = 1735689600; // Jan 1 2026
             console.log(`Checking Last.fm for tracks since: ${since} (${new Date(since * 1000).toISOString()})`);
 
             try {
@@ -26,7 +32,13 @@ async function check() {
                     console.log('Last track:', tracks[tracks.length - 1]);
                 }
             } catch (e) {
-                console.error("Error fetching from Last.fm in debug script:", e);
+                console.error("Error fetching from Last.fm in debug script:");
+                if (e.response) {
+                    console.error("Status:", e.response.status);
+                    console.error("Data:", JSON.stringify(e.response.data, null, 2));
+                } else {
+                    console.error(e.message);
+                }
             }
         }
         db.close();

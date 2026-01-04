@@ -73,6 +73,10 @@ async function getAllTracksSince(since) {
             page: page
         };
 
+        // Debug logging
+        const debugParams = { ...params, api_key: 'HIDDEN' };
+        console.log(`fetching page ${page} with params:`, debugParams);
+
         try {
             const response = await axios.get(LASTFM_BASE_URL, { params, timeout: 10000 });
             const recenttracks = response.data.recenttracks;
