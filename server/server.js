@@ -6,6 +6,7 @@ const path = require('path');
 const axios = require('axios');
 const Vibrant = require('node-vibrant');
 const cron = require('node-cron');
+const fs = require('fs');
 const { syncScrobbles } = require('./sync');
 const { generatePayload } = require('./regenerate_payload');
 
@@ -704,11 +705,32 @@ app.get('/api/sync/status', (req, res) => {
     });
 });
 
+// In-memory cache for dashboard payload
+let cachedPayload = null;
+const PAYLOAD_PATH = path.resolve(__dirname, '../src/data/dashboard_payload.json');
+
+// Initialize cache from disk on start
+try {
+    if (fs.existsSync(PAYLOAD_PATH)) {
+        console.log('Loading initial payload from disk cache...');
+        cachedPayload = JSON.parse(fs.readFileSync(PAYLOAD_PATH, 'utf8'));
+    }
+} catch (e) {
+    console.error('Failed to load initial payload cache:', e.message);
+}
+
 // GET Full Dashboard Data (Dynamic)
 app.get('/api/dashboard/data', async (req, res) => {
     try {
-        // Pass the existing db instance
+        // Serve from memory cache if available
+        if (cachedPayload) {
+            return res.json(cachedPayload);
+        }
+
+        // Fallback: Generate fresh if no cache
+        console.log('Cache miss. Generating payload...');
         const payload = await generatePayload(db);
+        cachedPayload = payload; // Update cache
         res.json(payload);
     } catch (error) {
         console.error('Failed to generate dashboard payload:', error);
@@ -946,13 +968,13 @@ cron.schedule('*/10 * * * *', async () => {
             console.log(`[Cron] Synced ${result.synced} new scrobbles. Regenerating payload...`);
             // Regenerate the dashboard payload
             const payload = await generatePayload(db);
-            // Optionally write to file if using static file serving, 
-            // but the API /api/dashboard/data generates it on fly or caches it
-            // For file-based caching used by `generate-static-data.js` conventions:
-            const fs = require('fs');
-            const PAYLOAD_PATH = path.resolve(__dirname, '../src/data/dashboard_payload.json');
+
+            // Update cache
+            cachedPayload = payload;
+
+            // Persist to disk
             fs.writeFileSync(PAYLOAD_PATH, JSON.stringify(payload));
-            console.log('[Cron] Dashboard payload updated.');
+            console.log('[Cron] Dashboard payload updated and cached.');
         } else {
             console.log('[Cron] No new scrobbles found.');
         }

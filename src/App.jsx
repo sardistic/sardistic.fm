@@ -330,17 +330,28 @@ function MainDashboard() {
   // Data State (Starts with static bundle, updates from API)
   const [data, setData] = useState(rawData);
 
-  // Fetch fresh data on mount
+  // Fetch fresh data periodically (every 2 minutes)
   useEffect(() => {
-    fetch(`${SERVER_URL}/api/dashboard/data`)
-      .then(res => res.json())
-      .then(freshData => {
-        if (freshData && freshData.meta) {
-          console.log('Loaded fresh dashboard data:', freshData.meta.update_time);
-          setData(freshData);
-        }
-      })
-      .catch(err => console.error('Failed to load fresh data:', err));
+    const fetchData = () => {
+      fetch(`${SERVER_URL}/api/dashboard/data`)
+        .then(res => res.json())
+        .then(freshData => {
+          if (freshData && freshData.meta) {
+            setData(prevData => {
+              if (freshData.meta.update_time !== prevData?.meta?.update_time) {
+                console.log('Loaded fresh dashboard data:', freshData.meta.update_time);
+                return freshData;
+              }
+              return prevData;
+            });
+          }
+        })
+        .catch(err => console.error('Failed to load fresh data:', err));
+    };
+
+    fetchData(); // Initial load
+    const interval = setInterval(fetchData, 120000); // Poll every 2 minutes
+    return () => clearInterval(interval);
   }, []);
 
   // Poll for Now Playing Data Globally
