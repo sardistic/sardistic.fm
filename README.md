@@ -1,8 +1,6 @@
-# Sardistic Audio Dashboard
+# 🎛️ Sardistic.fm Dashboard
 
-A high-fidelity, aesthetic personal analytics dashboard for visualizing Last.fm listening habits, tracking user interactions, and exploring music data through a "frosted glass" UI.
-
-**Live Demo:** [audio.sardistic.com](https://audio.sardistic.com)
+A high-fidelity, aesthetic personal analytics dashboard for visualizing Last.fm listening habits, tracking user interactions, and exploring music data through a premium "frosted glass" UI.
 
 ![Dashboard Preview](https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop) 
 

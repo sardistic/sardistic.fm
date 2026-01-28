@@ -2,6 +2,11 @@
   "name": "dashboard-app",
   "private": true,
   "version": "0.0.0",
+  "description": "A high-fidelity, aesthetic personal analytics dashboard for Last.fm stats with a frosted glass UI.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sardistic/sardistic.fm.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
