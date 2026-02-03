@@ -530,7 +530,7 @@ function MainDashboard() {
                 <img
                   src="https://sardistic.com/wp-content/uploads/2021/09/liquid.gif"
                   alt="sardistic.com"
-                  className="h-12 md:h-[90px] w-auto object-contain transition-transform group-hover:scale-105"
+                  className="h-10 md:h-[72px] w-auto object-contain transition-transform group-hover:scale-105"
                   style={{
                     marginTop: '-5px', // Fine-tune top alignment
                     filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
