@@ -512,19 +512,28 @@ function MainDashboard() {
         {/* Responsive Container */}
         <div className={`w-full flex flex-wrap items-center justify-between px-4 py-3 gap-y-4 md:gap-y-0 transition-all duration-500 ${isGlobalPlayerActive ? 'md:h-auto md:py-4' : 'md:h-20'}`}>
 
-          {/* 1. Branding & Visuals (Mobile: Only Branding, Desktop: Branding + Visuals) */}
-          <div className="flex items-center gap-4 order-1 md:w-1/3">
+          <div className="flex items-center order-1 md:w-1/3">
             <div className="flex items-center gap-1">
               {/* "audio." part -> Links to current app home */}
               <div className="cursor-pointer group" onClick={goHome}>
-                <span className="text-lg tracking-tight font-mono transition-opacity hover:opacity-80">
-                  <span className="text-white font-bold">audio.</span>
+                <span className="text-xl tracking-tight transition-opacity hover:opacity-80">
+                  <span className="text-white font-bold" style={{ fontFamily: "'Roboto', sans-serif" }}>audio.</span>
                 </span>
               </div>
 
-              {/* "sardistic.com" part -> Links to main site, white box, red text */}
-              <a href="https://sardistic.com" className="bg-white px-1.5 py-0.5 rounded-sm hover:opacity-90 transition-opacity no-underline">
-                <span className="text-[#ff0000] font-bold font-mono text-sm tracking-tight">sardistic.com</span>
+              {/* "sardistic.com" part -> Links to main site, replaced by GIF overhang */}
+              <a href="https://sardistic.com" className="relative block group z-50 ml-1">
+                {/* Image overhangs the header. Header is h-20 (80px) on desktop.
+                     We make the image larger and use negative margin to position it. */}
+                <img
+                  src="https://sardistic.com/wp-content/uploads/2021/09/liquid.gif"
+                  alt="sardistic.com"
+                  className="h-16 md:h-24 w-auto object-contain transition-transform group-hover:scale-105"
+                  style={{
+                    marginTop: '10px',  // Push it down slightly to hang
+                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
+                  }}
+                />
               </a>
             </div>
 
