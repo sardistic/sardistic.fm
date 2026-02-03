@@ -33,6 +33,21 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 function initializeDatabase() {
+    // 1. Initialize Core Schema (Scrobbles & Sync State)
+    try {
+        const schemaPath = path.resolve(__dirname, 'schema.sql');
+        if (fs.existsSync(schemaPath)) {
+            const schema = fs.readFileSync(schemaPath, 'utf8');
+            db.exec(schema, (err) => {
+                if (err) console.error('Error applying schema.sql:', err.message);
+                else console.log('Core schema applied (if needed).');
+            });
+        }
+    } catch (e) {
+        console.error('Failed to load schema.sql:', e);
+    }
+
+    // 2. Initialize Analytics Tables (Events, Errors, etc.)
     db.run(`CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT NOT NULL,
@@ -71,10 +86,11 @@ function initializeDatabase() {
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Ensure dominant_color column exists in scrobbles
-    db.run("ALTER TABLE scrobbles ADD COLUMN dominant_color TEXT", (err) => {
-        // Ignore error if column already exists
-    });
+    // Ensure dominant_color column exists in scrobbles (DB might be locked if just created, so wrapped in timeout or just rely on lazy add)
+    // We only try this if scrobbles mostly likely exists now
+    setTimeout(() => {
+        db.run("ALTER TABLE scrobbles ADD COLUMN dominant_color TEXT", (err) => { });
+    }, 2000);
 }
 
 // Routes
