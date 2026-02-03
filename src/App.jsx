@@ -522,7 +522,7 @@ function MainDashboard() {
               </div>
 
               {/* "sardistic.com" part -> Links to main site, replaced by GIF overhang */}
-              <a href="https://sardistic.com" className="relative block group z-50 ml-1">
+              <a href="https://sardistic.com" className="relative block group z-50 ml-1 self-start">
                 {/* Image overhangs the header. Header is h-20 (80px) on desktop.
                      We make the image larger and use negative margin to position it. */}
                 <img
