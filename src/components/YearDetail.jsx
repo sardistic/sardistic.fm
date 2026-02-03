@@ -473,7 +473,9 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                 maxDayScrobbles: Math.max(...dailyScrobbles, 1),
                 maxDayMinutes: Math.max(...dailyMinutes, 1),
                 topTracks: monthHistoryEntry?.top_tracks,
-                topAlbums: monthHistoryEntry?.top_albums
+                topTracks: monthHistoryEntry?.top_tracks,
+                topAlbums: monthHistoryEntry?.top_albums,
+                img: monthHistoryEntry?.img // NEW: Pass the month's generic image (from history)
             };
         });
     }, [year, data, allData?.history, allData?.calendar, metric, months]);
@@ -829,7 +831,8 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                         };
 
                         const activeColor = meta.dominantColor || m.vibeColor || '#00ffcc';
-                        const displayImage = meta.imageUrl || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop";
+                        // Fallback Precedence: 1. Meta/Dynamic URL -> 2. Month's Generic Image -> 3. Default Placeholder
+                        const displayImage = meta.imageUrl || m.img || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop";
                         const activeColorRgb = hexToRgb(activeColor);
                         const isHovered = hoveredMonth === m.month;
                         const isLoading = queueLoading === `${year}-${String(i + 1).padStart(2, '0')}`;

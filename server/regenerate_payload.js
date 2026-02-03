@@ -76,8 +76,21 @@ async function generatePayload(dbInstance = null) {
             return { yyyy, mm, dd, hh, keyDay: `${yyyy}-${mm}-${dd}`, keyMonth: `${yyyy}-${mm}` };
         };
 
+        const globalAlbumImages = {}; // key -> url
+        const globalArtistImages = {}; // artist -> url
+
         for (const s of scrobbles) {
             const { yyyy, mm, dd, hh, keyDay, keyMonth } = formatDate(s.timestamp);
+
+            // Populate Global Image Cache
+            if (s.image_url) {
+                // Prioritize preserving existing cache (or overwrite? overwrite ensures latest/freshest)
+                // Actually, ensure we don't save broken/placeholder URLs if we can avoid it.
+                // But generally s.image_url is from Last.fm so use it.
+                const gAlbKey = `${s.album}|||${s.artist}`;
+                globalAlbumImages[gAlbKey] = s.image_url;
+                globalArtistImages[s.artist] = s.image_url;
+            }
 
             // Timeline
             timeline[keyDay] = (timeline[keyDay] || 0) + 1;
@@ -154,8 +167,12 @@ async function generatePayload(dbInstance = null) {
             // Top entities per Year
             if (!yearsMap[yearKey].albums[albKey]) yearsMap[yearKey].albums[albKey] = { count: 0, name: s.album, artist: s.artist, url: s.image_url };
             yearsMap[yearKey].albums[albKey].count++;
+            if (s.image_url) yearsMap[yearKey].albums[albKey].url = s.image_url; // Update Cache
+
             if (!yearsMap[yearKey].tracks[trkKey]) yearsMap[yearKey].tracks[trkKey] = { count: 0, name: s.track, artist: s.artist, url: s.image_url };
             yearsMap[yearKey].tracks[trkKey].count++;
+            if (s.image_url) yearsMap[yearKey].tracks[trkKey].url = s.image_url;
+
             if (!yearsMap[yearKey].artists[s.artist]) yearsMap[yearKey].artists[s.artist] = { count: 0, name: s.artist };
             yearsMap[yearKey].artists[s.artist].count++;
 
@@ -218,7 +235,16 @@ async function generatePayload(dbInstance = null) {
         // Finalize History Array
         const history = Object.keys(historyMap).sort().map(date => {
             const d = historyMap[date];
-            const getTop5 = (obj) => Object.values(obj).sort((a, b) => b.count - a.count).slice(0, 5);
+            const getTop5 = (obj) => Object.values(obj).sort((a, b) => b.count - a.count).slice(0, 5)
+                .map(item => {
+                    // Backfill images from global cache if missing
+                    if (!item.url) {
+                        const gAlbKey = `${item.name}|||${item.artist}`;
+                        if (globalAlbumImages[gAlbKey]) item.url = globalAlbumImages[gAlbKey];
+                        else if (globalArtistImages[item.artist]) item.url = globalArtistImages[item.artist]; // Fallback to artist
+                    }
+                    return item;
+                });
 
             return {
                 date,
@@ -226,7 +252,7 @@ async function generatePayload(dbInstance = null) {
                 minutes: Math.round(d.minutes), // Use aggregated real minutes
                 top_albums: getTop5(d.albums),
                 top_tracks: getTop5(d.tracks),
-                img: d.imgs.length > 0 ? d.imgs[0] : null
+                img: d.imgs.length > 0 ? d.imgs[0] : (globalArtistImages[getTop5(d.albums)?.[0]?.artist] || null) // Fallback for month cover
             };
         });
 
