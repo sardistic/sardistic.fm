@@ -685,6 +685,16 @@ app.post('/api/sync/manual', async (req, res) => {
     try {
         console.log('Manual sync triggered');
         const result = await syncScrobbles();
+
+        // Always regenerate payload on manual sync to ensure freshness
+        console.log('Regenerating payload...');
+        const payload = await generatePayload(db);
+        cachedPayload = payload;
+
+        // Persist to disk
+        fs.writeFileSync(PAYLOAD_PATH, JSON.stringify(payload));
+        console.log('Dashboard payload updated and cached.');
+
         res.json({
             success: true,
             message: `Synced ${result.synced} new scrobbles`,
