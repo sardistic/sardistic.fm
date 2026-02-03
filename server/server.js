@@ -19,7 +19,6 @@ app.use(express.json());
 
 // Database Setup
 // Database Setup - Persistent Volume Logic (Railway)
-const fs = require('fs');
 const isRailway = fs.existsSync('/data');
 const dbPath = process.env.DB_PATH || (isRailway ? '/data/analytics.db' : path.resolve(__dirname, 'analytics.db'));
 console.log(`Using Database at: ${dbPath}`);
