@@ -310,7 +310,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 </div>
 
                 <div className="absolute inset-0 z-10 w-full h-full" style={{ minHeight: '200px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <AreaChart
                             data={chartData}
                             onMouseMove={(data) => {

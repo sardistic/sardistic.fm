@@ -436,7 +436,7 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
                     </h3>
                 </div>
                 <div className="h-80 w-full pt-12">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <BarChart data={monthDays} barSize={12}>
                             <defs>
                                 <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
@@ -483,8 +483,8 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
                     <Calendar size={24} style={{ color: vibeColor }} />
                     Weekly Pattern
                 </h3>
-                <div className="flex-1 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[200px] w-full">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <BarChart data={weekStats} barSize={32}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
                             <XAxis dataKey="name" stroke="#444" fontSize={12} tickLine={false} axisLine={false} dy={10} />

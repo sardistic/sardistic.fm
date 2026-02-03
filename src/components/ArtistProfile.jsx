@@ -236,7 +236,7 @@ function ArtistProfile({ artist, stats, onBack, allData, onTagClick, metric = 's
                         {/* Trajectory */}
                         <div className="lg:col-span-2 h-80">
                             <h3 className="text-lg font-bold mb-4 text-gray-400">Career Trajectory</h3>
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                 <AreaChart data={yearData}>
                                     <defs>
                                         <linearGradient id="colorArtist" x1="0" y1="0" x2="0" y2="1">
@@ -255,8 +255,8 @@ function ArtistProfile({ artist, stats, onBack, allData, onTagClick, metric = 's
                         {/* Vibe / Time of Day */}
                         <div className="h-80">
                             <h3 className="text-lg font-bold mb-4 text-gray-400">Listening Vibe</h3>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={todData}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                                     <PolarGrid stroke="#333" />
                                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#888', fontSize: 12 }} />
                                     <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />

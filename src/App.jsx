@@ -346,7 +346,10 @@ function MainDashboard() {
             });
           }
         })
-        .catch(err => console.error('Failed to load fresh data:', err));
+        .catch(err => {
+          console.error('Failed to load fresh data from API:', err);
+          console.warn('Falling back to static payload (may be stale).');
+        });
     };
 
     fetchData(); // Initial load

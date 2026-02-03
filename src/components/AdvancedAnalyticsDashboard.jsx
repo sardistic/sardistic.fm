@@ -175,7 +175,7 @@ function AdvancedAnalyticsDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                     {/* Event Timeline */}
                     <ChartCard title="Event Timeline">
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ResponsiveContainer width="100%" height={300} minWidth={0}>
                             <LineChart data={timelineChartData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
                                 <XAxis dataKey="hour" stroke="#6b7280" fontSize={12} />
@@ -191,7 +191,7 @@ function AdvancedAnalyticsDashboard() {
 
                     {/* Event Types Distribution */}
                     <ChartCard title="Event Types">
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ResponsiveContainer width="100%" height={300} minWidth={0}>
                             <PieChart>
                                 <Pie
                                     data={eventTypeData}
@@ -217,7 +217,7 @@ function AdvancedAnalyticsDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                     {/* Top Pages */}
                     <ChartCard title="Top Pages by Visits">
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ResponsiveContainer width="100%" height={300} minWidth={0}>
                             <BarChart data={topPagesData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
                                 <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
@@ -232,7 +232,7 @@ function AdvancedAnalyticsDashboard() {
 
                     {/* Average Time per Page */}
                     <ChartCard title="Avg Time per Page (seconds)">
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ResponsiveContainer width="100%" height={300} minWidth={0}>
                             <BarChart data={topPagesData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
                                 <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
