@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useAnimationFrame } from 'framer-motion';
-import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X } from 'lucide-react';
+import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
 import Overview from './components/Overview';
 import YearDetail from './components/YearDetail';
@@ -853,8 +853,20 @@ function MainDashboard() {
         </motion.main>
       </AnalyticsProvider>
 
-      <footer className="mt-20 py-10 border-t border-white/5 text-center text-gray-500 text-sm relative z-10 bg-black/50 backdrop-blur-sm">
-        <p>Built with ❤️ by Antigravity</p>
+      <footer className="mt-20 py-10 border-t border-white/5 text-center text-gray-400 text-xs relative z-10 bg-black/50 backdrop-blur-sm">
+        <div className="flex items-center justify-center gap-4">
+          <p>Built with ❤️ by Antigravity & Sardistic</p>
+          <span className="w-px h-3 bg-white/10" />
+          <a
+            href="https://github.com/sardistic/sardistic.fm"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 hover:text-white transition-colors group"
+          >
+            <Github size={14} className="opacity-60 group-hover:opacity-100" />
+            <span>Repo on GitHub</span>
+          </a>
+        </div>
       </footer>
     </div >
   );
