@@ -1,10 +1,14 @@
 FROM node:18-slim
 
 # Install Python and dependencies for yt-dlp (and sqlite3 fallback if needed)
-RUN apt-get update && apt-get install -y python3 curl && rm -rf /var/lib/apt/lists/*
+# Use --no-install-recommends to keep image small and fetch faster
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+# Install yt-dlp with timeout and retry
+RUN curl -L --retry 3 --retry-delay 5 --connect-timeout 10 \
+    https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
     chmod +x /usr/local/bin/yt-dlp
 
 WORKDIR /app
