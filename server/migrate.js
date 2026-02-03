@@ -4,7 +4,9 @@ const fs = require('fs');
 const csv = require('csv-parser');
 
 // Database path
-const dbPath = path.resolve(__dirname, 'analytics.db');
+// Database path
+const isRailway = fs.existsSync('/data');
+const dbPath = process.env.DB_PATH || (isRailway ? '/data/analytics.db' : path.resolve(__dirname, 'analytics.db'));
 const db = new sqlite3.Database(dbPath);
 
 // Path to CSV file (two levels up from server directory)

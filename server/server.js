@@ -18,7 +18,12 @@ app.use(cors());
 app.use(express.json());
 
 // Database Setup
-const dbPath = process.env.DB_PATH || path.resolve(__dirname, 'analytics.db');
+// Database Setup - Persistent Volume Logic (Railway)
+const fs = require('fs');
+const isRailway = fs.existsSync('/data');
+const dbPath = process.env.DB_PATH || (isRailway ? '/data/analytics.db' : path.resolve(__dirname, 'analytics.db'));
+console.log(`Using Database at: ${dbPath}`);
+
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
@@ -707,12 +712,12 @@ app.get('/api/sync/status', (req, res) => {
 
 // In-memory cache for dashboard payload
 let cachedPayload = null;
-const PAYLOAD_PATH = path.resolve(__dirname, '../src/data/dashboard_payload.json');
+const PAYLOAD_PATH = isRailway ? '/data/dashboard_payload.json' : path.resolve(__dirname, '../src/data/dashboard_payload.json');
 
 // Initialize cache from disk on start
 try {
     if (fs.existsSync(PAYLOAD_PATH)) {
-        console.log('Loading initial payload from disk cache...');
+        console.log(`Loading initial payload from disk cache (${PAYLOAD_PATH})...`);
         cachedPayload = JSON.parse(fs.readFileSync(PAYLOAD_PATH, 'utf8'));
     }
 } catch (e) {

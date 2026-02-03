@@ -1,0 +1,7 @@
+node_modules
+analytics.db
+dist
+.env
+.git
+.github
+*.log

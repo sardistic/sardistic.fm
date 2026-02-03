@@ -2,8 +2,9 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.resolve(__dirname, 'analytics.db');
-const PAYLOAD_PATH = path.resolve(__dirname, '../src/data/dashboard_payload.json');
+const isRailway = fs.existsSync('/data');
+const DB_PATH = process.env.DB_PATH || (isRailway ? '/data/analytics.db' : path.resolve(__dirname, 'analytics.db'));
+const PAYLOAD_PATH = isRailway ? '/data/dashboard_payload.json' : path.resolve(__dirname, '../src/data/dashboard_payload.json');
 const DURATIONS_PATH = path.resolve(__dirname, 'track_durations.json'); // New source
 
 

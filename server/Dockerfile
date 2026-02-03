@@ -1,8 +1,7 @@
-FROM node:18-alpine
+FROM node:18-slim
 
-# Install Python and dependencies for yt-dlp
-RUN apk add --no-cache python3 py3-pip curl && \
-    ln -sf python3 /usr/bin/python
+# Install Python and dependencies for yt-dlp (and sqlite3 fallback if needed)
+RUN apt-get update && apt-get install -y python3 curl && rm -rf /var/lib/apt/lists/*
 
 # Install yt-dlp
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \

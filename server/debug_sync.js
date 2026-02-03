@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Explicit path to be safe
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
 
 const { getAllTracksSince } = require('./lastfm');
 

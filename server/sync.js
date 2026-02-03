@@ -2,8 +2,11 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { getAllTracksSince } = require('./lastfm');
 
-const dbPath = path.resolve(__dirname, 'analytics.db');
+const fs = require('fs');
+const isRailway = fs.existsSync('/data');
+const dbPath = process.env.DB_PATH || (isRailway ? '/data/analytics.db' : path.resolve(__dirname, 'analytics.db'));
 const db = new sqlite3.Database(dbPath);
+console.log(`[Sync] Using Database at: ${dbPath}`);
 
 /**
  * Sync scrobbles from Last.fm to database
