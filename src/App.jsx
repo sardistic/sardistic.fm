@@ -512,10 +512,10 @@ function MainDashboard() {
         {/* Responsive Container */}
         <div className={`w-full flex flex-wrap items-center justify-between px-4 py-3 gap-y-4 md:gap-y-0 transition-all duration-500 ${isGlobalPlayerActive ? 'md:h-auto md:py-4' : 'md:h-20'}`}>
 
-          <div className="flex items-center order-1 md:w-1/3">
-            <div className="flex items-center gap-1">
+          <div className="flex items-start order-1 md:w-1/3 h-full">
+            <div className="flex items-start gap-1 h-full">
               {/* "audio." part -> Links to current app home */}
-              <div className="cursor-pointer group" onClick={goHome}>
+              <div className="cursor-pointer group self-center" onClick={goHome}>
                 <span className="text-xl tracking-tight transition-opacity hover:opacity-80">
                   <span className="text-white font-bold" style={{ fontFamily: "'Roboto', sans-serif" }}>audio.</span>
                 </span>
@@ -523,14 +523,16 @@ function MainDashboard() {
 
               {/* "sardistic.com" part -> Links to main site, replaced by GIF overhang */}
               <a href="https://sardistic.com" className="relative block group z-50 ml-1 self-start">
-                {/* Image overhangs the header. Header is h-20 (80px) on desktop.
-                     We make the image larger and use negative margin to position it. */}
+                {/* Image overhangs the header below only.
+                     Aligned to top (self-start).
+                     Size reduced (~20%): h-12 (mobile) md:h-20 (desktop base) 
+                     Added slight scale on hover. */}
                 <img
                   src="https://sardistic.com/wp-content/uploads/2021/09/liquid.gif"
                   alt="sardistic.com"
-                  className="h-16 md:h-24 w-auto object-contain transition-transform group-hover:scale-105"
+                  className="h-12 md:h-[90px] w-auto object-contain transition-transform group-hover:scale-105"
                   style={{
-                    marginTop: '10px',  // Push it down slightly to hang
+                    marginTop: '-5px', // Fine-tune top alignment
                     filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
                   }}
                 />
