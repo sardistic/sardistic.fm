@@ -514,11 +514,18 @@ function MainDashboard() {
 
           {/* 1. Branding & Visuals (Mobile: Only Branding, Desktop: Branding + Visuals) */}
           <div className="flex items-center gap-4 order-1 md:w-1/3">
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={goHome}>
-              <span className="text-lg tracking-tight font-mono transition-opacity hover:opacity-80">
-                <span className="text-white font-bold">AUDIO</span>
-                <span className="text-white/30 hidden sm:inline">.sardistic.com</span>
-              </span>
+            <div className="flex items-center gap-1">
+              {/* "audio." part -> Links to current app home */}
+              <div className="cursor-pointer group" onClick={goHome}>
+                <span className="text-lg tracking-tight font-mono transition-opacity hover:opacity-80">
+                  <span className="text-white font-bold">audio.</span>
+                </span>
+              </div>
+
+              {/* "sardistic.com" part -> Links to main site, white box, red text */}
+              <a href="https://sardistic.com" className="bg-white px-1.5 py-0.5 rounded-sm hover:opacity-90 transition-opacity no-underline">
+                <span className="text-[#ff0000] font-bold font-mono text-sm tracking-tight">sardistic.com</span>
+              </a>
             </div>
 
             {/* Desktop Visual Controls (Hidden on Mobile) */}
