@@ -336,369 +336,386 @@ function MainDashboard() {
       fetch(`${SERVER_URL}/api/dashboard/data`)
         .then(res => res.json())
         .then(freshData => {
-          if (freshData && freshData.meta) {
-            setData(prevData => {
-              if (freshData.meta.update_time !== prevData?.meta?.update_time) {
-                console.log('Loaded fresh dashboard data:', freshData.meta.update_time);
-                return freshData;
-              }
-              return prevData;
-            });
+          // Validate that we actually received meaningful data before overwriting
+          const isValid = freshData.timeline && Object.keys(freshData.timeline).length > 0;
+
+          if (!isValid) {
+            console.warn('Received empty/invalid data from API. Ignoring:', freshData);
+            return;
           }
-        })
-        .catch(err => {
-          console.error('Failed to load fresh data from API:', err);
-          console.warn('Falling back to static payload (may be stale).');
-        });
-    };
 
-    fetchData(); // Initial load
-    const interval = setInterval(fetchData, 120000); // Poll every 2 minutes
-    return () => clearInterval(interval);
-  }, []);
+          setData(prevData => {
+            // Safety Check: If server returns 0/low data but we have data, likely a server-side DB issue (common on Vercel)
+            // We trust the bundled data (prevData) more than an empty server response.
+            const prevTotal = prevData?.meta?.total_scrobbles || 0;
+            const newTotal = freshData.meta.total_scrobbles || 0;
 
-  // Poll for Now Playing Data Globally
-  useEffect(() => {
-    const fetchNowPlaying = async () => {
-      if (isManualPlayback) return; // Skip polling if manual queue is active
-
-      try {
-        const res = await fetch(`${SERVER_URL}/api/now-playing`);
-        const data = await res.json();
-        if (data.nowPlaying) {
-          setNowPlaying(prev => {
-            if (prev &&
-              prev.name === data.nowPlaying.name &&
-              prev.artist === data.nowPlaying.artist &&
-              prev.isPlaying === data.nowPlaying.isPlaying) {
-              return prev;
+            if (prevTotal > 0 && newTotal === 0) {
+              console.warn('Server returned 0/empty data vs local valid data. Ignoring server update.');
+              return prevData;
             }
-            return data.nowPlaying;
+
+            if (freshData.meta.update_time !== prevData?.meta?.update_time) {
+              console.log('Loaded fresh dashboard data:', freshData.meta.update_time);
+              return freshData;
+            }
+            return prevData;
           });
         }
-      } catch (err) { }
-    };
+        })
+    .catch(err => {
+      console.error('Failed to load fresh data from API:', err);
+      console.warn('Falling back to static payload (may be stale).');
+    });
+};
 
-    fetchNowPlaying();
-    const interval = setInterval(fetchNowPlaying, REFRESH_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [isManualPlayback]);
+fetchData(); // Initial load
+const interval = setInterval(fetchData, 120000); // Poll every 2 minutes
+return () => clearInterval(interval);
+  }, []);
 
-  // Audio State for UI adjustments
-  const { isListening, updateVolume } = useAudioReactive();
+// Poll for Now Playing Data Globally
+useEffect(() => {
+  const fetchNowPlaying = async () => {
+    if (isManualPlayback) return; // Skip polling if manual queue is active
 
-  // Sync Global Volume to Audio Visualizer Sensitivity
-  useEffect(() => {
-    if (updateVolume) updateVolume(globalVolume);
-  }, [globalVolume, updateVolume]);
-
-  // --- Queue Logic ---
-  const playContext = (tracks, contextId = null) => {
-    if (!tracks || tracks.length === 0) return;
-
-    // Set loading state
-    setQueueLoading(contextId);
-
-    // Normalize tracks
-    const formattedTracks = tracks.map(t => ({
-      name: t.name || t.trackName,
-      artist: t.artist || t.artistName,
-      image: t.image || null,
-      isPlaying: true
-    }));
-
-    setPlaybackQueue(formattedTracks);
-    setCurrentTrackIndex(0);
-    setIsManualPlayback(true);
-    setNowPlaying(formattedTracks[0]);
-    setIsGlobalPlayerActive(true);
-    setIsGlobalPlaying(true);
-
-    // Clear loading state after a short delay (when player starts)
-    setTimeout(() => setQueueLoading(null), 1000);
-  };
-
-  const handleTrackEnded = () => {
-    if (isManualPlayback && playbackQueue.length > 0) {
-      if (currentTrackIndex < playbackQueue.length - 1) {
-        const nextIndex = currentTrackIndex + 1;
-        setCurrentTrackIndex(nextIndex);
-        setNowPlaying(playbackQueue[nextIndex]);
-      } else {
-        // End of queue
-        setIsManualPlayback(false);
-        setIsGlobalPlaying(false);
+    try {
+      const res = await fetch(`${SERVER_URL}/api/now-playing`);
+      const data = await res.json();
+      if (data.nowPlaying) {
+        setNowPlaying(prev => {
+          if (prev &&
+            prev.name === data.nowPlaying.name &&
+            prev.artist === data.nowPlaying.artist &&
+            prev.isPlaying === data.nowPlaying.isPlaying) {
+            return prev;
+          }
+          return data.nowPlaying;
+        });
       }
+    } catch (err) { }
+  };
+
+  fetchNowPlaying();
+  const interval = setInterval(fetchNowPlaying, REFRESH_INTERVAL_MS);
+  return () => clearInterval(interval);
+}, [isManualPlayback]);
+
+// Audio State for UI adjustments
+const { isListening, updateVolume } = useAudioReactive();
+
+// Sync Global Volume to Audio Visualizer Sensitivity
+useEffect(() => {
+  if (updateVolume) updateVolume(globalVolume);
+}, [globalVolume, updateVolume]);
+
+// --- Queue Logic ---
+const playContext = (tracks, contextId = null) => {
+  if (!tracks || tracks.length === 0) return;
+
+  // Set loading state
+  setQueueLoading(contextId);
+
+  // Normalize tracks
+  const formattedTracks = tracks.map(t => ({
+    name: t.name || t.trackName,
+    artist: t.artist || t.artistName,
+    image: t.image || null,
+    isPlaying: true
+  }));
+
+  setPlaybackQueue(formattedTracks);
+  setCurrentTrackIndex(0);
+  setIsManualPlayback(true);
+  setNowPlaying(formattedTracks[0]);
+  setIsGlobalPlayerActive(true);
+  setIsGlobalPlaying(true);
+
+  // Clear loading state after a short delay (when player starts)
+  setTimeout(() => setQueueLoading(null), 1000);
+};
+
+const handleTrackEnded = () => {
+  if (isManualPlayback && playbackQueue.length > 0) {
+    if (currentTrackIndex < playbackQueue.length - 1) {
+      const nextIndex = currentTrackIndex + 1;
+      setCurrentTrackIndex(nextIndex);
+      setNowPlaying(playbackQueue[nextIndex]);
+    } else {
+      // End of queue
+      setIsManualPlayback(false);
+      setIsGlobalPlaying(false);
     }
-  };
-
-
-
-  // View Handlers
-  const handleYearClick = (year, metric) => {
-    setSelectedYear(year);
-    setView('year');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleMonthClick = (year, month) => {
-    setSelectedYear(year);
-    setSelectedMonth(month);
-    setView('month');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleArtistClick = (artistName) => {
-    setSelectedArtist(artistName);
-    setView('artist');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleBingeClick = () => {
-    setView('binges');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+};
 
-  const goHome = () => {
-    setView('overview');
-    setSelectedYear(null);
-    setSelectedArtist(null);
-    setInitialLibrarySearch('');
-  };
 
-  const handleTagClick = (tag) => {
-    setInitialLibrarySearch(tag);
-    setView('library');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
-  return (
-    <div className="min-h-screen text-gray-200 selection:bg-neon-pink selection:text-white pb-20 overflow-x-hidden relative">
-      {/* Backgrounds */}
-      <AnimatePresence mode="wait">
-        {backgroundType === 'fluid' ? (
-          <motion.div key="fluid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
-            <FluidBackground intensity={playerIntensity} />
-          </motion.div>
-        ) : (
-          <motion.div key="shader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
-            <ShaderBackground />
-          </motion.div>
-        )}
-      </AnimatePresence>
+// View Handlers
+const handleYearClick = (year, metric) => {
+  setSelectedYear(year);
+  setView('year');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
-      {/* Header */}
-      <motion.nav
-        initial={false}
-        animate={{ height: isGlobalPlayerActive ? 'auto' : 'auto' }}
-        className="fixed top-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-b border-white/10 z-50 flex flex-col"
-      >
-        {/* Responsive Container */}
-        <div className={`w-full flex flex-wrap items-center justify-between px-4 py-3 gap-y-4 md:gap-y-0 transition-all duration-500 ${isGlobalPlayerActive ? 'md:h-auto md:py-4' : 'md:h-20'}`}>
+const handleMonthClick = (year, month) => {
+  setSelectedYear(year);
+  setSelectedMonth(month);
+  setView('month');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
-          {/* 1. Branding & Visuals (Mobile: Only Branding, Desktop: Branding + Visuals) */}
-          <div className="flex items-center gap-4 order-1 md:w-1/3">
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={goHome}>
-              <span className="text-lg tracking-tight font-mono transition-opacity hover:opacity-80">
-                <span className="text-white font-bold">AUDIO</span>
-                <span className="text-white/30 hidden sm:inline">.sardistic.com</span>
-              </span>
-            </div>
+const handleArtistClick = (artistName) => {
+  setSelectedArtist(artistName);
+  setView('artist');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
-            {/* Desktop Visual Controls (Hidden on Mobile) */}
-            <div className={`hidden md:flex items-center transition-all duration-500 ${isListening ? 'gap-12 ml-12' : 'gap-4 ml-6'}`}>
-              <PulsingMicButton />
+const handleBingeClick = () => {
+  setView('binges');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-              {/* Full Text Background Toggle (Desktop) */}
-              <div
-                onClick={() => setBackgroundType(prev => prev === 'shader' ? 'fluid' : 'shader')}
-                className="relative flex items-center bg-white/5 border border-white/10 rounded-full cursor-pointer h-8 w-36 px-1 select-none hover:bg-white/10 transition-colors"
-                title="Switch Background Visuals"
-              >
-                <motion.div
-                  className="absolute top-1 bottom-1 w-16 bg-white/10 rounded-full border border-white/5 shadow-inner"
-                  animate={{ x: backgroundType === 'fluid' ? 0 : 66 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
-                <div className={`z-10 w-1/2 flex justify-center items-center gap-1.5 text-[10px] font-mono tracking-wider transition-colors ${backgroundType === 'fluid' ? 'text-neon-cyan' : 'text-gray-500'}`}>
-                  <Layers size={12} /> CANVAS
-                </div>
-                <div className={`z-10 w-1/2 flex justify-center items-center gap-1.5 text-[10px] font-mono tracking-wider transition-colors ${backgroundType === 'shader' ? 'text-neon-pink' : 'text-gray-500'}`}>
-                  <Zap size={12} /> GLSL
-                </div>
-              </div>
+const goHome = () => {
+  setView('overview');
+  setSelectedYear(null);
+  setSelectedArtist(null);
+  setInitialLibrarySearch('');
+};
 
-              {/* Lyrics Toggle (Desktop) */}
-              {(nowPlaying || playbackQueue.length > 0) && (
-                <button
-                  onClick={() => setShowLyrics(!showLyrics)}
-                  className={`p-2 rounded-full border transition-all ${showLyrics ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan' : 'bg-transparent border-white/10 text-gray-400 hover:text-white'}`}
-                >
-                  <MessageSquare size={14} />
-                </button>
-              )}
-            </div>
+const handleTagClick = (tag) => {
+  setInitialLibrarySearch(tag);
+  setView('library');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+return (
+  <div className="min-h-screen text-gray-200 selection:bg-neon-pink selection:text-white pb-20 overflow-x-hidden relative">
+    {/* Backgrounds */}
+    <AnimatePresence mode="wait">
+      {backgroundType === 'fluid' ? (
+        <motion.div key="fluid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
+          <FluidBackground intensity={playerIntensity} />
+        </motion.div>
+      ) : (
+        <motion.div key="shader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
+          <ShaderBackground />
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    {/* Header */}
+    <motion.nav
+      initial={false}
+      animate={{ height: isGlobalPlayerActive ? 'auto' : 'auto' }}
+      className="fixed top-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-b border-white/10 z-50 flex flex-col"
+    >
+      {/* Responsive Container */}
+      <div className={`w-full flex flex-wrap items-center justify-between px-4 py-3 gap-y-4 md:gap-y-0 transition-all duration-500 ${isGlobalPlayerActive ? 'md:h-auto md:py-4' : 'md:h-20'}`}>
+
+        {/* 1. Branding & Visuals (Mobile: Only Branding, Desktop: Branding + Visuals) */}
+        <div className="flex items-center gap-4 order-1 md:w-1/3">
+          <div className="flex items-center gap-2 cursor-pointer group" onClick={goHome}>
+            <span className="text-lg tracking-tight font-mono transition-opacity hover:opacity-80">
+              <span className="text-white font-bold">AUDIO</span>
+              <span className="text-white/30 hidden sm:inline">.sardistic.com</span>
+            </span>
           </div>
 
-          {/* 2. Center: Player Blurb / Trigger (Mobile: Top Right, Desktop: Center) */}
-          <div className={`flex justify-end md:justify-center transition-all duration-500 relative z-50 ${isGlobalPlayerActive ? 'w-full order-first md:w-auto md:flex-1 md:order-2' : 'w-auto md:w-1/3 order-2 md:order-2'}`}>
-            <AnimatePresence mode="wait">
-              {!isGlobalPlayerActive ? (
-                nowPlaying && (
-                  <motion.button
-                    key="blurb"
-                    onClick={() => setIsGlobalPlayerActive(true)}
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="rounded-full pl-3 pr-4 py-1.5 flex items-center gap-3 bg-white/5 border border-white/10 hover:border-neon-pink/50 backdrop-blur-md transition-all relative z-10 max-w-[200px] md:max-w-none"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse shrink-0" />
-                    <div className="flex flex-col text-left overflow-hidden">
-                      <span className="text-[10px] text-white/50 font-mono leading-none md:block hidden">NOW PLAYING</span>
-                      <span className="text-sm text-white font-bold truncate max-w-[120px]">{nowPlaying.name}</span>
-                    </div>
-                    <Music size={14} className="text-white/30 group-hover:text-white transition-colors" />
-                  </motion.button>
-                )
+          {/* Desktop Visual Controls (Hidden on Mobile) */}
+          <div className={`hidden md:flex items-center transition-all duration-500 ${isListening ? 'gap-12 ml-12' : 'gap-4 ml-6'}`}>
+            <PulsingMicButton />
+
+            {/* Full Text Background Toggle (Desktop) */}
+            <div
+              onClick={() => setBackgroundType(prev => prev === 'shader' ? 'fluid' : 'shader')}
+              className="relative flex items-center bg-white/5 border border-white/10 rounded-full cursor-pointer h-8 w-36 px-1 select-none hover:bg-white/10 transition-colors"
+              title="Switch Background Visuals"
+            >
+              <motion.div
+                className="absolute top-1 bottom-1 w-16 bg-white/10 rounded-full border border-white/5 shadow-inner"
+                animate={{ x: backgroundType === 'fluid' ? 0 : 66 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
+              <div className={`z-10 w-1/2 flex justify-center items-center gap-1.5 text-[10px] font-mono tracking-wider transition-colors ${backgroundType === 'fluid' ? 'text-neon-cyan' : 'text-gray-500'}`}>
+                <Layers size={12} /> CANVAS
+              </div>
+              <div className={`z-10 w-1/2 flex justify-center items-center gap-1.5 text-[10px] font-mono tracking-wider transition-colors ${backgroundType === 'shader' ? 'text-neon-pink' : 'text-gray-500'}`}>
+                <Zap size={12} /> GLSL
+              </div>
+            </div>
+
+            {/* Lyrics Toggle (Desktop) */}
+            {(nowPlaying || playbackQueue.length > 0) && (
+              <button
+                onClick={() => setShowLyrics(!showLyrics)}
+                className={`p-2 rounded-full border transition-all ${showLyrics ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan' : 'bg-transparent border-white/10 text-gray-400 hover:text-white'}`}
+              >
+                <MessageSquare size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 2. Center: Player Blurb / Trigger (Mobile: Top Right, Desktop: Center) */}
+        <div className={`flex justify-end md:justify-center transition-all duration-500 relative z-50 ${isGlobalPlayerActive ? 'w-full order-first md:w-auto md:flex-1 md:order-2' : 'w-auto md:w-1/3 order-2 md:order-2'}`}>
+          <AnimatePresence mode="wait">
+            {!isGlobalPlayerActive ? (
+              nowPlaying && (
+                <motion.button
+                  key="blurb"
+                  onClick={() => setIsGlobalPlayerActive(true)}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="rounded-full pl-3 pr-4 py-1.5 flex items-center gap-3 bg-white/5 border border-white/10 hover:border-neon-pink/50 backdrop-blur-md transition-all relative z-10 max-w-[200px] md:max-w-none"
+                >
+                  <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse shrink-0" />
+                  <div className="flex flex-col text-left overflow-hidden">
+                    <span className="text-[10px] text-white/50 font-mono leading-none md:block hidden">NOW PLAYING</span>
+                    <span className="text-sm text-white font-bold truncate max-w-[120px]">{nowPlaying.name}</span>
+                  </div>
+                  <Music size={14} className="text-white/30 group-hover:text-white transition-colors" />
+                </motion.button>
+              )
+            ) : (
+              /* Global Player Expanded */
+              <motion.div
+                key="embedded-player"
+                initial={{ opacity: 0, y: -20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.98 }}
+                className="w-full max-w-5xl flex justify-center pt-4 md:pt-0"
+              >
+                <ErrorBoundary>
+                  <PersistentPlayer
+                    nowPlaying={nowPlaying}
+                    isActive={true}
+                    onClose={() => setIsGlobalPlayerActive(false)}
+                    serverUrl={SERVER_URL}
+                    volume={globalVolume}
+                    onVolumeChange={setGlobalVolume}
+                    onPlayStateChange={setIsGlobalPlaying}
+                    isEmbedded={true}
+                    onEnded={handleTrackEnded}
+                    onProgress={setCurrentPlaybackTime}
+                  />
+                </ErrorBoundary>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* 3. Controls & Nav (Mobile: Bottom Row full width, Desktop: Separated) */}
+        <div className={`flex items-center justify-between w-full md:w-1/3 md:justify-end gap-4 order-3 md:order-3 ${isGlobalPlayerActive ? 'md:absolute md:right-4 md:top-0 md:h-20' : ''}`}>
+
+          {/* Visual Controls (Mobile Only: Left side of bottom row) */}
+          <div className="flex md:hidden items-center gap-2">
+            <PulsingMicButton />
+
+            {/* Compact Background Toggle (Mobile) */}
+            <div
+              onClick={() => setBackgroundType(prev => prev === 'shader' ? 'fluid' : 'shader')}
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 border border-white/10 cursor-pointer text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              title="Switch Visuals"
+            >
+              {backgroundType === 'fluid' ? <Layers size={14} /> : <Zap size={14} />}
+            </div>
+
+            {/* Lyrics (Mobile) */}
+            {(nowPlaying || playbackQueue.length > 0) && (
+              <button
+                onClick={() => setShowLyrics(!showLyrics)}
+                className={`p-2 rounded-full border transition-all ${showLyrics ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan' : 'bg-transparent border-white/10 text-gray-400 hover:text-white'}`}
+              >
+                <MessageSquare size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Nav Links (Right side of bottom row on mobile) */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setView('analytics')} className={`nav-btn px-3 py-1.5 text-xs ${view === 'analytics' ? 'active' : ''}`}>
+              Analytics
+            </button>
+            <button onClick={handleBingeClick} className={`nav-btn px-3 py-1.5 text-xs ${view === 'binges' ? 'active' : ''}`}>
+              Binges
+            </button>
+            <button onClick={goHome} className={`nav-btn px-3 py-1.5 text-xs ${view === 'overview' ? 'active' : ''}`}>
+              Overview
+            </button>
+          </div>
+        </div>
+
+      </div >
+    </motion.nav >
+
+    {/* FLOATING LYRICS OVERLAY (Moved to Root Level) */}
+    <AnimatePresence>
+      {showLyrics && (
+        <motion.div
+          initial={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
+          className="fixed top-28 left-6 z-[100] w-[350px] h-[500px] pointer-events-none"
+        >
+          <div className="w-full h-full bg-black/80 backdrop-blur-3xl rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.7)] flex flex-col pointer-events-auto overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5 cursor-move">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-neon-cyan shadow-[0_0_10px_rgba(0,255,255,0.5)] animate-pulse" />
+                <span className="text-xs font-mono font-bold tracking-widest text-white/90">LYRICS STREAM</span>
+              </div>
+              <button
+                onClick={() => setShowLyrics(false)}
+                className="p-1 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent relative" ref={lyricsContainerRef}>
+              {lyricsLoading ? (
+                <div className="h-full flex flex-col items-center justify-center gap-3">
+                  <div className="w-5 h-5 border-2 border-neon-cyan border-t-transparent rounded-full animate-spin" />
+                  <span className="text-[10px] font-mono text-neon-cyan/80 animate-pulse tracking-widest">SEARCHING FREQUENCIES...</span>
+                </div>
               ) : (
-                /* Global Player Expanded */
-                <motion.div
-                  key="embedded-player"
-                  initial={{ opacity: 0, y: -20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.98 }}
-                  className="w-full max-w-5xl flex justify-center pt-4 md:pt-0"
-                >
-                  <ErrorBoundary>
-                    <PersistentPlayer
-                      nowPlaying={nowPlaying}
-                      isActive={true}
-                      onClose={() => setIsGlobalPlayerActive(false)}
-                      serverUrl={SERVER_URL}
-                      volume={globalVolume}
-                      onVolumeChange={setGlobalVolume}
-                      onPlayStateChange={setIsGlobalPlaying}
-                      isEmbedded={true}
-                      onEnded={handleTrackEnded}
-                      onProgress={setCurrentPlaybackTime}
-                    />
-                  </ErrorBoundary>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* 3. Controls & Nav (Mobile: Bottom Row full width, Desktop: Separated) */}
-          <div className={`flex items-center justify-between w-full md:w-1/3 md:justify-end gap-4 order-3 md:order-3 ${isGlobalPlayerActive ? 'md:absolute md:right-4 md:top-0 md:h-20' : ''}`}>
-
-            {/* Visual Controls (Mobile Only: Left side of bottom row) */}
-            <div className="flex md:hidden items-center gap-2">
-              <PulsingMicButton />
-
-              {/* Compact Background Toggle (Mobile) */}
-              <div
-                onClick={() => setBackgroundType(prev => prev === 'shader' ? 'fluid' : 'shader')}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 border border-white/10 cursor-pointer text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                title="Switch Visuals"
-              >
-                {backgroundType === 'fluid' ? <Layers size={14} /> : <Zap size={14} />}
-              </div>
-
-              {/* Lyrics (Mobile) */}
-              {(nowPlaying || playbackQueue.length > 0) && (
-                <button
-                  onClick={() => setShowLyrics(!showLyrics)}
-                  className={`p-2 rounded-full border transition-all ${showLyrics ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan' : 'bg-transparent border-white/10 text-gray-400 hover:text-white'}`}
-                >
-                  <MessageSquare size={14} />
-                </button>
-              )}
-            </div>
-
-            {/* Nav Links (Right side of bottom row on mobile) */}
-            <div className="flex items-center gap-2">
-              <button onClick={() => setView('analytics')} className={`nav-btn px-3 py-1.5 text-xs ${view === 'analytics' ? 'active' : ''}`}>
-                Analytics
-              </button>
-              <button onClick={handleBingeClick} className={`nav-btn px-3 py-1.5 text-xs ${view === 'binges' ? 'active' : ''}`}>
-                Binges
-              </button>
-              <button onClick={goHome} className={`nav-btn px-3 py-1.5 text-xs ${view === 'overview' ? 'active' : ''}`}>
-                Overview
-              </button>
-            </div>
-          </div>
-
-        </div >
-      </motion.nav >
-
-      {/* FLOATING LYRICS OVERLAY (Moved to Root Level) */}
-      <AnimatePresence>
-        {showLyrics && (
-          <motion.div
-            initial={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
-            className="fixed top-28 left-6 z-[100] w-[350px] h-[500px] pointer-events-none"
-          >
-            <div className="w-full h-full bg-black/80 backdrop-blur-3xl rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.7)] flex flex-col pointer-events-auto overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5 cursor-move">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-neon-cyan shadow-[0_0_10px_rgba(0,255,255,0.5)] animate-pulse" />
-                  <span className="text-xs font-mono font-bold tracking-widest text-white/90">LYRICS STREAM</span>
-                </div>
-                <button
-                  onClick={() => setShowLyrics(false)}
-                  className="p-1 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent relative" ref={lyricsContainerRef}>
-                {lyricsLoading ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-3">
-                    <div className="w-5 h-5 border-2 border-neon-cyan border-t-transparent rounded-full animate-spin" />
-                    <span className="text-[10px] font-mono text-neon-cyan/80 animate-pulse tracking-widest">SEARCHING FREQUENCIES...</span>
+                syncedLines ? (
+                  <div className="flex flex-col gap-6 py-[50%]">
+                    {syncedLines.map((line, i) => (
+                      <motion.div
+                        key={i}
+                        initial={false}
+                        animate={{
+                          opacity: i === activeLineIndex ? 1 : 0.6,
+                          scale: i === activeLineIndex ? 1.05 : 1,
+                          filter: 'blur(0px)',
+                          y: 0
+                        }}
+                        className={`text-center font-sans font-bold transition-all duration-300 ${i === activeLineIndex ? 'text-neon-cyan text-xl drop-shadow-[0_0_15px_rgba(0,255,255,0.4)]' : 'text-white/60 text-base'}`}
+                      >
+                        {line.text}
+                      </motion.div>
+                    ))}
                   </div>
                 ) : (
-                  syncedLines ? (
-                    <div className="flex flex-col gap-6 py-[50%]">
-                      {syncedLines.map((line, i) => (
-                        <motion.div
-                          key={i}
-                          initial={false}
-                          animate={{
-                            opacity: i === activeLineIndex ? 1 : 0.6,
-                            scale: i === activeLineIndex ? 1.05 : 1,
-                            filter: 'blur(0px)',
-                            y: 0
-                          }}
-                          className={`text-center font-sans font-bold transition-all duration-300 ${i === activeLineIndex ? 'text-neon-cyan text-xl drop-shadow-[0_0_15px_rgba(0,255,255,0.4)]' : 'text-white/60 text-base'}`}
-                        >
-                          {line.text}
-                        </motion.div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm font-medium text-white/90 leading-loose font-sans whitespace-pre-wrap text-center tracking-wide">
-                      {lyrics || <span className="text-gray-500 italic text-xs">Signal lost. No lyrics data found.</span>}
-                    </div>
-                  )
-                )}
-                {/* Aesthetic Top/Bottom Fades */}
-                <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/90 to-transparent pointer-events-none sticky top-0 z-10" />
-                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/90 to-transparent pointer-events-none sticky bottom-0 z-10" />
-              </div>
+                  <div className="text-sm font-medium text-white/90 leading-loose font-sans whitespace-pre-wrap text-center tracking-wide">
+                    {lyrics || <span className="text-gray-500 italic text-xs">Signal lost. No lyrics data found.</span>}
+                  </div>
+                )
+              )}
+              {/* Aesthetic Top/Bottom Fades */}
+              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/90 to-transparent pointer-events-none sticky top-0 z-10" />
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/90 to-transparent pointer-events-none sticky bottom-0 z-10" />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
 
-      <style jsx="true">{`
+    <style jsx="true">{`
         .nav-pill {
             @apply px-4 py-2 rounded-full text-sm font-medium transition-all text-gray-400 hover:text-white hover:bg-white/5;
         }
@@ -707,172 +724,172 @@ function MainDashboard() {
         }
       `}</style>
 
-      <AnalyticsProvider currentView={view}>
-        <motion.main
-          animate={{ paddingTop: isGlobalPlayerActive ? '18rem' : '8rem' }}
-          transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="px-4 max-w-7xl mx-auto min-h-[80vh]"
+    <AnalyticsProvider currentView={view}>
+      <motion.main
+        animate={{ paddingTop: isGlobalPlayerActive ? '18rem' : '8rem' }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        className="px-4 max-w-7xl mx-auto min-h-[80vh]"
+      >
+        <AnimatePresence mode="wait">
+          {view === 'overview' && (
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              <Overview
+                data={data}
+                metric={metric}
+                setMetric={setMetric}
+                onYearClick={handleYearClick}
+                onArtistClick={handleArtistClick}
+                onLibraryClick={() => setView('library')}
+                nowPlaying={nowPlaying}
+                isListening={isGlobalPlayerActive}
+                onToggleListen={() => setIsGlobalPlayerActive(!isGlobalPlayerActive)}
+                onPlayContext={playContext}
+              />
+            </motion.div>
+          )}
+
+          {view === 'binges' && (
+            <motion.div
+              key="binges"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.1 }}
+              transition={{ duration: 0.4 }}
+            >
+              <BingeReport
+                data={data}
+                onBack={goHome}
+                onArtistClick={handleArtistClick}
+                onPlayContext={playContext}
+              />
+            </motion.div>
+          )}
+
+          {view === 'library' && (
+            <motion.div
+              key="library"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <Library
+                data={data}
+                metric={metric}
+                onBack={goHome}
+                onArtistClick={handleArtistClick}
+                initialSearch={initialLibrarySearch}
+                onPlayContext={playContext}
+              />
+            </motion.div>
+          )}
+
+          {view === 'year' && selectedYear && (
+            <motion.div
+              key="year"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.4 }}
+            >
+              <YearDetail
+                year={selectedYear}
+                data={data.years[selectedYear]}
+                allData={data}
+                onBack={goHome}
+                onArtistClick={handleArtistClick}
+                onMonthClick={handleMonthClick}
+                onYearClick={handleYearClick}
+                metric={metric}
+                setMetric={setMetric}
+                nowPlaying={nowPlaying}
+                isListening={isGlobalPlayerActive}
+                onToggleListen={() => setIsGlobalPlayerActive(!isGlobalPlayerActive)}
+                onPlayContext={playContext}
+                queueLoading={queueLoading}
+              />
+            </motion.div>
+          )}
+
+          {view === 'month' && selectedYear && selectedMonth && (
+            <motion.div
+              key="month"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.4 }}
+            >
+              <MonthDetail
+                year={selectedYear}
+                month={selectedMonth}
+                allData={data}
+                metric={metric}
+                setMetric={setMetric}
+                onBack={() => setView('year')}
+                onMonthClick={handleMonthClick}
+                onPlayContext={playContext}
+              />
+            </motion.div>
+          )}
+
+          {view === 'artist' && selectedArtist && (
+            <motion.div
+              key="artist"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ArtistProfile
+                artist={selectedArtist}
+                stats={data.artists[selectedArtist]}
+                metric={metric}
+                allData={data}
+                onBack={() => setView(selectedYear ? 'year' : 'overview')}
+                onTagClick={handleTagClick}
+                onPlayContext={playContext}
+              />
+            </motion.div>
+          )}
+
+          {view === 'analytics' && (
+            <motion.div
+              key="analytics"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              <AdvancedAnalyticsDashboard />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.main>
+    </AnalyticsProvider>
+
+    <footer className="mt-20 py-10 border-t border-white/5 text-center text-gray-400 text-xs relative z-10 bg-black/50 backdrop-blur-sm">
+      <div className="flex items-center justify-center gap-4">
+        <p>Built with ❤️ by Antigravity & Sardistic</p>
+        <span className="w-px h-3 bg-white/10" />
+        <a
+          href="https://github.com/sardistic/sardistic.fm"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 hover:text-white transition-colors group"
         >
-          <AnimatePresence mode="wait">
-            {view === 'overview' && (
-              <motion.div
-                key="overview"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4 }}
-              >
-                <Overview
-                  data={data}
-                  metric={metric}
-                  setMetric={setMetric}
-                  onYearClick={handleYearClick}
-                  onArtistClick={handleArtistClick}
-                  onLibraryClick={() => setView('library')}
-                  nowPlaying={nowPlaying}
-                  isListening={isGlobalPlayerActive}
-                  onToggleListen={() => setIsGlobalPlayerActive(!isGlobalPlayerActive)}
-                  onPlayContext={playContext}
-                />
-              </motion.div>
-            )}
-
-            {view === 'binges' && (
-              <motion.div
-                key="binges"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.1 }}
-                transition={{ duration: 0.4 }}
-              >
-                <BingeReport
-                  data={data}
-                  onBack={goHome}
-                  onArtistClick={handleArtistClick}
-                  onPlayContext={playContext}
-                />
-              </motion.div>
-            )}
-
-            {view === 'library' && (
-              <motion.div
-                key="library"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                <Library
-                  data={data}
-                  metric={metric}
-                  onBack={goHome}
-                  onArtistClick={handleArtistClick}
-                  initialSearch={initialLibrarySearch}
-                  onPlayContext={playContext}
-                />
-              </motion.div>
-            )}
-
-            {view === 'year' && selectedYear && (
-              <motion.div
-                key="year"
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ duration: 0.4 }}
-              >
-                <YearDetail
-                  year={selectedYear}
-                  data={data.years[selectedYear]}
-                  allData={data}
-                  onBack={goHome}
-                  onArtistClick={handleArtistClick}
-                  onMonthClick={handleMonthClick}
-                  onYearClick={handleYearClick}
-                  metric={metric}
-                  setMetric={setMetric}
-                  nowPlaying={nowPlaying}
-                  isListening={isGlobalPlayerActive}
-                  onToggleListen={() => setIsGlobalPlayerActive(!isGlobalPlayerActive)}
-                  onPlayContext={playContext}
-                  queueLoading={queueLoading}
-                />
-              </motion.div>
-            )}
-
-            {view === 'month' && selectedYear && selectedMonth && (
-              <motion.div
-                key="month"
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ duration: 0.4 }}
-              >
-                <MonthDetail
-                  year={selectedYear}
-                  month={selectedMonth}
-                  allData={data}
-                  metric={metric}
-                  setMetric={setMetric}
-                  onBack={() => setView('year')}
-                  onMonthClick={handleMonthClick}
-                  onPlayContext={playContext}
-                />
-              </motion.div>
-            )}
-
-            {view === 'artist' && selectedArtist && (
-              <motion.div
-                key="artist"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.3 }}
-              >
-                <ArtistProfile
-                  artist={selectedArtist}
-                  stats={data.artists[selectedArtist]}
-                  metric={metric}
-                  allData={data}
-                  onBack={() => setView(selectedYear ? 'year' : 'overview')}
-                  onTagClick={handleTagClick}
-                  onPlayContext={playContext}
-                />
-              </motion.div>
-            )}
-
-            {view === 'analytics' && (
-              <motion.div
-                key="analytics"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4 }}
-              >
-                <AdvancedAnalyticsDashboard />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.main>
-      </AnalyticsProvider>
-
-      <footer className="mt-20 py-10 border-t border-white/5 text-center text-gray-400 text-xs relative z-10 bg-black/50 backdrop-blur-sm">
-        <div className="flex items-center justify-center gap-4">
-          <p>Built with ❤️ by Antigravity & Sardistic</p>
-          <span className="w-px h-3 bg-white/10" />
-          <a
-            href="https://github.com/sardistic/sardistic.fm"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 hover:text-white transition-colors group"
-          >
-            <Github size={14} className="opacity-60 group-hover:opacity-100" />
-            <span>Repo on GitHub</span>
-          </a>
-        </div>
-      </footer>
-    </div >
-  );
+          <Github size={14} className="opacity-60 group-hover:opacity-100" />
+          <span>Repo on GitHub</span>
+        </a>
+      </div>
+    </footer>
+  </div >
+);
 }
 
 function App() {
