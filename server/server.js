@@ -735,21 +735,31 @@ app.get('/api/sync/status', (req, res) => {
     });
 });
 
-// In-memory cache for dashboard payload
-let cachedPayload = null;
-const PAYLOAD_PATH = isRailway ? '/data/dashboard_payload.json' : path.resolve(__dirname, '../src/data/dashboard_payload.json');
+// --- Dashboard Payload Caching Strategy ---
+// 1. Initial Load: Try to load from disk (fast startup)
+// 2. Runtime: API serves from memory (cachedPayload)
+// 3. Updates: Cron job updates both memory and disk
 
-// Initialize cache from disk on start
+let cachedPayload = null;
+// Determine path based on environment (Railway uses /data for persistence)
+const PAYLOAD_PATH = isRailway
+    ? '/data/dashboard_payload.json'
+    : path.resolve(__dirname, '../src/data/dashboard_payload.json');
+
+// Initialize Cache
 try {
     if (fs.existsSync(PAYLOAD_PATH)) {
-        console.log(`Loading initial payload from disk cache (${PAYLOAD_PATH})...`);
+        console.log(`Loading initial payload from: ${PAYLOAD_PATH}`);
         cachedPayload = JSON.parse(fs.readFileSync(PAYLOAD_PATH, 'utf8'));
+        console.log('Payload cache loaded successfully.');
+    } else {
+        console.log('No existing payload found. Cache will be built on first request.');
     }
 } catch (e) {
     console.error('Failed to load initial payload cache:', e.message);
 }
 
-// GET Full Dashboard Data (Dynamic)
+// GET Full Dashboard Data
 app.get('/api/dashboard/data', async (req, res) => {
     try {
         // Serve from memory cache if available
@@ -757,10 +767,18 @@ app.get('/api/dashboard/data', async (req, res) => {
             return res.json(cachedPayload);
         }
 
-        // Fallback: Generate fresh if no cache
+        // Fallback: Generate fresh if no cache (and save it)
         console.log('Cache miss. Generating payload...');
         const payload = await generatePayload(db);
-        cachedPayload = payload; // Update cache
+
+        cachedPayload = payload;
+        // Try to save to disk for next time
+        try {
+            fs.writeFileSync(PAYLOAD_PATH, JSON.stringify(payload));
+        } catch (writeErr) {
+            console.error("Failed to write payload cache to disk:", writeErr.message);
+        }
+
         res.json(payload);
     } catch (error) {
         console.error('Failed to generate dashboard payload:', error);
@@ -991,29 +1009,27 @@ app.get('/api/lyrics', async (req, res) => {
 
 // Schedule Auto-Sync (Every 10 minutes)
 cron.schedule('*/10 * * * *', async () => {
-    console.log('[Cron] Starting scheduled sync...');
+    console.log('Running scheduled sync...');
     try {
         const result = await syncScrobbles();
         if (result.synced > 0) {
-            console.log(`[Cron] Synced ${result.synced} new scrobbles. Regenerating payload...`);
-            // Regenerate the dashboard payload
+            console.log(`Synced ${result.synced} new tracks. Regenerating payload...`);
             const payload = await generatePayload(db);
 
-            // Update cache
+            // Update Memory Cache
             cachedPayload = payload;
 
-            // Persist to disk
+            // Update Disk Cache
             fs.writeFileSync(PAYLOAD_PATH, JSON.stringify(payload));
-            console.log('[Cron] Dashboard payload updated and cached.');
+            console.log('Dashboard payload regenerated and saved.');
         } else {
-            console.log('[Cron] No new scrobbles found.');
+            console.log('No new scrobbles to sync.');
         }
     } catch (error) {
-        console.error('[Cron] Sync failed:', error.message);
+        console.error('Scheduled sync failed:', error);
     }
 });
 
-// Start Server
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
