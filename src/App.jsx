@@ -528,7 +528,7 @@ function MainDashboard() {
                      Size reduced (~20%): h-12 (mobile) md:h-20 (desktop base) 
                      Added slight scale on hover. */}
                 <img
-                  src="https://sardistic.com/wp-content/uploads/2021/09/liquid.gif"
+                  src="https://www.sardistic.com/wp-content/uploads/2026/02/liquid_transparent.webp"
                   alt="sardistic.com"
                   className="h-10 md:h-[72px] w-auto object-contain transition-transform group-hover:scale-105"
                   style={{
