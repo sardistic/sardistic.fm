@@ -540,25 +540,34 @@ function MainDashboard() {
             </div>
 
             {/* Navigation Menu Links */}
-            <nav className="flex items-center gap-4 ml-6">
-              <a
-                href="https://sardistic.com"
-                className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-              >
-                Return
-              </a>
-              <a
-                href="https://www.sardistic.com/gallery-landing/"
-                className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-              >
-                Gallery
-              </a>
-              <a
-                href="https://chat.sardistic.com/"
-                className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-              >
-                Chat
-              </a>
+            <nav className="hidden md:flex items-center gap-1 ml-6">
+              {[
+                { label: 'Return', href: 'https://sardistic.com' },
+                { label: 'Gallery', href: 'https://www.sardistic.com/gallery-landing/' },
+                { label: 'Chat', href: 'https://chat.sardistic.com/' }
+              ].map((link, i) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="group relative px-4 py-2 text-xs font-mono tracking-widest text-gray-400 uppercase transition-all duration-300 hover:text-white"
+                >
+                  {/* Animated underline */}
+                  <span className="absolute bottom-1 left-1/2 h-[1px] w-0 bg-gradient-to-r from-neon-cyan via-neon-pink to-neon-cyan transition-all duration-300 group-hover:left-2 group-hover:w-[calc(100%-16px)]" />
+
+                  {/* Glow effect on hover */}
+                  <span className="absolute inset-0 rounded-lg opacity-0 bg-white/5 transition-opacity duration-300 group-hover:opacity-100" />
+
+                  {/* Text with slight lift on hover */}
+                  <span className="relative z-10 transition-transform duration-300 group-hover:-translate-y-[1px] inline-block">
+                    {link.label}
+                  </span>
+
+                  {/* Separator dot (except last) */}
+                  {i < 2 && (
+                    <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/20" />
+                  )}
+                </a>
+              ))}
             </nav>
 
             {/* Desktop Visual Controls (Hidden on Mobile) */}
