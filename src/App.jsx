@@ -539,6 +539,28 @@ function MainDashboard() {
               </a>
             </div>
 
+            {/* Navigation Menu Links */}
+            <nav className="flex items-center gap-4 ml-6">
+              <a
+                href="https://sardistic.com"
+                className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
+              >
+                Return
+              </a>
+              <a
+                href="https://www.sardistic.com/gallery-landing/"
+                className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
+              >
+                Gallery
+              </a>
+              <a
+                href="https://chat.sardistic.com/"
+                className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
+              >
+                Chat
+              </a>
+            </nav>
+
             {/* Desktop Visual Controls (Hidden on Mobile) */}
             <div className={`hidden md:flex items-center transition-all duration-500 ${isListening ? 'gap-12 ml-12' : 'gap-4 ml-6'}`}>
               <PulsingMicButton />
