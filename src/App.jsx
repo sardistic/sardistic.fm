@@ -683,7 +683,7 @@ function MainDashboard() {
           <div className="flex items-start order-1 md:w-1/3 h-full">
             <div className="flex items-start gap-1 h-full">
               {/* "audio." part -> Links to current app home */}
-              <div className="cursor-pointer group self-center" onClick={goHome}>
+              <div className="cursor-pointer group self-start" onClick={goHome}>
                 <span className="text-xl tracking-tight transition-opacity hover:opacity-80">
                   <span className="text-white font-bold" style={{ fontFamily: "'Roboto', sans-serif" }}>audio.</span>
                 </span>
