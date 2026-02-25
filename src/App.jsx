@@ -715,8 +715,11 @@ function MainDashboard() {
 
             {/* Navigation Menu Links */}
             <nav className="hidden md:flex items-center gap-1 ml-6">
+              {/* Sardistic Dropdown (first) */}
+              <SardisticDropdown />
+
               {[
-                { label: 'Return', href: 'https://sardistic.com' },
+                { label: '.com', href: 'https://sardistic.com' },
                 { label: 'Gallery', href: 'https://www.sardistic.com/gallery-landing/' },
               ].map((link, i) => (
                 <a
@@ -739,9 +742,6 @@ function MainDashboard() {
                   <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/20" />
                 </a>
               ))}
-
-              {/* Sardistic Dropdown */}
-              <SardisticDropdown />
             </nav>
 
             {/* Desktop Visual Controls (Hidden on Mobile) */}
