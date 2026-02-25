@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useAnimationFrame } from 'framer-motion';
-import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github, ChevronDown, BookOpen, PenTool, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github, ChevronDown, BookOpen, PenTool, MessageCircle, Sparkles, Leaf } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
 import Overview from './components/Overview';
 import YearDetail from './components/YearDetail';
@@ -228,17 +228,11 @@ const PulsingMicButton = () => {
   );
 };
 
-// Sardistic Dropdown Menu Component
-const SardisticDropdown = () => {
+// Reusable Nav Dropdown Menu Component
+const NavDropdown = ({ label, links }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const timeoutRef = useRef(null);
-
-  const links = [
-    { label: 'Chat', href: 'https://chat.sardistic.com/', icon: MessageCircle, color: 'from-neon-cyan to-blue-400' },
-    { label: 'Read', href: 'https://read.sardistic.com/', icon: BookOpen, color: 'from-neon-pink to-purple-400' },
-    { label: 'Write', href: 'https://write.sardistic.com/', icon: PenTool, color: 'from-neon-green to-emerald-400' },
-  ];
 
   const handleMouseEnter = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -322,7 +316,7 @@ const SardisticDropdown = () => {
         <span className="absolute inset-0 rounded-lg opacity-0 bg-white/5 transition-opacity duration-300 group-hover:opacity-100" />
 
         <span className="relative z-10 transition-transform duration-300 group-hover:-translate-y-[1px] inline-block">
-          Sardistic
+          {label}
         </span>
 
         {/* Chevron with rotation animation */}
@@ -715,33 +709,29 @@ function MainDashboard() {
 
             {/* Navigation Menu Links */}
             <nav className="hidden md:flex items-center gap-1 ml-6">
-              {/* Sardistic Dropdown (first) */}
-              <SardisticDropdown />
+              {/* Sardistic Dropdown */}
+              <NavDropdown label="Sardistic" links={[
+                { label: 'Chat', href: 'https://chat.sardistic.com/', icon: MessageCircle, color: 'from-neon-cyan to-blue-400' },
+                { label: 'Read', href: 'https://read.sardistic.com/', icon: BookOpen, color: 'from-neon-pink to-purple-400' },
+                { label: 'Write', href: 'https://write.sardistic.com/', icon: PenTool, color: 'from-neon-green to-emerald-400' },
+              ]} />
 
-              {[
-                { label: '.com', href: 'https://sardistic.com' },
-                { label: 'Gallery', href: 'https://www.sardistic.com/gallery-landing/' },
-              ].map((link, i) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className="group relative px-4 py-2 text-xs font-mono tracking-widest text-gray-400 uppercase transition-all duration-300 hover:text-white"
-                >
-                  {/* Animated underline */}
-                  <span className="absolute bottom-1 left-1/2 h-[1px] w-0 bg-gradient-to-r from-neon-cyan via-neon-pink to-neon-cyan transition-all duration-300 group-hover:left-2 group-hover:w-[calc(100%-16px)]" />
+              {/* .com link */}
+              <a
+                href="https://sardistic.com"
+                className="group relative px-4 py-2 text-xs font-mono tracking-widest text-gray-400 uppercase transition-all duration-300 hover:text-white"
+              >
+                <span className="absolute bottom-1 left-1/2 h-[1px] w-0 bg-gradient-to-r from-neon-cyan via-neon-pink to-neon-cyan transition-all duration-300 group-hover:left-2 group-hover:w-[calc(100%-16px)]" />
+                <span className="absolute inset-0 rounded-lg opacity-0 bg-white/5 transition-opacity duration-300 group-hover:opacity-100" />
+                <span className="relative z-10 transition-transform duration-300 group-hover:-translate-y-[1px] inline-block">.com</span>
+                <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/20" />
+              </a>
 
-                  {/* Glow effect on hover */}
-                  <span className="absolute inset-0 rounded-lg opacity-0 bg-white/5 transition-opacity duration-300 group-hover:opacity-100" />
-
-                  {/* Text with slight lift on hover */}
-                  <span className="relative z-10 transition-transform duration-300 group-hover:-translate-y-[1px] inline-block">
-                    {link.label}
-                  </span>
-
-                  {/* Separator dot */}
-                  <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/20" />
-                </a>
-              ))}
+              {/* Gallery Dropdown */}
+              <NavDropdown label="Gallery" links={[
+                { label: 'Artificial', href: 'https://www.sardistic.com/ai-timeline/', icon: Sparkles, color: 'from-neon-cyan to-violet-400' },
+                { label: 'Organic', href: 'https://sardistic.com/gallery-timeline/', icon: Leaf, color: 'from-neon-green to-lime-400' },
+              ]} />
             </nav>
 
             {/* Desktop Visual Controls (Hidden on Mobile) */}
