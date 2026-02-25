@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useAnimationFrame } from 'framer-motion';
-import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github } from 'lucide-react';
+import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github, ChevronDown, BookOpen, PenTool, MessageCircle } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
 import Overview from './components/Overview';
 import YearDetail from './components/YearDetail';
@@ -225,6 +225,180 @@ const PulsingMicButton = () => {
       {/* Text Label (Optional, maybe just Visualizer?) */}
       {!isListening && <span className="text-xs font-mono tracking-widest opacity-60">VISUALIZE</span>}
     </button>
+  );
+};
+
+// Sardistic Dropdown Menu Component
+const SardisticDropdown = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const timeoutRef = useRef(null);
+
+  const links = [
+    { label: 'Chat', href: 'https://chat.sardistic.com/', icon: MessageCircle, color: 'from-neon-cyan to-blue-400' },
+    { label: 'Read', href: 'https://read.sardistic.com/', icon: BookOpen, color: 'from-neon-pink to-purple-400' },
+    { label: 'Write', href: 'https://write.sardistic.com/', icon: PenTool, color: 'from-neon-green to-emerald-400' },
+  ];
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => setIsOpen(false), 200);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
+
+  const dropdownVariants = {
+    hidden: {
+      opacity: 0,
+      y: -8,
+      scale: 0.95,
+      filter: 'blur(4px)',
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      filter: 'blur(0px)',
+      transition: {
+        type: 'spring',
+        stiffness: 400,
+        damping: 25,
+        staggerChildren: 0.06,
+        delayChildren: 0.05,
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: -6,
+      scale: 0.97,
+      filter: 'blur(4px)',
+      transition: { duration: 0.15, staggerChildren: 0.03, staggerDirection: -1 },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, x: -12, scale: 0.9 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      transition: { type: 'spring', stiffness: 500, damping: 22 },
+    },
+    exit: { opacity: 0, x: -8, scale: 0.95, transition: { duration: 0.1 } },
+  };
+
+  return (
+    <div
+      ref={dropdownRef}
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Trigger Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="group relative px-4 py-2 text-xs font-mono tracking-widest text-gray-400 uppercase transition-all duration-300 hover:text-white flex items-center gap-1.5"
+      >
+        {/* Animated underline */}
+        <span className="absolute bottom-1 left-1/2 h-[1px] w-0 bg-gradient-to-r from-neon-cyan via-neon-pink to-neon-cyan transition-all duration-300 group-hover:left-2 group-hover:w-[calc(100%-16px)]" />
+
+        {/* Glow on hover */}
+        <span className="absolute inset-0 rounded-lg opacity-0 bg-white/5 transition-opacity duration-300 group-hover:opacity-100" />
+
+        <span className="relative z-10 transition-transform duration-300 group-hover:-translate-y-[1px] inline-block">
+          Sardistic
+        </span>
+
+        {/* Chevron with rotation animation */}
+        <motion.span
+          className="relative z-10"
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+        >
+          <ChevronDown size={12} />
+        </motion.span>
+      </button>
+
+      {/* Dropdown Menu */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            variants={dropdownVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 origin-top z-[60]"
+          >
+            {/* Decorative arrow */}
+            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-black/80 border-l border-t border-white/10" />
+
+            <div className="relative bg-black/80 backdrop-blur-xl rounded-xl border border-white/10 overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.6),0_0_20px_rgba(0,255,255,0.05)]">
+              {/* Subtle gradient shine at top */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon-cyan/30 to-transparent" />
+
+              <div className="py-1.5">
+                {links.map((link, i) => (
+                  <motion.a
+                    key={link.label}
+                    href={link.href}
+                    variants={itemVariants}
+                    className="group/item relative flex items-center gap-3 px-4 py-2.5 text-xs font-mono tracking-wider text-gray-400 uppercase transition-all duration-300 hover:text-white"
+                    whileHover={{ x: 4 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                  >
+                    {/* Hover background glow */}
+                    <span className="absolute inset-x-1 inset-y-0.5 rounded-lg opacity-0 bg-white/5 transition-opacity duration-200 group-hover/item:opacity-100" />
+
+                    {/* Icon with gradient color on hover */}
+                    <motion.span
+                      className="relative z-10 text-gray-500 transition-colors duration-300 group-hover/item:text-white"
+                      whileHover={{ rotate: [0, -10, 10, -5, 0], scale: 1.2 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      <link.icon size={14} />
+                    </motion.span>
+
+                    {/* Label */}
+                    <span className="relative z-10">{link.label}</span>
+
+                    {/* Animated neon dot indicator on hover */}
+                    <motion.span
+                      className={`ml-auto w-1.5 h-1.5 rounded-full bg-gradient-to-r ${link.color} opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 relative z-10`}
+                      animate={isOpen ? { scale: [1, 1.4, 1] } : {}}
+                      transition={{ repeat: Infinity, duration: 2, delay: i * 0.3 }}
+                    />
+
+                    {/* Bottom separator (except last) */}
+                    {i < links.length - 1 && (
+                      <span className="absolute bottom-0 left-4 right-4 h-px bg-white/5" />
+                    )}
+                  </motion.a>
+                ))}
+              </div>
+
+              {/* Subtle gradient shine at bottom */}
+              <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-neon-pink/20 to-transparent" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
@@ -544,7 +718,6 @@ function MainDashboard() {
               {[
                 { label: 'Return', href: 'https://sardistic.com' },
                 { label: 'Gallery', href: 'https://www.sardistic.com/gallery-landing/' },
-                { label: 'Chat', href: 'https://chat.sardistic.com/' }
               ].map((link, i) => (
                 <a
                   key={link.label}
@@ -562,12 +735,13 @@ function MainDashboard() {
                     {link.label}
                   </span>
 
-                  {/* Separator dot (except last) */}
-                  {i < 2 && (
-                    <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/20" />
-                  )}
+                  {/* Separator dot */}
+                  <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/20" />
                 </a>
               ))}
+
+              {/* Sardistic Dropdown */}
+              <SardisticDropdown />
             </nav>
 
             {/* Desktop Visual Controls (Hidden on Mobile) */}
