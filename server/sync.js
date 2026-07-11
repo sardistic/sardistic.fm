@@ -8,6 +8,11 @@ const dbPath = process.env.DB_PATH || (isRailway ? '/data/analytics.db' : path.r
 const db = new sqlite3.Database(dbPath);
 console.log(`[Sync] Using Database at: ${dbPath}`);
 
+// Blocklist: scrobbles matching these patterns (artist, track or album) are never ingested
+const BLOCKLIST = [/emma'?s.?myspace/i];
+const isBlocked = (track) =>
+    BLOCKLIST.some(re => re.test(`${track.artist} ${track.track} ${track.album || ''}`));
+
 /**
  * Sync scrobbles from Last.fm to database
  * @param {number} since - Unix timestamp to sync from (optional)
@@ -45,8 +50,13 @@ async function syncScrobbles(since = null) {
 
         let inserted = 0;
         let skipped = 0;
+        let blocked = 0;
 
         for (const track of tracks) {
+            if (isBlocked(track)) {
+                blocked++;
+                continue;
+            }
             await new Promise((resolve, reject) => {
                 stmt.run(
                     track.artist,
@@ -91,9 +101,9 @@ async function syncScrobbles(since = null) {
             });
         });
 
-        console.log(`✓ Sync complete! Inserted: ${inserted}, Skipped: ${skipped}`);
+        console.log(`✓ Sync complete! Inserted: ${inserted}, Skipped: ${skipped}, Blocked: ${blocked}`);
 
-        return { synced: inserted, total: tracks.length, skipped };
+        return { synced: inserted, total: tracks.length, skipped, blocked };
     } catch (error) {
         console.error('Sync error:', error);
         throw error;
