@@ -9,6 +9,7 @@ const cron = require('node-cron');
 const fs = require('fs');
 const { syncScrobbles } = require('./sync');
 const { generatePayload } = require('./regenerate_payload');
+const { isBlocked, isBlockedName } = require('./blocklist');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -278,8 +279,12 @@ async function fetchLastFm(method, params) {
 // GET Now Playing
 app.get('/api/now-playing', async (req, res) => {
     try {
-        const data = await fetchLastFm('user.getrecenttracks', { limit: 1, extended: 1 });
-        const tracks = data.recenttracks.track;
+        // Fetch a few so that if the latest scrobble is a blocklisted act we can
+        // fall through to the most recent real track instead of showing it.
+        const data = await fetchLastFm('user.getrecenttracks', { limit: 5, extended: 1 });
+        let tracks = data.recenttracks.track;
+        tracks = Array.isArray(tracks) ? tracks : (tracks ? [tracks] : []);
+        tracks = tracks.filter(t => !isBlocked(t));
 
         if (!tracks || tracks.length === 0) {
             return res.json({ nowPlaying: null });
@@ -382,9 +387,12 @@ app.get('/api/recent/:period', async (req, res) => {
                     total = data.recenttracks['@attr'].total;
                 }
 
-                const pageTracks = Array.isArray(data.recenttracks.track)
+                // Filter blocklisted acts here, at the single point every
+                // downstream aggregate (sparkline, today's top lists, the
+                // recent feed, image cache) reads from.
+                const pageTracks = (Array.isArray(data.recenttracks.track)
                     ? data.recenttracks.track
-                    : [data.recenttracks.track];
+                    : [data.recenttracks.track]).filter(t => !isBlocked(t));
 
                 tracks.push(...pageTracks);
 
@@ -494,9 +502,9 @@ app.get('/api/recent/:period', async (req, res) => {
 
             if (topData.topartists && topData.topartists.artist) {
                 // Ensure array (single result edge case)
-                const artists = Array.isArray(topData.topartists.artist)
+                const artists = (Array.isArray(topData.topartists.artist)
                     ? topData.topartists.artist
-                    : [topData.topartists.artist];
+                    : [topData.topartists.artist]).filter(a => !isBlockedName(a.name));
 
                 topArtists = artists.map(a => {
                     let image = null;
@@ -550,10 +558,12 @@ app.get('/api/recent/:period', async (req, res) => {
                     ? topTracksData.toptracks.track
                     : [topTracksData.toptracks.track];
 
-                topTracks = tList.map(t => ({
-                    name: t.name,
-                    artist: (t.artist && t.artist.name) ? t.artist.name : t.artist
-                }));
+                topTracks = tList
+                    .filter(t => !isBlockedName((t.artist && t.artist.name) ? t.artist.name : t.artist))
+                    .map(t => ({
+                        name: t.name,
+                        artist: (t.artist && t.artist.name) ? t.artist.name : t.artist
+                    }));
             }
         }
 
@@ -592,9 +602,9 @@ app.get('/api/recent/:period', async (req, res) => {
             const topAlbumsData = await fetchLastFm('user.gettopalbums', { period: periodParam, limit: 1 });
 
             if (topAlbumsData.topalbums && topAlbumsData.topalbums.album) {
-                const aList = Array.isArray(topAlbumsData.topalbums.album)
+                const aList = (Array.isArray(topAlbumsData.topalbums.album)
                     ? topAlbumsData.topalbums.album
-                    : [topAlbumsData.topalbums.album];
+                    : [topAlbumsData.topalbums.album]).filter(a => !isBlockedName((a.artist && a.artist.name) ? a.artist.name : a.artist));
 
                 topAlbums = aList.map(a => {
                     let image = null;

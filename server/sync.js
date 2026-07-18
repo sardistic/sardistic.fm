@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { getAllTracksSince } = require('./lastfm');
+const { isBlocked } = require('./blocklist');
 
 const fs = require('fs');
 const isRailway = fs.existsSync('/data');
@@ -8,10 +9,7 @@ const dbPath = process.env.DB_PATH || (isRailway ? '/data/analytics.db' : path.r
 const db = new sqlite3.Database(dbPath);
 console.log(`[Sync] Using Database at: ${dbPath}`);
 
-// Blocklist: scrobbles matching these patterns (artist, track or album) are never ingested
-const BLOCKLIST = [/emma'?s.?myspace/i];
-const isBlocked = (track) =>
-    BLOCKLIST.some(re => re.test(`${track.artist} ${track.track} ${track.album || ''}`));
+// Blocklist lives in ./blocklist (shared with the live read path in server.js).
 
 /**
  * Sync scrobbles from Last.fm to database
