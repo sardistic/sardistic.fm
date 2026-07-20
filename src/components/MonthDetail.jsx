@@ -20,22 +20,20 @@ const formatDuration = (mins) => {
 };
 
 export default function MonthDetail({ year, month, allData, onBack, metric, setMetric, onMonthClick, onPlayContext }) {
-    if (!allData || !year || !month) return null;
-
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const monthIndex = monthNames.indexOf(month);
     const monthNum = String(monthIndex + 1).padStart(2, '0');
     const monthPrefix = `${year}-${monthNum}`;
 
     // Find monthly summary for totals and estimations
-    const monthSummary = (allData.history || []).find(d => d.date === monthPrefix) || { scrobbles: 0, minutes: 0 };
+    const monthSummary = (allData?.history || []).find(d => d.date === monthPrefix) || { scrobbles: 0, minutes: 0 };
     let avgDuration = monthSummary.scrobbles > 0 ? (monthSummary.minutes / monthSummary.scrobbles) : 3.5;
     // Sanity check: If average track is > 20 mins, it's likely bad data (e.g. 1000m tracks). Fallback to 3.5m.
     if (avgDuration > 20) avgDuration = 3.5;
 
     // Filter Data for this Month using TIMELINE (Daily Data)
     const monthDays = useMemo(() => {
-        if (!allData.timeline) return [];
+        if (!allData?.timeline) return [];
 
         const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
         const days = [];
@@ -54,7 +52,9 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
             });
         }
         return days;
-    }, [allData.timeline, monthPrefix, metric, avgDuration, year, monthIndex]);
+    }, [allData?.timeline, monthPrefix, metric, avgDuration, year, monthIndex]);
+
+    if (!allData || !year || !month) return null;
 
     // Derived Stats
     const totalValue = monthDays.reduce((acc, d) => acc + d.val, 0);
@@ -62,7 +62,7 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
 
     // Day of Week Stats
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const weekStats = dayNames.map((name, idx) => ({ name, value: 0 }));
+    const weekStats = dayNames.map((name) => ({ name, value: 0 }));
     monthDays.forEach(d => {
         weekStats[d.weekday].value += d.val;
     });

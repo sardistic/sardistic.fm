@@ -259,7 +259,7 @@ function FluidBackground({ intensity = 0 }) {
             window.removeEventListener('mousedown', handleClick);
             cancelAnimationFrame(animationFrame);
         };
-    }, []); // Empty dependency array -> Init once. Logic uses ref.
+    }, [audioStateRef]);
 
     return (
         <canvas

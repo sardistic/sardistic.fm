@@ -177,9 +177,10 @@ const ShaderBackground = () => {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    const container = containerRef.current;
 
-    while (containerRef.current.firstChild) {
-      containerRef.current.removeChild(containerRef.current.firstChild);
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
     }
 
     const scene = new THREE.Scene();
@@ -192,7 +193,7 @@ const ShaderBackground = () => {
       powerPreference: 'high-performance'
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    containerRef.current.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
     const uniforms = {
       iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
@@ -287,13 +288,13 @@ const ShaderBackground = () => {
       active = false;
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
-      if (containerRef.current && renderer.domElement) {
-        containerRef.current.removeChild(renderer.domElement);
+      if (renderer.domElement.parentNode === container) {
+        container.removeChild(renderer.domElement);
       }
       renderer.dispose();
       material.dispose();
     };
-  }, []);
+  }, [audioStateRef]);
 
   return <div ref={containerRef} className="fixed inset-0 z-0 pointer-events-none" />;
 };

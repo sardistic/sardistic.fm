@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, AlertTriangle, RefreshCw, TrendingUp, Clock, Mouse, BarChart3, Download } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -14,10 +14,10 @@ function AdvancedAnalyticsDashboard() {
     const [timeline, setTimeline] = useState([]);
     const [heatmapData, setHeatmapData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedPage, setSelectedPage] = useState('all');
+    const selectedPage = 'all';
     const [timeRange, setTimeRange] = useState(24);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const [summaryRes, eventsRes, errorsRes, timelineRes, heatmapRes] = await Promise.all([
@@ -44,13 +44,13 @@ function AdvancedAnalyticsDashboard() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedPage, timeRange]);
 
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 5000); // Auto-refresh every 5s
         return () => clearInterval(interval);
-    }, [timeRange, selectedPage]);
+    }, [fetchData]);
 
     const formatTimestamp = (timestamp) => {
         return new Date(timestamp).toLocaleString();

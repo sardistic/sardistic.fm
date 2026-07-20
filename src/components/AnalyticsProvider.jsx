@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const API_BASE = (import.meta.env.VITE_SERVER_URL || 'http://localhost:3001') + '/api';
 
@@ -10,17 +10,16 @@ const generateSessionId = () => {
 export const AnalyticsProvider = ({ children, currentView }) => {
     const pageStartTime = useRef(Date.now());
     const sessionId = useRef(generateSessionId());
-    const [sessionStarted, setSessionStarted] = useState(false);
 
     // Initialize session on mount
     useEffect(() => {
-        trackSession(sessionId.current);
-        setSessionStarted(true);
+        const activeSessionId = sessionId.current;
+        trackSession(activeSessionId);
 
         // End session on unmount
         return () => {
             const duration = Math.floor((Date.now() - pageStartTime.current) / 1000);
-            trackSession(sessionId.current, duration);
+            trackSession(activeSessionId, duration);
         };
     }, []);
 

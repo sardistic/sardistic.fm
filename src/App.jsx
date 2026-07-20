@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useMotionValue, useAnimationFrame } from 'framer-motion';
+import { motion, AnimatePresence, useAnimationFrame } from 'framer-motion';
 import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github, ChevronDown, BookOpen, PenTool, MessageCircle, Sparkles, Leaf } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
 import Overview from './components/Overview';
@@ -8,6 +8,7 @@ import MonthDetail from './components/MonthDetail';
 import ArtistProfile from './components/ArtistProfile';
 import BingeReport from './components/BingeReport';
 import Library from './components/Library';
+import Jukebox from './components/Jukebox';
 import FluidBackground from './components/FluidBackground';
 import ShaderBackground from './components/ShaderBackground';
 import AdvancedAnalyticsDashboard from './components/AdvancedAnalyticsDashboard';
@@ -54,9 +55,6 @@ const PulsingMicButton = () => {
 
         const pad = 4;
         const r = (bh - 2 * pad) / 2;
-        const leftX = r + pad;
-        const rightX = bw - r - pad;
-
         // Draw Faint Track
         borderCtx.strokeStyle = 'rgba(255,255,255,0.05)';
         borderCtx.lineWidth = 1;
@@ -398,7 +396,7 @@ const NavDropdown = ({ label, links }) => {
 
 // Inner Content Component
 function MainDashboard() {
-  const [view, setView] = useState('overview'); // overview, year, artist, binges
+  const [view, setView] = useState('overview'); // overview, year, artist, binges, jukebox
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [selectedArtist, setSelectedArtist] = useState(null);
@@ -485,10 +483,10 @@ function MainDashboard() {
         .then(data => {
           setLyrics(data.lyrics || "Lyrics not found in database.");
         })
-        .catch(err => setLyrics("Lyrics not found."))
+        .catch(() => setLyrics("Lyrics not found."))
         .finally(() => setLyricsLoading(false));
     }
-  }, [nowPlaying?.name, nowPlaying?.artist, showLyrics]);
+  }, [nowPlaying, showLyrics]);
 
   // Reset lyrics on song change
   useEffect(() => {
@@ -560,7 +558,9 @@ function MainDashboard() {
             return data.nowPlaying;
           });
         }
-      } catch (err) { }
+      } catch {
+        // Now-playing polling is best effort; the static dashboard remains usable.
+      }
     };
 
     fetchNowPlaying();
@@ -619,7 +619,7 @@ function MainDashboard() {
 
 
   // View Handlers
-  const handleYearClick = (year, metric) => {
+  const handleYearClick = (year) => {
     setSelectedYear(year);
     setView('year');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -847,6 +847,15 @@ function MainDashboard() {
 
             {/* Nav Links (Right side of bottom row on mobile) */}
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setView('jukebox')}
+                className={`nav-btn px-2 md:px-3 py-1.5 text-xs ${view === 'jukebox' ? 'active' : ''}`}
+                aria-label="Jukebox"
+                title="Jukebox"
+              >
+                <Music size={13} className="md:hidden" />
+                <span className="hidden md:inline">Jukebox</span>
+              </button>
               <button onClick={() => setView('analytics')} className={`nav-btn px-3 py-1.5 text-xs ${view === 'analytics' ? 'active' : ''}`}>
                 Analytics
               </button>
@@ -978,6 +987,22 @@ function MainDashboard() {
                   data={data}
                   onBack={goHome}
                   onArtistClick={handleArtistClick}
+                  onPlayContext={playContext}
+                />
+              </motion.div>
+            )}
+
+            {view === 'jukebox' && (
+              <motion.div
+                key="jukebox"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4 }}
+              >
+                <Jukebox
+                  data={data}
+                  serverUrl={SERVER_URL}
                   onPlayContext={playContext}
                 />
               </motion.div>

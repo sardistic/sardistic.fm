@@ -10,6 +10,7 @@ const fs = require('fs');
 const { syncScrobbles } = require('./sync');
 const { generatePayload } = require('./regenerate_payload');
 const { isBlocked, isBlockedName } = require('./blocklist');
+const { buildCatalog, generateJukebox, PRESET_IDS } = require('./jukebox');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -90,7 +91,9 @@ function initializeDatabase() {
     // Ensure dominant_color column exists in scrobbles (DB might be locked if just created, so wrapped in timeout or just rely on lazy add)
     // We only try this if scrobbles mostly likely exists now
     setTimeout(() => {
-        db.run("ALTER TABLE scrobbles ADD COLUMN dominant_color TEXT", (err) => { });
+        db.run("ALTER TABLE scrobbles ADD COLUMN dominant_color TEXT", () => {
+            // The expected duplicate-column error is harmless on initialized databases.
+        });
     }, 2000);
 }
 
@@ -813,6 +816,51 @@ app.get('/api/scrobbles', (req, res) => {
     );
 });
 
+// Build memory-driven queues from the complete Last.fm scrobble history.
+let jukeboxCatalogCache = null;
+let jukeboxCatalogExpiresAt = 0;
+
+function getJukeboxCatalog() {
+    if (jukeboxCatalogCache && Date.now() < jukeboxCatalogExpiresAt) {
+        return Promise.resolve(jukeboxCatalogCache);
+    }
+
+    return new Promise((resolve, reject) => {
+        db.all(
+            `SELECT artist, track, album, timestamp, date, image_url
+             FROM scrobbles
+             ORDER BY timestamp ASC`,
+            [],
+            (err, rows) => {
+                if (err) return reject(err);
+                jukeboxCatalogCache = buildCatalog(rows.filter((row) => !isBlocked(row)));
+                jukeboxCatalogExpiresAt = Date.now() + (5 * 60 * 1000);
+                resolve(jukeboxCatalogCache);
+            }
+        );
+    });
+}
+
+app.get('/api/jukebox', async (req, res) => {
+    const type = req.query.type || 'yearly-top';
+    if (!PRESET_IDS.has(type)) {
+        return res.status(400).json({ error: `Unknown jukebox preset: ${type}` });
+    }
+
+    try {
+        const catalog = await getJukeboxCatalog();
+        res.json(generateJukebox(catalog, {
+            type,
+            year: req.query.year,
+            month: req.query.month,
+            limit: req.query.limit
+        }));
+    } catch (error) {
+        console.error('Failed to generate jukebox queue:', error.message);
+        res.status(500).json({ error: 'Failed to generate jukebox queue' });
+    }
+});
+
 // Get most played track per year (for year card album art)
 // Get most played track per year (for year card album art)
 app.get('/api/years/top-tracks', (req, res) => {
@@ -893,9 +941,8 @@ app.get('/api/years/top-tracks', (req, res) => {
                             });
                         }
                     }
-                } catch (fetchErr) {
-                    // console.error(`Failed to fetch Last.fm art for ${row.track}:`, fetchErr.message);
-                    // Fail silently and return null image
+                } catch {
+                    // Fail silently and return null image.
                 }
             }
 
@@ -912,7 +959,7 @@ app.get('/api/years/top-tracks', (req, res) => {
                         const updateColorSql = `UPDATE scrobbles SET dominant_color = ? WHERE image_url = ?`;
                         db.run(updateColorSql, [dominantColor, imageUrl]);
                     }
-                } catch (colorErr) {
+                } catch {
                     dominantColor = '#00ffcc';
                 }
             }
@@ -961,7 +1008,7 @@ app.get('/api/lyrics', async (req, res) => {
                 return response.data.syncedLyrics || response.data.plainLyrics;
             }
             return null;
-        } catch (e) {
+        } catch {
             return null;
         }
     };
@@ -972,7 +1019,7 @@ app.get('/api/lyrics', async (req, res) => {
                 timeout: 5000
             });
             return response.data.lyrics;
-        } catch (e) {
+        } catch {
             return null;
         }
     };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, motionValue } from 'framer-motion';
 import { Play, Pause, SkipForward, SkipBack, Volume2, Disc, Radio, X, MessageSquare, Clock, Calendar, Activity, Music } from 'lucide-react';
 import TiltCard from './TiltCard';
@@ -36,7 +36,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
                 })
                 .finally(() => setLyricsLoading(false));
         }
-    }, [nowPlaying, showLyrics]);
+    }, [lyrics, nowPlaying, serverUrl, showLyrics]);
 
     // Reset lyrics when song changes
     useEffect(() => {
@@ -56,22 +56,8 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
     const timeSinceActive = Date.now() - lastActiveTime;
     const isInactive = timeSinceActive > 20 * 60 * 1000; // 20 mins
 
-    // Determine Status Text
-    const getStatusText = () => {
-        if (nowPlaying) return nowPlaying.name;
-        if (!isInactive) return "SYSTEM READY";
-        return "OFFLINE";
-    };
-
-    const getArtistText = () => {
-        if (nowPlaying) return nowPlaying.artist;
-        if (!isInactive) return "Waiting for playback...";
-        return "System Standby";
-    };
-
-
     // Fetch Stats (Today, Week, Month)
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const periods = ['today', 'week', 'month'];
             const results = {};
@@ -94,7 +80,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
         } catch (err) {
             console.error("Failed to fetch stats:", err);
         }
-    };
+    }, [serverUrl]);
 
     useEffect(() => {
         // Initial Fetch
@@ -102,7 +88,7 @@ export default function NowPlaying({ serverUrl = (import.meta.env.VITE_SERVER_UR
         // Refresh stats less frequently (every minute)
         const statsInterval = setInterval(fetchStats, 60000);
         return () => clearInterval(statsInterval);
-    }, []);
+    }, [fetchStats]);
 
     if (loading && !nowPlaying && !stats.today.count) {
         return (
@@ -455,25 +441,6 @@ function StatCard3D({ label, count, top, topTracks, topAlbums, sparkline, color,
 
     if (topArtistImage === DEFAULT_STAR) topArtistImage = null;
     if (topAlbumImage === DEFAULT_STAR) topAlbumImage = null;
-
-    // Tooltip Helper
-    const getTooltipLabel = (index, totalBars) => {
-        const isToday = label.toLowerCase().includes('24h') || label.toLowerCase().includes('today');
-        const isWeek = label.toLowerCase().includes('week') || label.toLowerCase().includes('7 days');
-        const isMonth = label.toLowerCase().includes('30 days') || label.toLowerCase().includes('month');
-
-        if (isToday) {
-            const hoursAgo = (totalBars - 1) - index;
-            if (hoursAgo === 0) return "Just now";
-            return `-${hoursAgo}h`;
-        }
-        if (isWeek || isMonth) {
-            const daysAgo = (totalBars - 1) - index;
-            if (daysAgo === 0) return "Today";
-            return `-${daysAgo}d`;
-        }
-        return `${index}`;
-    };
 
     return (
         <motion.div
