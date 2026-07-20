@@ -2,7 +2,7 @@
 
 ## Active objective
 
-Add a dedicated Jukebox page that creates varied playlists from the full Last.fm scrobble database and continues playback in the header when the user navigates elsewhere.
+Deploy the completed Jukebox and lint-remediation release after the production checkout ownership invariant is repaired.
 
 ## Completed work
 
@@ -13,6 +13,8 @@ Add a dedicated Jukebox page that creates varied playlists from the full Last.fm
 - Documented the data-source and playback-lifecycle decision in `docs/agent/DECISIONS.md`.
 - Split ESLint configuration between browser ESM, Node CommonJS, and root Node ESM files.
 - Cleared the repository's full lint backlog: duplicate object keys, conditional hooks, undefined chart data, stale imports/variables, effect dependencies, ref cleanup safety, and empty error handling.
+- Rebased the release onto the newer live-read blocklist fix and applied that shared blocklist to Jukebox catalog generation.
+- Committed and pushed the validated release to `main` as `c9322b0`.
 
 ## Current behavior
 
@@ -32,8 +34,7 @@ Add a dedicated Jukebox page that creates varied playlists from the full Last.fm
 
 ## Uncommitted implementation details
 
-- Modified: `eslint.config.js`, backend aggregation/sync files, `server/server.js`, `src/App.jsx`, and affected legacy React components/utilities cleaned during lint remediation.
-- Added: `server/jukebox.js`, `src/components/Jukebox.jsx`, `docs/agent/DECISIONS.md`, `docs/agent/HANDOFF.md`.
+- None after the deployment-status handoff commit.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -43,11 +44,12 @@ Add a dedicated Jukebox page that creates varied playlists from the full Last.fm
 - Vite reports that local Node 20.16.0 is below its preferred 20.19+ version, though the production build completes successfully.
 - The production JavaScript bundle remains large enough to trigger Vite's chunk-size warning.
 - Saving a generated queue as a playlist in the user's YouTube account is not implemented; that requires YouTube OAuth and write API integration.
+- Production deployment is blocked because the checkout root, Git metadata, Compose control file, source directories, and environment file are owned by `root` rather than the documented unprivileged deployment user.
 
 ## Next concrete action
 
-Review the Jukebox visually against the populated deployed backend, then deploy the frontend and backend together if the recipes and layout are approved.
+Perform the one-time production ownership repair without recursively changing the persistent data directory. Then rerun the ownership preflight, pull `main`, rebuild both services with Docker Compose, and verify the public frontend and API.
 
 ## Deployment/status impact
 
-Not deployed. The local working tree contains the complete frontend and backend implementation.
+Commit `c9322b0` is pushed to `main`, but production was not pulled, rebuilt, or restarted because the mandatory ownership preflight failed. The currently running production release is unchanged.
