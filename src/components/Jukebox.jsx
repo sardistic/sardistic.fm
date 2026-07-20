@@ -224,59 +224,41 @@ export default function Jukebox({ data, serverUrl, onPlayContext }) {
 
     return (
         <div className="pb-20">
-            <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/50 backdrop-blur-xl px-6 py-10 md:px-10 md:py-12 mb-8">
-                <div
-                    className="absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl opacity-20 pointer-events-none"
-                    style={{ backgroundColor: preset.accent }}
-                />
-                <div className="relative z-10 max-w-4xl">
-                    <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.35em] mb-4" style={{ color: preset.accent }}>
-                        <Radio size={14} /> Memory-driven radio
+            <section className="grid lg:grid-cols-[340px_minmax(0,1fr)] gap-6 items-start">
+                <aside className="lg:sticky lg:top-28 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto rounded-3xl border border-white/10 bg-black/50 backdrop-blur-xl p-4 md:p-5">
+                    <div className="flex items-end justify-between gap-3 mb-4">
+                        <div>
+                            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/35 mb-1">Jukebox</p>
+                            <h1 className="text-xl font-bold text-white">Playlist recipes</h1>
+                        </div>
+                        <span className="text-[10px] font-mono text-white/25">{PRESETS.length} MIXES</span>
                     </div>
-                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-white mb-4">Jukebox</h1>
-                    <p className="text-gray-400 text-base md:text-lg max-w-2xl leading-relaxed">
-                        Turn your complete Last.fm history into playable queues. Pick a lens, tune the rules, and let the header player carry the mix anywhere in the archive.
-                    </p>
-                </div>
-            </section>
 
-            <section className="mb-8">
-                <div className="flex items-end justify-between gap-4 mb-4">
-                    <div>
-                        <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40 mb-2">Choose a signal</p>
-                        <h2 className="text-2xl font-bold text-white">Playlist recipes</h2>
-                    </div>
-                    <span className="hidden md:block text-xs font-mono text-white/30">{PRESETS.length} WAYS INTO THE ARCHIVE</span>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {PRESETS.map((item) => {
-                        const Icon = item.icon;
-                        const active = item.id === presetId;
-                        return (
-                            <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => setPresetId(item.id)}
-                                className={`group text-left rounded-2xl border p-4 transition-all duration-300 min-h-[138px] ${active ? 'bg-white/10 border-white/25 -translate-y-1' : 'bg-black/30 border-white/5 hover:bg-white/5 hover:border-white/15'}`}
-                                style={active ? { boxShadow: `0 14px 40px ${item.accent}18` } : undefined}
-                            >
-                                <div className="flex items-center justify-between mb-5">
-                                    <span className="h-9 w-9 rounded-xl flex items-center justify-center bg-white/5" style={{ color: item.accent }}>
-                                        <Icon size={18} />
+                    <div className="grid grid-cols-2 lg:grid-cols-1 gap-1.5 mb-6">
+                        {PRESETS.map((item) => {
+                            const Icon = item.icon;
+                            const active = item.id === presetId;
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => setPresetId(item.id)}
+                                    className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${active ? 'bg-white/10 border-white/20' : 'bg-transparent border-transparent hover:bg-white/5 hover:border-white/10'}`}
+                                    style={active ? { boxShadow: `inset 3px 0 0 ${item.accent}` } : undefined}
+                                >
+                                    <span className="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center bg-white/5" style={{ color: item.accent }}>
+                                        <Icon size={16} />
                                     </span>
-                                    {active && <span className="h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: item.accent }} />}
-                                </div>
-                                <div className="font-bold text-white text-sm mb-1">{item.shortName}</div>
-                                <div className="text-[11px] leading-relaxed text-gray-500 group-hover:text-gray-400 transition-colors">{item.description}</div>
-                            </button>
-                        );
-                    })}
-                </div>
-            </section>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block font-bold text-white text-xs md:text-sm truncate">{item.shortName}</span>
+                                    </span>
+                                    {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse" style={{ backgroundColor: item.accent }} />}
+                                </button>
+                            );
+                        })}
+                    </div>
 
-            <section className="grid lg:grid-cols-[320px_minmax(0,1fr)] gap-6 items-start">
-                <aside className="lg:sticky lg:top-36 rounded-3xl border border-white/10 bg-black/50 backdrop-blur-xl p-5">
+                    <div className="border-t border-white/10 pt-5">
                     <div className="flex items-center gap-3 mb-5">
                         <span className="h-11 w-11 rounded-2xl bg-white/5 flex items-center justify-center" style={{ color: preset.accent }}>
                             <PresetIcon size={20} />
@@ -348,6 +330,7 @@ export default function Jukebox({ data, serverUrl, onPlayContext }) {
                         >
                             <Shuffle size={15} /> Shuffle
                         </button>
+                    </div>
                     </div>
                 </aside>
 

@@ -2,7 +2,7 @@
 
 ## Active objective
 
-The automatic queue-advance fix is deployed; end-of-song behavior awaits a manual browser playback check.
+Deploy the compact Jukebox sidebar layout; end-of-song behavior still awaits a manual browser playback check.
 
 ## Completed work
 
@@ -21,6 +21,7 @@ The automatic queue-advance fix is deployed; end-of-song behavior awaits a manua
 - Added a Next button to the persistent header player, backed by the existing manual queue advancement logic and disabled at the end of the queue.
 - Added cancellation for superseded YouTube searches so rapid skips cannot restore an earlier track after its lookup completes.
 - Subscribed the raw YouTube iframe to player-state delivery and de-duplicated repeated `ENDED` snapshots so a completed track advances the queue exactly once.
+- Removed the oversized Jukebox hero and moved all recipe choices into a compact sidebar directly left of the playlist, with a stacked mobile fallback.
 
 ## Current behavior
 
@@ -45,10 +46,11 @@ The automatic queue-advance fix is deployed; end-of-song behavior awaits a manua
 - Next-control production check: both containers remained up with clean startup logs; the public frontend, new JavaScript bundle, and live Jukebox API returned HTTP 200.
 - Automatic-advance fix: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 - Automatic-advance production check: both containers remained up with clean startup logs; the public frontend, new fix bundle, and live Jukebox API returned HTTP 200.
+- Jukebox sidebar layout: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 
 ## Uncommitted implementation details
 
-- None after the successful automatic-advance deployment handoff commit.
+- Modified: `src/components/Jukebox.jsx` for the compact recipe-sidebar layout.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -62,8 +64,8 @@ The automatic queue-advance fix is deployed; end-of-song behavior awaits a manua
 
 ## Next concrete action
 
-Let a non-final Jukebox track finish naturally in a real browser and confirm the next track starts. This environment has no browser automation capable of exercising the YouTube iframe lifecycle.
+Commit and deploy the sidebar layout, then visually check it alongside the still-pending natural end-of-song playback test.
 
 ## Deployment/status impact
 
-Commit `8c73247` was deployed on 2026-07-19. Both services were rebuilt and restarted, the corrected public asset and API were verified, and the deployment event was reported.
+The automatic-advance release is live. The Jukebox sidebar layout is validated locally but not yet deployed.
