@@ -2,7 +2,7 @@
 
 ## Active objective
 
-The compact Jukebox sidebar is deployed; end-of-song behavior still awaits a manual browser playback check.
+Deploy the Jukebox list-header controls; end-of-song behavior still awaits a manual browser playback check.
 
 ## Completed work
 
@@ -22,6 +22,7 @@ The compact Jukebox sidebar is deployed; end-of-song behavior still awaits a man
 - Added cancellation for superseded YouTube searches so rapid skips cannot restore an earlier track after its lookup completes.
 - Subscribed the raw YouTube iframe to player-state delivery and de-duplicated repeated `ENDED` snapshots so a completed track advances the queue exactly once.
 - Removed the oversized Jukebox hero and moved all recipe choices into a compact sidebar directly left of the playlist, with a stacked mobile fallback.
+- Moved year/month, queue length, Play, and Shuffle controls from the recipe sidebar into a responsive control row at the top of the playlist.
 
 ## Current behavior
 
@@ -48,10 +49,11 @@ The compact Jukebox sidebar is deployed; end-of-song behavior still awaits a man
 - Automatic-advance production check: both containers remained up with clean startup logs; the public frontend, new fix bundle, and live Jukebox API returned HTTP 200.
 - Jukebox sidebar layout: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 - Sidebar production check: both containers remained up with clean startup logs; the public frontend, new CSS/JavaScript assets, and live Jukebox API returned HTTP 200.
+- List-header controls: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 
 ## Uncommitted implementation details
 
-- None after the successful sidebar-layout deployment handoff commit.
+- Modified: `src/components/Jukebox.jsx` to place queue controls above the track list.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -65,8 +67,8 @@ The compact Jukebox sidebar is deployed; end-of-song behavior still awaits a man
 
 ## Next concrete action
 
-Visually check the desktop sidebar and mobile recipe grid, then let a non-final track finish naturally to confirm automatic queue advancement.
+Commit and deploy the list-header controls, then visually check the responsive layout and natural end-of-song queue advancement.
 
 ## Deployment/status impact
 
-Commit `a403daa` was deployed on 2026-07-19. Both services were rebuilt and restarted, the new public layout assets and API were verified, and the deployment event was reported.
+The compact-sidebar release is live. The list-header control layout is validated locally but not yet deployed.
