@@ -2,7 +2,7 @@
 
 ## Active objective
 
-Deploy the compact Jukebox sidebar layout; end-of-song behavior still awaits a manual browser playback check.
+The compact Jukebox sidebar is deployed; end-of-song behavior still awaits a manual browser playback check.
 
 ## Completed work
 
@@ -47,10 +47,11 @@ Deploy the compact Jukebox sidebar layout; end-of-song behavior still awaits a m
 - Automatic-advance fix: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 - Automatic-advance production check: both containers remained up with clean startup logs; the public frontend, new fix bundle, and live Jukebox API returned HTTP 200.
 - Jukebox sidebar layout: `npm run lint`, `npm run build`, and `git diff --check` — passed.
+- Sidebar production check: both containers remained up with clean startup logs; the public frontend, new CSS/JavaScript assets, and live Jukebox API returned HTTP 200.
 
 ## Uncommitted implementation details
 
-- Modified: `src/components/Jukebox.jsx` for the compact recipe-sidebar layout.
+- None after the successful sidebar-layout deployment handoff commit.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -64,8 +65,8 @@ Deploy the compact Jukebox sidebar layout; end-of-song behavior still awaits a m
 
 ## Next concrete action
 
-Commit and deploy the sidebar layout, then visually check it alongside the still-pending natural end-of-song playback test.
+Visually check the desktop sidebar and mobile recipe grid, then let a non-final track finish naturally to confirm automatic queue advancement.
 
 ## Deployment/status impact
 
-The automatic-advance release is live. The Jukebox sidebar layout is validated locally but not yet deployed.
+Commit `a403daa` was deployed on 2026-07-19. Both services were rebuilt and restarted, the new public layout assets and API were verified, and the deployment event was reported.
