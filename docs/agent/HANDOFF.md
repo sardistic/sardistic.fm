@@ -55,6 +55,7 @@ The persistent-player Next control is deployed and verified in production.
 - Vite reports that local Node 20.16.0 is below its preferred 20.19+ version, though the production build completes successfully.
 - The production JavaScript bundle remains large enough to trigger Vite's chunk-size warning.
 - Saving a generated queue as a playlist in the user's YouTube account is not implemented; that requires YouTube OAuth and write API integration.
+- The production deploy user's global Git config rewrites this repository's HTTPS GitHub URL to SSH, but that user has no working GitHub SSH key. Pulls must bypass that global rewrite or the host configuration must be repaired deliberately.
 
 ## Next concrete action
 
