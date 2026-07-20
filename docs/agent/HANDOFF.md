@@ -2,7 +2,7 @@
 
 ## Active objective
 
-Deploy the Jukebox list-header controls; end-of-song behavior still awaits a manual browser playback check.
+The Jukebox list-header controls are deployed; end-of-song behavior still awaits a manual browser playback check.
 
 ## Completed work
 
@@ -50,10 +50,11 @@ Deploy the Jukebox list-header controls; end-of-song behavior still awaits a man
 - Jukebox sidebar layout: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 - Sidebar production check: both containers remained up with clean startup logs; the public frontend, new CSS/JavaScript assets, and live Jukebox API returned HTTP 200.
 - List-header controls: `npm run lint`, `npm run build`, and `git diff --check` — passed.
+- List-header production check: both containers remained up with clean startup logs; the public frontend, new CSS/JavaScript assets, and live Jukebox API returned HTTP 200.
 
 ## Uncommitted implementation details
 
-- Modified: `src/components/Jukebox.jsx` to place queue controls above the track list.
+- None after the successful list-header-controls deployment handoff commit.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -67,8 +68,8 @@ Deploy the Jukebox list-header controls; end-of-song behavior still awaits a man
 
 ## Next concrete action
 
-Commit and deploy the list-header controls, then visually check the responsive layout and natural end-of-song queue advancement.
+Visually check the responsive list-header controls and let a non-final track finish naturally to confirm automatic queue advancement.
 
 ## Deployment/status impact
 
-The compact-sidebar release is live. The list-header control layout is validated locally but not yet deployed.
+Commit `b1da9f0` was deployed on 2026-07-19. Both services were rebuilt and restarted, the new public controls assets and API were verified, and the deployment event was reported.
