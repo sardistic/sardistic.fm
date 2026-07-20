@@ -2,7 +2,7 @@
 
 ## Active objective
 
-Deploy the completed Jukebox and lint-remediation release after the production checkout ownership invariant is repaired.
+The Jukebox and lint-remediation release is deployed and verified in production.
 
 ## Completed work
 
@@ -15,6 +15,9 @@ Deploy the completed Jukebox and lint-remediation release after the production c
 - Cleared the repository's full lint backlog: duplicate object keys, conditional hooks, undefined chart data, stale imports/variables, effect dependencies, ref cleanup safety, and empty error handling.
 - Rebased the release onto the newer live-read blocklist fix and applied that shared blocklist to Jukebox catalog generation.
 - Committed and pushed the validated release to `main` as `c9322b0`.
+- Repaired production checkout ownership for the `sardistic` deployment user while explicitly preserving ownership of the persistent `data/` directory.
+- Fast-forwarded production to `9b02fc3` and rebuilt/restarted the frontend and backend together with Docker Compose.
+- Reported the successful deployment to the agent control plane.
 
 ## Current behavior
 
@@ -31,10 +34,14 @@ Deploy the completed Jukebox and lint-remediation release after the production c
 - `node --check server/jukebox.js` and `node --check server/server.js` — passed.
 - Temporary backend smoke test exercised all 14 presets and asserted yearly ranking, forgotten-favorite, and rediscovery behavior — passed.
 - `git diff --check` — passed.
+- Production `docker compose ps` — both rebuilt containers remained up after replacement.
+- Production startup logs — backend loaded the SQLite payload, applied its schema, and listened on port 3001; nginx started without errors.
+- `https://audio.sardistic.com/` — returned HTTP 200.
+- `https://audio-api.sardistic.com/api/jukebox?type=yearly-top&year=2025&limit=3` — returned HTTP 200 with a populated queue from the live database.
 
 ## Uncommitted implementation details
 
-- None after the deployment-status handoff commit.
+- None after the successful-deployment handoff commit.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -44,12 +51,11 @@ Deploy the completed Jukebox and lint-remediation release after the production c
 - Vite reports that local Node 20.16.0 is below its preferred 20.19+ version, though the production build completes successfully.
 - The production JavaScript bundle remains large enough to trigger Vite's chunk-size warning.
 - Saving a generated queue as a playlist in the user's YouTube account is not implemented; that requires YouTube OAuth and write API integration.
-- Production deployment is blocked because the checkout root, Git metadata, Compose control file, source directories, and environment file are owned by `root` rather than the documented unprivileged deployment user.
 
 ## Next concrete action
 
-Perform the one-time production ownership repair without recursively changing the persistent data directory. Then rerun the ownership preflight, pull `main`, rebuild both services with Docker Compose, and verify the public frontend and API.
+Visually exercise several Jukebox recipes and navigation-away playback in a browser; no further deployment action is currently required.
 
 ## Deployment/status impact
 
-Commit `c9322b0` is pushed to `main`, but production was not pulled, rebuilt, or restarted because the mandatory ownership preflight failed. The currently running production release is unchanged.
+Production was deployed on 2026-07-19 from `main` at `9b02fc3`. Both services were rebuilt and restarted, and the public frontend and live Jukebox API were verified successfully.
