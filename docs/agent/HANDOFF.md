@@ -2,7 +2,7 @@
 
 ## Active objective
 
-The persistent-player Next control is deployed and verified in production.
+Restore automatic queue advancement when the current YouTube track finishes.
 
 ## Completed work
 
@@ -20,6 +20,7 @@ The persistent-player Next control is deployed and verified in production.
 - Reported the successful deployment to the agent control plane.
 - Added a Next button to the persistent header player, backed by the existing manual queue advancement logic and disabled at the end of the queue.
 - Added cancellation for superseded YouTube searches so rapid skips cannot restore an earlier track after its lookup completes.
+- Subscribed the raw YouTube iframe to player-state delivery and de-duplicated repeated `ENDED` snapshots so a completed track advances the queue exactly once.
 
 ## Current behavior
 
@@ -42,10 +43,11 @@ The persistent-player Next control is deployed and verified in production.
 - `https://audio-api.sardistic.com/api/jukebox?type=yearly-top&year=2025&limit=3` — returned HTTP 200 with a populated queue from the live database.
 - Next-control change: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 - Next-control production check: both containers remained up with clean startup logs; the public frontend, new JavaScript bundle, and live Jukebox API returned HTTP 200.
+- Automatic-advance fix: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 
 ## Uncommitted implementation details
 
-- None after the successful Next-control deployment handoff commit.
+- Modified: `src/components/PersistentPlayer.jsx` for reliable YouTube end-state handling.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -59,8 +61,8 @@ The persistent-player Next control is deployed and verified in production.
 
 ## Next concrete action
 
-Visually exercise ordered and shuffled Jukebox queues, including rapid consecutive skips and the disabled end-of-queue state.
+Commit and deploy the automatic-advance fix, then verify the rebuilt public bundle and service startup.
 
 ## Deployment/status impact
 
-Commit `baaa6dc` was deployed on 2026-07-19. Both services were rebuilt and restarted, the public release asset was served successfully, and the deployment event was reported.
+Commit `baaa6dc` remains live. The automatic-advance fix is validated locally but not yet deployed.
