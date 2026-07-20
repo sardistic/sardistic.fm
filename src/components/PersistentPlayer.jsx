@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Radio, X, Loader, Volume2, Maximize2, SkipForward } from 'lucide-react';
 import RetroAlbumPlaceholder from './RetroAlbumPlaceholder';
@@ -18,6 +18,7 @@ export default function PersistentPlayer({
     isEmbedded = false
 }) {
     const iframeRef = useRef(null);
+    const lastPlayerStateRef = useRef(null);
     const [videoUrl, setVideoUrl] = useState(null);
     const [tuning, setTuning] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -42,6 +43,30 @@ export default function PersistentPlayer({
             );
         }
     };
+
+    const subscribeToPlayerEvents = useCallback(() => {
+        if (iframeRef.current?.contentWindow) {
+            iframeRef.current.contentWindow.postMessage(
+                JSON.stringify({ event: 'listening', id: 'persistent-player' }),
+                '*'
+            );
+        }
+    }, []);
+
+    // A raw YouTube iframe does not emit state updates until its postMessage
+    // event stream has a listener. Retry briefly because iframe readiness and
+    // React's load event can arrive in either order.
+    useEffect(() => {
+        if (!videoUrl) return;
+
+        lastPlayerStateRef.current = null;
+        subscribeToPlayerEvents();
+        const subscriptionAttempts = [250, 750, 1500, 3000].map((delay) => (
+            setTimeout(subscribeToPlayerEvents, delay)
+        ));
+
+        return () => subscriptionAttempts.forEach(clearTimeout);
+    }, [videoUrl, subscribeToPlayerEvents]);
 
     // Apply Volume: Aggressive sync to ensure start volume hits
     useEffect(() => {
@@ -101,14 +126,22 @@ export default function PersistentPlayer({
         const handleMessage = (event) => {
             if (event.origin.includes('youtube.com')) {
                 try {
-                    const data = JSON.parse(event.data);
+                    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
                     // Volume Init
                     if (data.event === 'onReady' || data.info?.playerState) {
                         sendCommand('setVolume', [volume]);
                     }
-                    // Ended
-                    if (data.info && data.info.playerState === 0) {
-                        if (onEnded) onEnded();
+
+                    const playerState = data.info?.playerState;
+                    if (typeof playerState === 'number') {
+                        const previousPlayerState = lastPlayerStateRef.current;
+                        lastPlayerStateRef.current = playerState;
+
+                        // YouTube can deliver the same info snapshot repeatedly.
+                        // Advance once on the transition to ENDED (state 0).
+                        if (playerState === 0 && previousPlayerState !== 0 && onEnded) {
+                            onEnded();
+                        }
                     }
                     // Time Sync (Rare but possible)
                     if (data.info && typeof data.info.currentTime === 'number') {
@@ -197,6 +230,7 @@ export default function PersistentPlayer({
                                 {videoUrl ? (
                                     <iframe
                                         ref={iframeRef}
+                                        id="persistent-player"
                                         key={videoUrl}
                                         width="100%"
                                         height="100%"
@@ -205,6 +239,7 @@ export default function PersistentPlayer({
                                         frameBorder="0"
                                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                         allowFullScreen
+                                        onLoad={subscribeToPlayerEvents}
                                         className="absolute inset-0"
                                     ></iframe>
                                 ) : (
