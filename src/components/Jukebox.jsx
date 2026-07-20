@@ -269,88 +269,94 @@ export default function Jukebox({ data, serverUrl, onPlayContext }) {
                         </div>
                     </div>
 
-                    <p className="text-sm text-gray-400 leading-relaxed mb-6">{preset.description}</p>
-
-                    {preset.needsYear && (
-                        <label className="block mb-5">
-                            <span className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Year</span>
-                            <select
-                                value={year}
-                                onChange={(event) => setYear(Number(event.target.value))}
-                                className="w-full rounded-xl bg-black/60 border border-white/10 px-3 py-2.5 text-sm text-white outline-none focus:border-white/30"
-                            >
-                                {years.map((availableYear) => <option key={availableYear} value={availableYear}>{availableYear}</option>)}
-                            </select>
-                        </label>
-                    )}
-
-                    {preset.needsMonth && (
-                        <label className="block mb-5">
-                            <span className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Recurring month</span>
-                            <select
-                                value={month}
-                                onChange={(event) => setMonth(Number(event.target.value))}
-                                className="w-full rounded-xl bg-black/60 border border-white/10 px-3 py-2.5 text-sm text-white outline-none focus:border-white/30"
-                            >
-                                {MONTHS.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}
-                            </select>
-                        </label>
-                    )}
-
-                    <div className="mb-6">
-                        <span className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Queue length</span>
-                        <div className="grid grid-cols-4 gap-1.5">
-                            {LIMITS.map((queueLimit) => (
-                                <button
-                                    key={queueLimit}
-                                    type="button"
-                                    onClick={() => setLimit(queueLimit)}
-                                    className={`rounded-lg py-2 text-xs font-mono transition-colors ${limit === queueLimit ? 'bg-white text-black font-bold' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}
-                                >
-                                    {queueLimit}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                        <button
-                            type="button"
-                            disabled={!playlist?.tracks?.length || loading}
-                            onClick={() => playTracks(playlist.tracks)}
-                            className="rounded-xl bg-white text-black py-3 px-3 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                        >
-                            <Play size={15} fill="currentColor" /> Play
-                        </button>
-                        <button
-                            type="button"
-                            disabled={!playlist?.tracks?.length || loading}
-                            onClick={shuffleAndPlay}
-                            className="rounded-xl bg-white/10 text-white py-3 px-3 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/15 transition-colors"
-                        >
-                            <Shuffle size={15} /> Shuffle
-                        </button>
-                    </div>
+                    <p className="text-sm text-gray-400 leading-relaxed">{preset.description}</p>
                     </div>
                 </aside>
 
                 <div className="rounded-3xl border border-white/10 bg-black/45 backdrop-blur-xl overflow-hidden min-h-[520px]">
-                    <div className="px-5 md:px-7 py-5 border-b border-white/10 flex items-center justify-between gap-4">
-                        <div>
-                            <h2 className="font-bold text-white text-xl">{preset.name}</h2>
-                            <p className="text-xs text-white/35 mt-1 font-mono">
-                                {loading ? 'READING LISTENING HISTORY…' : `${playlist?.tracks?.length || 0} TRACKS · ${playlist?.totalCandidates || 0} CANDIDATES`}
-                            </p>
+                    <div className="px-5 md:px-7 py-5 border-b border-white/10">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h2 className="font-bold text-white text-xl">{preset.name}</h2>
+                                <p className="text-xs text-white/35 mt-1 font-mono">
+                                    {loading ? 'READING LISTENING HISTORY…' : `${playlist?.tracks?.length || 0} TRACKS · ${playlist?.totalCandidates || 0} CANDIDATES`}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setRefreshToken((value) => value + 1)}
+                                disabled={loading}
+                                className="p-2.5 rounded-full text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors"
+                                title="Rebuild this mix"
+                            >
+                                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                            </button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setRefreshToken((value) => value + 1)}
-                            disabled={loading}
-                            className="p-2.5 rounded-full text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors"
-                            title="Rebuild this mix"
-                        >
-                            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                        </button>
+
+                        <div className="mt-5 flex flex-col xl:flex-row xl:items-end gap-4">
+                            <div className="flex-1 flex flex-wrap items-end gap-3">
+                                {preset.needsYear && (
+                                    <label className="min-w-[120px] flex-1 sm:flex-none">
+                                        <span className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Year</span>
+                                        <select
+                                            value={year}
+                                            onChange={(event) => setYear(Number(event.target.value))}
+                                            className="w-full rounded-xl bg-black/60 border border-white/10 px-3 py-2.5 text-sm text-white outline-none focus:border-white/30"
+                                        >
+                                            {years.map((availableYear) => <option key={availableYear} value={availableYear}>{availableYear}</option>)}
+                                        </select>
+                                    </label>
+                                )}
+
+                                {preset.needsMonth && (
+                                    <label className="min-w-[170px] flex-1 sm:flex-none">
+                                        <span className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Recurring month</span>
+                                        <select
+                                            value={month}
+                                            onChange={(event) => setMonth(Number(event.target.value))}
+                                            className="w-full rounded-xl bg-black/60 border border-white/10 px-3 py-2.5 text-sm text-white outline-none focus:border-white/30"
+                                        >
+                                            {MONTHS.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}
+                                        </select>
+                                    </label>
+                                )}
+
+                                <div className="w-full sm:w-auto">
+                                    <span className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Queue length</span>
+                                    <div className="grid grid-cols-4 gap-1.5 sm:w-[250px]">
+                                        {LIMITS.map((queueLimit) => (
+                                            <button
+                                                key={queueLimit}
+                                                type="button"
+                                                onClick={() => setLimit(queueLimit)}
+                                                className={`rounded-lg py-2.5 text-xs font-mono transition-colors ${limit === queueLimit ? 'bg-white text-black font-bold' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}
+                                            >
+                                                {queueLimit}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 xl:w-[230px]">
+                                <button
+                                    type="button"
+                                    disabled={!playlist?.tracks?.length || loading}
+                                    onClick={() => playTracks(playlist.tracks)}
+                                    className="rounded-xl bg-white text-black py-2.5 px-3 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                                >
+                                    <Play size={15} fill="currentColor" /> Play
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={!playlist?.tracks?.length || loading}
+                                    onClick={shuffleAndPlay}
+                                    className="rounded-xl bg-white/10 text-white py-2.5 px-3 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/15 transition-colors"
+                                >
+                                    <Shuffle size={15} /> Shuffle
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     {loading && (
