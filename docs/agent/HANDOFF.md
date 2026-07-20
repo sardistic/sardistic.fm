@@ -2,7 +2,7 @@
 
 ## Active objective
 
-Restore automatic queue advancement when the current YouTube track finishes.
+The automatic queue-advance fix is deployed; end-of-song behavior awaits a manual browser playback check.
 
 ## Completed work
 
@@ -44,10 +44,11 @@ Restore automatic queue advancement when the current YouTube track finishes.
 - Next-control change: `npm run lint`, `npm run build`, and `git diff --check` — passed.
 - Next-control production check: both containers remained up with clean startup logs; the public frontend, new JavaScript bundle, and live Jukebox API returned HTTP 200.
 - Automatic-advance fix: `npm run lint`, `npm run build`, and `git diff --check` — passed.
+- Automatic-advance production check: both containers remained up with clean startup logs; the public frontend, new fix bundle, and live Jukebox API returned HTTP 200.
 
 ## Uncommitted implementation details
 
-- Modified: `src/components/PersistentPlayer.jsx` for reliable YouTube end-state handling.
+- None after the successful automatic-advance deployment handoff commit.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -61,8 +62,8 @@ Restore automatic queue advancement when the current YouTube track finishes.
 
 ## Next concrete action
 
-Commit and deploy the automatic-advance fix, then verify the rebuilt public bundle and service startup.
+Let a non-final Jukebox track finish naturally in a real browser and confirm the next track starts. This environment has no browser automation capable of exercising the YouTube iframe lifecycle.
 
 ## Deployment/status impact
 
-Commit `baaa6dc` remains live. The automatic-advance fix is validated locally but not yet deployed.
+Commit `8c73247` was deployed on 2026-07-19. Both services were rebuilt and restarted, the corrected public asset and API were verified, and the deployment event was reported.
