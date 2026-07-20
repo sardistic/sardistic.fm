@@ -32,8 +32,8 @@ if (fs.existsSync(DURATIONS_PATH)) {
     try {
         durationCache = JSON.parse(fs.readFileSync(DURATIONS_PATH, 'utf8'));
         console.log(`Loaded ${Object.keys(durationCache).length} existing durations.`);
-    } catch (e) {
-        console.error('Error reading existing durations:', e);
+    } catch (error) {
+        console.error('Error reading existing durations:', error);
     }
 }
 

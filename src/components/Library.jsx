@@ -45,7 +45,7 @@ function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'sc
                 return order === 'asc' ? valA - valB : valB - valA;
             }
         });
-    }, [allArtists, search, sort, order, metric]);
+    }, [allArtists, data.artists, search, sort, order, metric]);
 
     // 3. Paginate
     const totalPages = Math.ceil(filteredArtists.length / ITEMS_PER_PAGE);

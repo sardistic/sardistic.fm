@@ -105,10 +105,14 @@ export class TabAudioCapture {
                 if (audioTracks && audioTracks[0] && this._endedHandler) {
                     audioTracks[0].removeEventListener("ended", this._endedHandler);
                 }
-            } catch (_) { }
+            } catch {
+                // The stream may already be detached.
+            }
 
             this.stream.getTracks().forEach(t => {
-                try { t.stop(); } catch (_) { }
+                try { t.stop(); } catch {
+                    // Individual tracks can already be stopped.
+                }
             });
             this.stream = null;
         }
@@ -119,7 +123,9 @@ export class TabAudioCapture {
         this._timeData = null;
 
         if (this.audioContext) {
-            try { await this.audioContext.close(); } catch (_) { }
+            try { await this.audioContext.close(); } catch {
+                // Closing an already-closed context is harmless.
+            }
             this.audioContext = null;
         }
 

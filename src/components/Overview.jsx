@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useRef, memo, useEffect } from 'react';
+import React, { useState, useMemo, useRef, memo } from 'react';
 import { ArrowRight, BarChart3, Calendar, Disc, Moon, Sun, ChevronLeft, ChevronRight, User as UserIcon, BookOpen, Music, Layers, TrendingUp, TrendingDown, Minus, Play } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, ReferenceArea, CartesianGrid } from 'recharts';
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 
 import MagneticText from './MagneticText';
 import MagneticBar from './MagneticBar';
@@ -22,7 +22,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
     const [zoomYear, setZoomYear] = useState(null); // V14: Zoom into a specific year
     const zoomTimer = useRef(null);
-    const { meta, timeline, years } = data;
+    const { meta, years } = data;
 
     // Zoom Logic
     const handleYearHover = (year) => {
@@ -109,7 +109,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
             try {
                 // V14 Polish: Use full "Month Year" to avoid "Sep 12" looking like a day
                 label = new Date(d.date + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            } catch (e) { /* ignore */ }
+            } catch { /* Use the raw date label when parsing fails. */ }
 
             return {
                 date: d.date, // YYYY-MM
@@ -176,19 +176,11 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 nightMinutes,
                 months: months, // Vital for the mini-waveform
                 maxMonth,
-                months: months, // Vital for the mini-waveform
-                maxMonth,
                 glowIntensity: (info.total / maxYearPlays), // 0 to 1
                 fallbackImage
             };
         }).sort((a, b) => b.year - a.year); // Newest first
     }, [years, maxYearPlays, data.history, metric]);
-
-    // Calculate top artists all time (basic sorting from available data)
-    const topArtistsGlobally = Object.entries(data.artists)
-        .sort((a, b) => b[1].t - a[1].t)
-        .sort((a, b) => b[1].t - a[1].t)
-        .slice(0, 1000);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -198,11 +190,6 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 staggerChildren: 0.05
             }
         }
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        show: { opacity: 1, y: 0 }
     };
 
     // V14: Filter for Zoom
@@ -740,7 +727,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
 }
 
 
-function StatCard({ label, value, icon, color, glowColor = 'rgba(255,255,255,0.5)', className }) {
+function StatCard({ label, value, icon, glowColor = 'rgba(255,255,255,0.5)', className }) {
     const handleMouseMove = (e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -784,7 +771,7 @@ function StatCard({ label, value, icon, color, glowColor = 'rgba(255,255,255,0.5
 
 export default Overview;
 
-const YearCard = memo(({ y, hoveredYear, hoveredMonth, onYearClick, metric, onMouseEnter, onMouseLeave, meta }) => {
+const YearCard = memo(({ y, hoveredYear, hoveredMonth: _hoveredMonth, onYearClick, metric, onMouseEnter, onMouseLeave, meta }) => {
     // Determine active state
     const isActive = String(hoveredYear) === String(y.year);
 

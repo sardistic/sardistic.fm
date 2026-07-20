@@ -80,7 +80,7 @@ async function generatePayload(dbInstance = null) {
         const globalArtistImages = {}; // artist -> url
 
         for (const s of scrobbles) {
-            const { yyyy, mm, dd, hh, keyDay, keyMonth } = formatDate(s.timestamp);
+            const { yyyy, mm, hh, keyDay, keyMonth } = formatDate(s.timestamp);
 
             // Populate Global Image Cache
             if (s.image_url) {
@@ -264,7 +264,6 @@ async function generatePayload(dbInstance = null) {
             years[y] = {
                 year: parseInt(y),
                 total: d.count,
-                minutes: Math.round(d.minutes), // Use aggregated real minutes
                 minutes: Math.round(d.minutes), // Use aggregated real minutes
                 months: d.months,
                 days: d.days,

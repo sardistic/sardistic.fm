@@ -8,7 +8,6 @@ export default function PersistentPlayer({
     nowPlaying,
     isActive,
     onClose,
-    onExpand,
     volume,
     onVolumeChange,
     onPlayStateChange,
@@ -65,17 +64,17 @@ export default function PersistentPlayer({
         if (videoUrl) {
             sendCommand('setVolume', [volume]);
         }
-    }, [volume]);
+    }, [videoUrl, volume]);
 
     // Playback Progress (Dead Reckoning for Lyrics Sync)
-    const [currentTime, setCurrentTime] = useState(0);
+    const [, setCurrentTime] = useState(0);
     const progressInterval = useRef(null);
 
     // Reset progress on track change
     useEffect(() => {
         setCurrentTime(0);
         if (onProgress) onProgress(0);
-    }, [nowPlaying?.name, nowPlaying?.artist]);
+    }, [nowPlaying?.name, nowPlaying?.artist, onProgress]);
 
     // Timer Loop
     useEffect(() => {
@@ -113,7 +112,9 @@ export default function PersistentPlayer({
                     if (data.info && typeof data.info.currentTime === 'number') {
                         setCurrentTime(data.info.currentTime);
                     }
-                } catch (e) { }
+                } catch {
+                    // Ignore unrelated or malformed iframe messages.
+                }
             }
         };
         window.addEventListener('message', handleMessage);
@@ -165,7 +166,7 @@ export default function PersistentPlayer({
             setVideoUrl(null);
             if (onPlayStateChange) onPlayStateChange(false);
         }
-    }, [isActive, nowPlaying?.name, nowPlaying?.artist, serverUrl]);
+    }, [isActive, nowPlaying, onPlayStateChange, serverUrl]);
 
     return (
         <AnimatePresence>

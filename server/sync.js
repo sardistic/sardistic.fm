@@ -55,7 +55,7 @@ async function syncScrobbles(since = null) {
                 blocked++;
                 continue;
             }
-            await new Promise((resolve, reject) => {
+            await new Promise((resolve) => {
                 stmt.run(
                     track.artist,
                     track.track,

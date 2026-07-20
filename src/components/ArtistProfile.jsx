@@ -3,7 +3,24 @@ import { ArrowLeft, TrendingUp, Music, Moon, Sun, Zap, Play } from 'lucide-react
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 
-function ArtistProfile({ artist, stats, onBack, allData, onTagClick, metric = 'scrobbles', onPlayContext }) {
+function ArtistProfile({ artist, stats, onBack, onTagClick, metric = 'scrobbles', onPlayContext }) {
+    // State for Expanded Albums
+    const [expandedAlbum, setExpandedAlbum] = React.useState(null);
+
+    // Image Cycling Logic
+    const [bgImage, setBgImage] = React.useState(null);
+
+    React.useEffect(() => {
+        if (stats?.img) {
+            if (Array.isArray(stats.img) && stats.img.length > 0) {
+                const randomImg = stats.img[Math.floor(Math.random() * stats.img.length)];
+                setBgImage(randomImg);
+            } else if (typeof stats.img === 'string') {
+                setBgImage(stats.img);
+            }
+        }
+    }, [stats?.img]);
+
     if (!stats) return <div>Artist not found</div>;
 
     // Transform year stats into array
@@ -12,35 +29,12 @@ function ArtistProfile({ artist, stats, onBack, allData, onTagClick, metric = 's
         .sort((a, b) => a.year - b.year);
 
     // Time of Day Data
-    const todData = [
+    const radarData = [
         { subject: 'Morning', A: stats.tod ? stats.tod[0] : 0, fullMark: 100 },
         { subject: 'Afternoon', A: stats.tod ? stats.tod[1] : 0, fullMark: 100 },
         { subject: 'Evening', A: stats.tod ? stats.tod[2] : 0, fullMark: 100 },
         { subject: 'Night', A: stats.tod ? stats.tod[3] : 0, fullMark: 100 },
     ];
-
-    const firstRelease = stats.fry || 'Unknown';
-
-
-
-    // State for Expanded Albums
-    const [expandedAlbum, setExpandedAlbum] = React.useState(null);
-
-    // Image Cycling Logic
-    const [bgImage, setBgImage] = React.useState(null);
-
-    React.useEffect(() => {
-        if (stats.img) {
-            if (Array.isArray(stats.img) && stats.img.length > 0) {
-                // Select random image from valid array
-                const randomImg = stats.img[Math.floor(Math.random() * stats.img.length)];
-                setBgImage(randomImg);
-            } else if (typeof stats.img === 'string') {
-                // Legacy string support
-                setBgImage(stats.img);
-            }
-        }
-    }, [stats.img]);
 
     // Sort Albums
     const sortedAlbums = stats.albums

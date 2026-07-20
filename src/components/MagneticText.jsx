@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 
 export default function MagneticText({ content, className = '', color = '#ffffff', isActive = false, externalMouseX = null, externalMouseY = null }) {
@@ -39,7 +39,7 @@ export default function MagneticText({ content, className = '', color = '#ffffff
     );
 }
 
-function MagneticLetter({ mouseX, mouseY, char, color, isActive }) {
+function MagneticLetter({ mouseX, mouseY: _mouseY, char, color, isActive }) {
     const ref = useRef(null);
 
     const distance = useTransform(mouseX, (val) => {
@@ -60,7 +60,6 @@ function MagneticLetter({ mouseX, mouseY, char, color, isActive }) {
     const marginSync = useTransform(distance, [-120, 0, 120], [0, 6, 0]);
     const margin = useTransform(marginSync, (val) => val < 0 ? 0 : val);
 
-    const activeColor = isActive ? '#00ffcc' : color;
     const colorSync = useTransform(distance, [-60, 0, 60], [color, '#ffffff', color]);
 
     return (

@@ -1,17 +1,10 @@
-import React, { useMemo, useState, memo, useRef, useEffect } from 'react';
+import React, { useMemo, useState, memo, useRef } from 'react';
 import { ArrowLeft, ArrowRight, Sun, Moon, ChevronLeft, ChevronRight, Disc, Music, Play } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, AreaChart, Area, CartesianGrid } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import MagneticText from './MagneticText';
 import LocalizedSwarm from './LocalizedSwarm';
 import monthMeta from '../data/month_meta.json';
-
-const hexToRgb = (hex) => {
-    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-    hex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0, 255, 204';
-};
 
 // Sentiment Analysis Color Logic
 const getSentimentStyle = (text = "") => {
@@ -85,12 +78,12 @@ const formatChartDuration = (mins) => {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 // Memoized Chart Component to prevent re-renders on hover
 const DailyHistoryChart = memo(({ data, metric, onHoverMonth, activeMonth }) => {
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const lastHoveredRef = useRef(null);
 
-    const [hoveredIndex, setHoveredIndex] = useState(null);
     const [tooltipData, setTooltipData] = useState(null);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -256,9 +249,7 @@ const DailyHistoryChart = memo(({ data, metric, onHoverMonth, activeMonth }) => 
     return prev.metric === next.metric && prev.data === next.data && prev.activeMonth === next.activeMonth;
 });
 
-export default function YearDetail({ year, data, onBack, allData, metric, setMetric, onArtistClick, onMonthClick, onYearClick, nowPlaying, isListening, onToggleListen, onPlayContext, queueLoading }) {
-    if (!data) return <div>No data for {year}</div>;
-
+export default function YearDetail({ year, data = {}, onBack, allData, metric, setMetric, onArtistClick, onMonthClick, onYearClick, nowPlaying, isListening, onPlayContext, queueLoading }) {
     const requestRef = useRef(null);
 
     // --- Navigation Logic ---
@@ -269,7 +260,6 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
 
     // --- Data Preparation ---
     const { months = [], days = [] } = data;
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const [hoveredMonth, setHoveredMonth] = useState(null);
 
 
@@ -359,7 +349,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
             days.push({
                 date: dateKey,
                 label: dateKey,
-                monthName: monthNames[currentMonth],
+                monthName: MONTH_NAMES[currentMonth],
                 value: value,
                 originalValue: originalValueVal,
                 realMinutes: actualRealMinutes, // PERSISTENT FIELD FOR SCALING
@@ -380,26 +370,6 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
     }, [allData, year, metric]);
 
     // Calculate total minutes for the year
-    const { totalMins, formattedTotal } = useMemo(() => {
-        let totalMins = 0;
-        if (allData?.history) {
-            allData.history.forEach(h => {
-                if (h.date.startsWith(year)) {
-                    totalMins += (h.minutes || 0);
-                }
-            });
-        }
-
-        const formattedTotal = totalMins > 10000
-            ? `${(totalMins / 1000).toFixed(0)}k`
-            : totalMins.toLocaleString();
-
-        return {
-            totalMins,
-            formattedTotal
-        };
-    }, [year, allData, metric]);
-
     const handleLocalMouseMove = (e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -410,7 +380,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
 
     // Enhanced Monthly Grid Data
     const monthlyGridData = useMemo(() => {
-        return monthNames.map((m, i) => {
+        return MONTH_NAMES.map((m, i) => {
             const monthPrefix = `${year}-${String(i + 1).padStart(2, '0')}`;
             const daysInMonthCount = new Date(year, i + 1, 0).getDate();
 
@@ -473,12 +443,11 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                 maxDayScrobbles: Math.max(...dailyScrobbles, 1),
                 maxDayMinutes: Math.max(...dailyMinutes, 1),
                 topTracks: monthHistoryEntry?.top_tracks,
-                topTracks: monthHistoryEntry?.top_tracks,
                 topAlbums: monthHistoryEntry?.top_albums,
                 img: monthHistoryEntry?.img // NEW: Pass the month's generic image (from history)
             };
         });
-    }, [year, data, allData?.history, allData?.calendar, metric, months]);
+    }, [year, allData, metric, months]);
 
     const handleMouseMove = (e) => {
         if (requestRef.current) return;
@@ -497,12 +466,10 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
     // --- Factoid Logic (Preserved) ---
     // 1. Busiest Month
     const maxMonthIndex = (months || []).length > 0 ? months.reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0) : 0;
-    const busiestMonthName = monthNames[maxMonthIndex];
+    const busiestMonthName = MONTH_NAMES[maxMonthIndex];
     const busiestMonthPlays = months[maxMonthIndex];
 
     // 2. Favorite Day
-    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const dayData = (days || []).map((val, i) => ({ name: dayNames[i], plays: val }));
     const maxDayIndex = (days || []).length > 0 ? days.reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0) : 0;
     const favoriteDayName = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][maxDayIndex];
 
@@ -578,7 +545,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
     if (allData?.timeline) {
         const yearPrefix = `${year}-`;
         const yearDates = Object.entries(allData?.timeline || {})
-            .filter(([k, v]) => k.startsWith(yearPrefix));
+            .filter(([k]) => k.startsWith(yearPrefix));
         if (yearDates.length > 0) {
             const [bestDate, bestCount] = yearDates.reduce((max, curr) => curr[1] > max[1] ? curr : max, yearDates[0]);
             const dateObj = new Date(bestDate);
@@ -833,10 +800,8 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                         const activeColor = meta.dominantColor || m.vibeColor || '#00ffcc';
                         // Fallback Precedence: 1. Meta/Dynamic URL -> 2. Month's Generic Image -> 3. Default Placeholder
                         const displayImage = meta.imageUrl || m.img || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000&auto=format&fit=crop";
-                        const activeColorRgb = hexToRgb(activeColor);
                         const isHovered = hoveredMonth === m.month;
                         const isLoading = queueLoading === `${year}-${String(i + 1).padStart(2, '0')}`;
-                        const cardRef = useRef(null);
 
                         // Swarm Bar Positions (Shared Scale Logic) - HORIZONTAL LAYOUT
                         const VISUAL_MINUTES_FACTOR = 2.4;
@@ -845,7 +810,7 @@ export default function YearDetail({ year, data, onBack, allData, metric, setMet
                         const localSharedMax = Math.max(localMaxPlays, localMaxMinsNorm);
                         const MAX_WIDTH_PERCENT = 85; // Prevent hitting the absolute right edge
 
-                        const barPositions = (m.days || []).map((val, dIdx) => {
+                        const barPositions = (m.days || []).map((val) => {
                             // Calculate WIDTH based on metric's normalization
                             let normalizedVal = val;
                             if (metric === 'minutes') {
