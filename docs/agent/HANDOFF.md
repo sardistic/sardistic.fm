@@ -2,7 +2,7 @@
 
 ## Active objective
 
-Deploy a persistent-player Next control for manual Jukebox queues.
+The persistent-player Next control is deployed and verified in production.
 
 ## Completed work
 
@@ -41,10 +41,11 @@ Deploy a persistent-player Next control for manual Jukebox queues.
 - `https://audio.sardistic.com/` — returned HTTP 200.
 - `https://audio-api.sardistic.com/api/jukebox?type=yearly-top&year=2025&limit=3` — returned HTTP 200 with a populated queue from the live database.
 - Next-control change: `npm run lint`, `npm run build`, and `git diff --check` — passed.
+- Next-control production check: both containers remained up with clean startup logs; the public frontend, new JavaScript bundle, and live Jukebox API returned HTTP 200.
 
 ## Uncommitted implementation details
 
-- Modified: `src/App.jsx` and `src/components/PersistentPlayer.jsx` for manual queue skipping.
+- None after the successful Next-control deployment handoff commit.
 - Dependencies were installed with `npm ci`; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -57,8 +58,8 @@ Deploy a persistent-player Next control for manual Jukebox queues.
 
 ## Next concrete action
 
-Commit and deploy the Next-control change, then verify the rebuilt frontend and live Jukebox API.
+Visually exercise ordered and shuffled Jukebox queues, including rapid consecutive skips and the disabled end-of-queue state.
 
 ## Deployment/status impact
 
-The prior Jukebox release is live. The Next-control change is validated locally but not yet deployed.
+Commit `baaa6dc` was deployed on 2026-07-19. Both services were rebuilt and restarted, the public release asset was served successfully, and the deployment event was reported.
