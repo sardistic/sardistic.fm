@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Radio, X, Loader, Volume2, Maximize2, Minimize2 } from 'lucide-react';
+import { Radio, X, Loader, Volume2, Maximize2, SkipForward } from 'lucide-react';
 import RetroAlbumPlaceholder from './RetroAlbumPlaceholder';
 
 export default function PersistentPlayer({
@@ -12,6 +12,8 @@ export default function PersistentPlayer({
     onVolumeChange,
     onPlayStateChange,
     onEnded,
+    onNext,
+    canGoNext = false,
     onProgress,
     isEmbedded = false
 }) {
@@ -141,12 +143,16 @@ export default function PersistentPlayer({
     // YouTube Search / Sync Logic
     useEffect(() => {
         if (isActive && nowPlaying) {
+            const controller = new AbortController();
+
             const tuneIn = async () => {
                 setTuning(true);
                 try {
                     const query = `${nowPlaying.artist} ${nowPlaying.name} Audio`;
 
-                    const res = await fetch(`${serverUrl}/api/youtube/search?q=${encodeURIComponent(query)}`);
+                    const res = await fetch(`${serverUrl}/api/youtube/search?q=${encodeURIComponent(query)}`, {
+                        signal: controller.signal
+                    });
                     const data = await res.json();
                     if (data.videoId) {
                         setVideoUrl(`https://www.youtube.com/embed/${data.videoId}?autoplay=1&enablejsapi=1&controls=0&origin=${window.location.origin}`);
@@ -156,12 +162,14 @@ export default function PersistentPlayer({
                         console.warn("No video found for", query);
                     }
                 } catch (e) {
-                    console.error("Tune in failed", e);
+                    if (e.name !== 'AbortError') console.error("Tune in failed", e);
                 } finally {
-                    setTuning(false);
+                    if (!controller.signal.aborted) setTuning(false);
                 }
             };
             tuneIn();
+
+            return () => controller.abort();
         } else if (!isActive) {
             setVideoUrl(null);
             if (onPlayStateChange) onPlayStateChange(false);
@@ -265,6 +273,18 @@ export default function PersistentPlayer({
                                         <svg width={isEmbedded ? "20" : "12"} height={isEmbedded ? "20" : "12"} fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg> :
                                         <svg width={isEmbedded ? "20" : "12"} height={isEmbedded ? "20" : "12"} fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
                                     }
+                                </button>
+
+                                {/* Next Track */}
+                                <button
+                                    type="button"
+                                    onClick={onNext}
+                                    disabled={!canGoNext}
+                                    aria-label="Play next track"
+                                    title={canGoNext ? 'Next track' : 'End of queue'}
+                                    className={`rounded-full transition-all flex items-center justify-center ${isEmbedded ? 'w-10 h-10' : 'p-2'} ${canGoNext ? 'text-white bg-white/10 hover:bg-white/20 active:scale-95' : 'text-white/20 bg-white/5 cursor-not-allowed'}`}
+                                >
+                                    <SkipForward size={isEmbedded ? 19 : 13} fill="currentColor" />
                                 </button>
 
                                 {/* Volume Slider */}

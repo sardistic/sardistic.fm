@@ -810,6 +810,8 @@ function MainDashboard() {
                       onPlayStateChange={setIsGlobalPlaying}
                       isEmbedded={true}
                       onEnded={handleTrackEnded}
+                      onNext={handleTrackEnded}
+                      canGoNext={isManualPlayback && currentTrackIndex < playbackQueue.length - 1}
                       onProgress={setCurrentPlaybackTime}
                     />
                   </ErrorBoundary>
