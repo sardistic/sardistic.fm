@@ -2,7 +2,7 @@
 
 ## Active objective
 
-A low-visual-impact animation performance pass is implemented locally and validated; it still needs a manual Twitch/YouTube coexistence check before commit and deployment.
+The low-visual-impact animation performance pass is deployed; a manual Twitch/YouTube coexistence check remains.
 
 ## Completed work
 
@@ -29,6 +29,8 @@ A low-visual-impact animation performance pass is implemented locally and valida
 - Moved persistent-player playback time to a ref and gated top-level lyrics timing updates so closed lyrics no longer trigger dashboard renders every 100 ms.
 - Reduced the fluid background from 200 to 120 interpolated points per string and made both backgrounds run at 30 fps for ambient motion while returning to 60 fps during pointer or captured-audio interaction.
 - Removed unnecessary antialiasing, transparency, blending, and depth work from the opaque full-screen GLSL pass, and explicitly dispose its geometry and WebGL context when switching backgrounds.
+- Committed and pushed the performance pass to `main` as `87d7dd1`.
+- Fast-forwarded production to `87d7dd1`, rebuilt/restarted the frontend and backend together with Docker Compose, and reported the deployment to the agent control plane.
 
 ## Current behavior
 
@@ -64,11 +66,14 @@ A low-visual-impact animation performance pass is implemented locally and valida
 - Headless Chrome visual check at 1440×1000 — Canvas and GLSL overview screenshots rendered correctly with the expected composition and controls.
 - Headless Chrome CPU sampling — the previous per-year `getBoundingClientRect`/`LocalizedSwarm` hotspot disappeared; the overview's sampled idle share improved from roughly 59–60% before the pass to roughly 64–69% across repeated post-change samples.
 - `git diff --check` — passed.
+- Animation production preflight — deployment ran as `sardistic`; deploy-controlled paths passed ownership/readability checks, `.env` was mode `0600`, tracked source was clean, and `docker compose config --quiet` passed.
+- Animation production deployment — production resolved to exact commit `87d7dd137d96b5fe033ddfa3a3822a9e4b1d6183`; both rebuilt containers remained up with clean nginx/backend startup logs.
+- Public verification — the frontend, new `index-BrewO3_K.js` bundle, live Jukebox API, and `status.sardistic.com` returned HTTP 200.
+- Deployment reporting — the agent control plane accepted the deploy event with HTTP 201.
 
 ## Uncommitted implementation details
 
-- Modified `src/App.jsx`, `src/components/FluidBackground.jsx`, `src/components/LocalizedSwarm.jsx`, `src/components/NowPlaying.jsx`, `src/components/PersistentPlayer.jsx`, and `src/components/ShaderBackground.jsx` for the animation performance pass.
-- Updated this handoff with the implementation and validation state.
+- None after the animation deployment handoff commit.
 - Dependencies remain installed locally; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -80,12 +85,11 @@ A low-visual-impact animation performance pass is implemented locally and valida
 - The performance profile used headless Chrome without a live Twitch/YouTube playback workload; a manual media coexistence check is still required.
 - The Now Playing card intentionally retains its visible 60-particle effect; this pass removes its forced layout read but does not redesign the effect.
 - Saving a generated queue as a playlist in the user's YouTube account is not implemented; that requires YouTube OAuth and write API integration.
-- The production deploy user's global Git config rewrites this repository's HTTPS GitHub URL to SSH, but that user has no working GitHub SSH key. Pulls must bypass that global rewrite or the host configuration must be repaired deliberately.
 
 ## Next concrete action
 
-Manually play Twitch or YouTube alongside the overview with both background modes, verify hover/audio responsiveness, then commit and deploy the performance pass if playback remains stable.
+Manually play Twitch or YouTube alongside the overview with both background modes and verify hover/audio responsiveness and queue advancement.
 
 ## Deployment/status impact
 
-Production remains on the previously documented deployment. The animation performance pass is local and uncommitted; no production service was changed or restarted.
+Commit `87d7dd1` was deployed on 2026-07-20. Both services were rebuilt and restarted, the new public bundle and API were verified, and the deployment event was reported.
