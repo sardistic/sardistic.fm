@@ -2,7 +2,7 @@
 
 ## Active objective
 
-The follow-up GPU/compositing hotfix is validated locally and awaiting deployment; a manual Twitch/YouTube coexistence check remains.
+The follow-up GPU/compositing hotfix is deployed; a manual Twitch/YouTube coexistence check remains.
 
 ## Completed work
 
@@ -35,6 +35,8 @@ The follow-up GPU/compositing hotfix is validated locally and awaiting deploymen
 - Added offscreen rendering containment to year cards with `content-visibility` and a stable intrinsic height.
 - Reduced ambient Canvas and GLSL background updates to 15 fps while preserving 60 fps pointer/audio response, and cancel their animation frames completely while the dashboard window is unfocused or hidden.
 - Added a focus-aware page state that disables backdrop-filter surfaces while the dashboard is unfocused, restoring the same glass blur immediately on refocus.
+- Committed and pushed the GPU/compositing hotfix to `main` as `e293ddc`.
+- Fast-forwarded production to `e293ddc`, rebuilt/restarted both services, verified the public endpoints and new bundle, and reported the deployment to the agent control plane.
 
 ## Current behavior
 
@@ -77,10 +79,13 @@ The follow-up GPU/compositing hotfix is validated locally and awaiting deploymen
 - Deployment reporting — the agent control plane accepted the deploy event with HTTP 201.
 - GPU/compositing hotfix: `npm run lint`, `npm run build`, and `git diff --check` — passed; only the existing Node-version, stale browser-data, and large-chunk warnings remain.
 - Headless Chrome focus check — the default overview contained 5 canvases, a second active page toggled `page-unfocused` and changed visible glass blur from `blur(24px)` to `none`, and refocusing restored `blur(24px)`.
+- GPU hotfix production preflight — deploy-controlled paths and `.env` ownership/readability passed, tracked source was clean, and `docker compose config --quiet` passed.
+- GPU hotfix production deployment — production resolved to exact commit `e293ddc28563de01098f441e9c718ecd600769ac`; both rebuilt containers remained up with clean nginx/backend startup logs.
+- GPU hotfix public verification — the frontend, new `index-hLk1ZIyR.js` bundle, live Jukebox API, and `status.sardistic.com` returned HTTP 200; the control plane accepted the deploy event with HTTP 201.
 
 ## Uncommitted implementation details
 
-- The GPU/compositing hotfix is validated locally but not yet committed or deployed.
+- None after the GPU/compositing hotfix deployment.
 - Dependencies remain installed locally; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -95,8 +100,8 @@ The follow-up GPU/compositing hotfix is validated locally and awaiting deploymen
 
 ## Next concrete action
 
-Commit and deploy the GPU/compositing hotfix, then manually play Twitch or YouTube alongside the overview with both background modes.
+Manually play Twitch or YouTube alongside the overview with both background modes and verify playback remains stable after switching focus to the video.
 
 ## Deployment/status impact
 
-Commit `87d7dd1` is currently deployed. The follow-up GPU/compositing hotfix has not yet changed production state.
+Commit `e293ddc` was deployed on 2026-07-20. Both services were rebuilt and restarted, the new public bundle and API were verified, and the deployment event was reported.
