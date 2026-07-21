@@ -834,6 +834,8 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth: _hoveredMonth, onYearClic
             className={`glass-panel p-4 h-48 cursor-pointer relative overflow-hidden group transition-transform duration-300 ease-out`}
             style={{
                 '--spotlight-color': activeColor,
+                contentVisibility: 'auto',
+                containIntrinsicSize: 'auto 192px',
                 zIndex: isActive ? 50 : 1,
                 boxShadow: isActive
                     ? `0 0 ${40 + (y.glowIntensity * 50)}px rgba(${activeColorRgb}, ${0.6 + (y.glowIntensity * 0.4)})`
@@ -856,22 +858,24 @@ const YearCard = memo(({ y, hoveredYear, hoveredMonth: _hoveredMonth, onYearClic
             )}
 
             {/* Particle Swarm Layer */}
-            <div className="absolute inset-0 z-30 rounded-3xl mix-blend-screen pointer-events-none">
-                <LocalizedSwarm
-                    barPositions={y.months.map((m, i) => {
-                        const height = (m / (Math.max(...y.months) || 1)) * 80;
-                        const barWidth = 100 / 12; // 12 months
-                        return {
-                            x: (i / 12) * 100, // percentage position
-                            width: barWidth,
-                            height: height,
-                            color: isActive ? (i % 2 === 0 ? '#facc15' : '#a78bfa') : '#67e8f9'
-                        };
-                    })}
-                    isHovered={isActive}
-                    barScale={isActive ? 1.35 : 1}
-                />
-            </div>
+            {isActive && (
+                <div className="absolute inset-0 z-30 rounded-3xl mix-blend-screen pointer-events-none">
+                    <LocalizedSwarm
+                        barPositions={y.months.map((m, i) => {
+                            const height = (m / (Math.max(...y.months) || 1)) * 80;
+                            const barWidth = 100 / 12; // 12 months
+                            return {
+                                x: (i / 12) * 100, // percentage position
+                                width: barWidth,
+                                height: height,
+                                color: i % 2 === 0 ? '#facc15' : '#a78bfa'
+                            };
+                        })}
+                        isHovered
+                        barScale={1.35}
+                    />
+                </div>
+            )}
             {/* Waveform Bottom Bar (Background) */}
             <motion.div
                 className="absolute left-0 right-0 bottom-0 transition-all duration-300 bg-gradient-to-t from-black/80 to-transparent overflow-visible rounded-b-md z-10 border-t border-white/5"

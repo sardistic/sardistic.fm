@@ -244,18 +244,19 @@ const ShaderBackground = () => {
     let valLow = 0, valMid = 0, valHigh = 0;
     let frameId;
     let lastFrameTime = 0;
+    let isPageActive = !document.hidden && document.hasFocus();
 
     const animate = (timestamp) => {
       if (!active) return;
       frameId = requestAnimationFrame(animate);
 
-      if (document.hidden) {
+      if (!isPageActive) {
         lastFrameTime = timestamp;
         return;
       }
 
       const isInteractive = isListeningRef.current || timestamp - lastInteractionTime < 750;
-      const frameInterval = 1000 / (isInteractive ? 60 : 30);
+      const frameInterval = 1000 / (isInteractive ? 60 : 15);
       if (lastFrameTime && timestamp - lastFrameTime < frameInterval) return;
 
       const elapsedFrames = lastFrameTime
@@ -300,6 +301,24 @@ const ShaderBackground = () => {
       renderer.render(scene, camera);
     };
 
+    const pauseRendering = () => {
+      isPageActive = false;
+      cancelAnimationFrame(frameId);
+    };
+    const resumeRendering = () => {
+      if (document.hidden || isPageActive) return;
+      isPageActive = true;
+      lastFrameTime = 0;
+      frameId = requestAnimationFrame(animate);
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) pauseRendering();
+      else if (document.hasFocus()) resumeRendering();
+    };
+
+    window.addEventListener('blur', pauseRendering);
+    window.addEventListener('focus', resumeRendering);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     frameId = requestAnimationFrame(animate);
 
     const handleResize = () => {
@@ -313,6 +332,9 @@ const ShaderBackground = () => {
       cancelAnimationFrame(frameId);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('blur', pauseRendering);
+      window.removeEventListener('focus', resumeRendering);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
       }
