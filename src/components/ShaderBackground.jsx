@@ -188,8 +188,10 @@ const ShaderBackground = () => {
     camera.position.z = 1;
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
+      // A full-screen fragment shader has no geometry edges to antialias and
+      // always outputs opaque pixels, so these buffers add cost without detail.
+      antialias: false,
+      alpha: false,
       powerPreference: 'high-performance'
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -217,17 +219,22 @@ const ShaderBackground = () => {
       vertexShader: vertexShaderSource,
       fragmentShader: fragmentShaderSource,
       uniforms: uniforms,
-      blending: THREE.AdditiveBlending // Crucial for multi-line glow
+      blending: THREE.NoBlending,
+      depthTest: false,
+      depthWrite: false
     });
 
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    const geometry = new THREE.PlaneGeometry(2, 2);
+    const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
     // MOUSE LISTENER
+    let lastInteractionTime = -Infinity;
     const handleMouseMove = (e) => {
       // Normalize mouse to 0..1
       uniforms.iMouse.value.x = e.clientX / window.innerWidth;
       uniforms.iMouse.value.y = 1.0 - (e.clientY / window.innerHeight); // Flip Y for GLSL
+      lastInteractionTime = performance.now();
     };
     window.addEventListener('mousemove', handleMouseMove);
 
@@ -235,14 +242,31 @@ const ShaderBackground = () => {
     let active = true;
     let time = 0;
     let valLow = 0, valMid = 0, valHigh = 0;
+    let frameId;
+    let lastFrameTime = 0;
 
-    const animate = () => {
+    const animate = (timestamp) => {
       if (!active) return;
+      frameId = requestAnimationFrame(animate);
+
+      if (document.hidden) {
+        lastFrameTime = timestamp;
+        return;
+      }
+
+      const isInteractive = isListeningRef.current || timestamp - lastInteractionTime < 750;
+      const frameInterval = 1000 / (isInteractive ? 60 : 30);
+      if (lastFrameTime && timestamp - lastFrameTime < frameInterval) return;
+
+      const elapsedFrames = lastFrameTime
+        ? Math.min((timestamp - lastFrameTime) / (1000 / 60), 2)
+        : 1;
+      lastFrameTime = timestamp;
 
       // Calculate average volume for speed modulation
       const volume = (valLow + valMid + valHigh) / 3.0;
       // Base speed (0.002) + Volume Boost (up to 0.02)
-      time += 0.002 + (volume * 0.02);
+      time += (0.002 + (volume * 0.02)) * elapsedFrames;
 
       let targetLow = 0, targetMid = 0, targetHigh = 0;
       if (isListeningRef.current && audioStateRef.current) {
@@ -259,7 +283,8 @@ const ShaderBackground = () => {
 
       const smooth = (curr, target) => {
         const diff = Math.abs(target - curr);
-        return diff > 0.3 ? 0.2 : 0.05;
+        const baseFactor = diff > 0.3 ? 0.2 : 0.05;
+        return 1 - Math.pow(1 - baseFactor, elapsedFrames);
       };
 
       valLow += (targetLow - valLow) * smooth(valLow, targetLow);
@@ -273,10 +298,9 @@ const ShaderBackground = () => {
       uniforms.rawLow.value = targetLow;
 
       renderer.render(scene, camera);
-      requestAnimationFrame(animate);
     };
 
-    animate();
+    frameId = requestAnimationFrame(animate);
 
     const handleResize = () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -286,12 +310,15 @@ const ShaderBackground = () => {
 
     return () => {
       active = false;
+      cancelAnimationFrame(frameId);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
       }
+      geometry.dispose();
       renderer.dispose();
+      renderer.forceContextLoss();
       material.dispose();
     };
   }, [audioStateRef]);

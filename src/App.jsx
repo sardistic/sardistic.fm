@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useAnimationFrame } from 'framer-motion';
 import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github, ChevronDown, BookOpen, PenTool, MessageCircle, Sparkles, Leaf } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
@@ -22,18 +22,37 @@ const REFRESH_INTERVAL_MS = 10000;
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 // Optimized Button Component that animates without re-rendering parent
-const PulsingMicButton = () => {
+const PulsingMicButton = ({ viewport }) => {
   const { isListening, toggleListening, audioSource, setAudioSource, audioStateRef } = useAudioReactive();
   const buttonRef = useRef(null);
   const canvasRef = useRef(null);
   const borderCanvasRef = useRef(null); // New canvas for the border
+  const canvasContextRef = useRef(null);
+  const borderContextRef = useRef(null);
+  const shouldAnimateRef = useRef(true);
+
+  useEffect(() => {
+    canvasContextRef.current = canvasRef.current?.getContext('2d') || null;
+    borderContextRef.current = borderCanvasRef.current?.getContext('2d') || null;
+
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const updateAnimationState = () => {
+      shouldAnimateRef.current = viewport === 'desktop' ? mediaQuery.matches : !mediaQuery.matches;
+    };
+
+    updateAnimationState();
+    mediaQuery.addEventListener('change', updateAnimationState);
+    return () => mediaQuery.removeEventListener('change', updateAnimationState);
+  }, [viewport]);
 
   // Animate via Framer Motion loop (bypasses React Render)
   useAnimationFrame(() => {
+    if (!shouldAnimateRef.current || document.hidden) return;
+
     const canvas = canvasRef.current;
     const borderCanvas = borderCanvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    const borderCtx = borderCanvas?.getContext('2d');
+    const ctx = canvasContextRef.current;
+    const borderCtx = borderContextRef.current;
 
     if (!isListening || !audioStateRef.current || !ctx || !borderCtx) {
       if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -457,6 +476,17 @@ function MainDashboard() {
     return syncedLines.findLastIndex(l => l.time <= currentPlaybackTime + SYNC_OFFSET);
   }, [syncedLines, currentPlaybackTime]);
 
+  const lyricsProgressEnabledRef = useRef(false);
+  useEffect(() => {
+    lyricsProgressEnabledRef.current = showLyrics && Boolean(syncedLines);
+  }, [showLyrics, syncedLines]);
+
+  const handlePlaybackProgress = useCallback((time) => {
+    if (lyricsProgressEnabledRef.current) {
+      setCurrentPlaybackTime(time);
+    }
+  }, []);
+
   // Auto-scroll lyrics
   const lyricsContainerRef = useRef(null);
   useEffect(() => {
@@ -736,7 +766,7 @@ function MainDashboard() {
 
             {/* Desktop Visual Controls (Hidden on Mobile) */}
             <div className={`hidden md:flex items-center transition-all duration-500 ${isListening ? 'gap-12 ml-12' : 'gap-4 ml-6'}`}>
-              <PulsingMicButton />
+              <PulsingMicButton viewport="desktop" />
 
               {/* Full Text Background Toggle (Desktop) */}
               <div
@@ -812,7 +842,7 @@ function MainDashboard() {
                       onEnded={handleTrackEnded}
                       onNext={handleTrackEnded}
                       canGoNext={isManualPlayback && currentTrackIndex < playbackQueue.length - 1}
-                      onProgress={setCurrentPlaybackTime}
+                      onProgress={handlePlaybackProgress}
                     />
                   </ErrorBoundary>
                 </motion.div>
@@ -825,7 +855,7 @@ function MainDashboard() {
 
             {/* Visual Controls (Mobile Only: Left side of bottom row) */}
             <div className="flex md:hidden items-center gap-2">
-              <PulsingMicButton />
+              <PulsingMicButton viewport="mobile" />
 
               {/* Compact Background Toggle (Mobile) */}
               <div
