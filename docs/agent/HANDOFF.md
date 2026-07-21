@@ -2,7 +2,7 @@
 
 ## Active objective
 
-The low-visual-impact animation performance pass is deployed; a manual Twitch/YouTube coexistence check remains.
+The follow-up GPU/compositing hotfix is validated locally and awaiting deployment; a manual Twitch/YouTube coexistence check remains.
 
 ## Completed work
 
@@ -31,6 +31,10 @@ The low-visual-impact animation performance pass is deployed; a manual Twitch/Yo
 - Removed unnecessary antialiasing, transparency, blending, and depth work from the opaque full-screen GLSL pass, and explicitly dispose its geometry and WebGL context when switching backgrounds.
 - Committed and pushed the performance pass to `main` as `87d7dd1`.
 - Fast-forwarded production to `87d7dd1`, rebuilt/restarted the frontend and backend together with Docker Compose, and reported the deployment to the agent control plane.
+- Removed dormant year-card canvas/compositing layers entirely; the particle canvas now mounts only for the actively hovered card.
+- Added offscreen rendering containment to year cards with `content-visibility` and a stable intrinsic height.
+- Reduced ambient Canvas and GLSL background updates to 15 fps while preserving 60 fps pointer/audio response, and cancel their animation frames completely while the dashboard window is unfocused or hidden.
+- Added a focus-aware page state that disables backdrop-filter surfaces while the dashboard is unfocused, restoring the same glass blur immediately on refocus.
 
 ## Current behavior
 
@@ -38,8 +42,9 @@ The low-visual-impact animation performance pass is deployed; a manual Twitch/Yo
 - Playing or shuffling a generated mix activates the existing YouTube-backed header player.
 - Navigation between dashboard views leaves the player and queue mounted, and playback advances through the generated queue.
 - Queue generation uses the complete runtime SQLite database rather than the truncated static dashboard payload.
-- Canvas and GLSL backgrounds preserve their existing appearance, motion rate, mouse response, and audio response while doing less idle work.
-- Year-card particle effects still activate on hover; cards with no visible particles no longer retain their own animation loops.
+- Canvas and GLSL backgrounds preserve full-rate mouse/audio response; ambient motion runs at 15 fps and suspends while another window has focus.
+- Year-card particle effects still activate on hover; inactive cards no longer mount canvas or blend-mode layers.
+- Glass panels retain their normal blur while the dashboard is focused and drop only the expensive backdrop-filter layer while another tab or window has focus.
 
 ## Validation performed
 
@@ -70,10 +75,12 @@ The low-visual-impact animation performance pass is deployed; a manual Twitch/Yo
 - Animation production deployment — production resolved to exact commit `87d7dd137d96b5fe033ddfa3a3822a9e4b1d6183`; both rebuilt containers remained up with clean nginx/backend startup logs.
 - Public verification — the frontend, new `index-BrewO3_K.js` bundle, live Jukebox API, and `status.sardistic.com` returned HTTP 200.
 - Deployment reporting — the agent control plane accepted the deploy event with HTTP 201.
+- GPU/compositing hotfix: `npm run lint`, `npm run build`, and `git diff --check` — passed; only the existing Node-version, stale browser-data, and large-chunk warnings remain.
+- Headless Chrome focus check — the default overview contained 5 canvases, a second active page toggled `page-unfocused` and changed visible glass blur from `blur(24px)` to `none`, and refocusing restored `blur(24px)`.
 
 ## Uncommitted implementation details
 
-- None after the animation deployment handoff commit.
+- The GPU/compositing hotfix is validated locally but not yet committed or deployed.
 - Dependencies remain installed locally; `node_modules` and build output are ignored and are not implementation changes.
 
 ## Unresolved risks
@@ -82,14 +89,14 @@ The low-visual-impact animation performance pass is deployed; a manual Twitch/Yo
 - Jukebox results depend on the deployed backend having the complete SQLite scrobble database.
 - Vite reports that local Node 20.16.0 is below its preferred 20.19+ version, though the production build completes successfully.
 - The production JavaScript bundle remains large enough to trigger Vite's chunk-size warning.
-- The performance profile used headless Chrome without a live Twitch/YouTube playback workload; a manual media coexistence check is still required.
+- The hotfix behavior was verified in headless Chrome without a live Twitch/YouTube playback workload; a manual media coexistence check is still required after deployment.
 - The Now Playing card intentionally retains its visible 60-particle effect; this pass removes its forced layout read but does not redesign the effect.
 - Saving a generated queue as a playlist in the user's YouTube account is not implemented; that requires YouTube OAuth and write API integration.
 
 ## Next concrete action
 
-Manually play Twitch or YouTube alongside the overview with both background modes and verify hover/audio responsiveness and queue advancement.
+Commit and deploy the GPU/compositing hotfix, then manually play Twitch or YouTube alongside the overview with both background modes.
 
 ## Deployment/status impact
 
-Commit `87d7dd1` was deployed on 2026-07-20. Both services were rebuilt and restarted, the new public bundle and API were verified, and the deployment event was reported.
+Commit `87d7dd1` is currently deployed. The follow-up GPU/compositing hotfix has not yet changed production state.

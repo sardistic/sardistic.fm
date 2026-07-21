@@ -41,6 +41,13 @@ body {
   @apply bg-dark-bg text-gray-200 font-sans antialiased overflow-x-hidden;
 }
 
+/* A visible but unfocused dashboard can otherwise retain dozens of live
+   backdrop-filter surfaces and compete with video decoding in another window. */
+html.page-unfocused [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* Custom Scrollbar for Webkit browsers */
 ::-webkit-scrollbar {
   width: 8px;

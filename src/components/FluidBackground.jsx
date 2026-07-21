@@ -40,6 +40,7 @@ function FluidBackground({ intensity = 0 }) {
         let time = 0;
         let lastFrameTime = 0;
         let lastInteractionTime = -Infinity;
+        let isPageActive = !document.hidden && document.hasFocus();
 
         class StringLine {
             constructor(y, color, speed) {
@@ -225,15 +226,15 @@ function FluidBackground({ intensity = 0 }) {
         const draw = (timestamp) => {
             animationFrame = requestAnimationFrame(draw);
 
-            if (document.hidden) {
+            if (!isPageActive) {
                 lastFrameTime = timestamp;
                 return;
             }
 
-            // Ambient motion is intentionally slow, so 30 fps looks unchanged.
+            // Ambient motion is intentionally slow, so a low idle rate stays subtle.
             // Restore 60 fps while audio or pointer interaction needs immediacy.
             const isInteractive = isListeningRef.current || timestamp - lastInteractionTime < 750;
-            const frameInterval = 1000 / (isInteractive ? 60 : 30);
+            const frameInterval = 1000 / (isInteractive ? 60 : 15);
             if (lastFrameTime && timestamp - lastFrameTime < frameInterval) return;
 
             const elapsedFrames = lastFrameTime
@@ -271,6 +272,25 @@ function FluidBackground({ intensity = 0 }) {
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mousedown', handleClick);
 
+        const pauseRendering = () => {
+            isPageActive = false;
+            cancelAnimationFrame(animationFrame);
+        };
+        const resumeRendering = () => {
+            if (document.hidden || isPageActive) return;
+            isPageActive = true;
+            lastFrameTime = 0;
+            animationFrame = requestAnimationFrame(draw);
+        };
+        const handleVisibilityChange = () => {
+            if (document.hidden) pauseRendering();
+            else if (document.hasFocus()) resumeRendering();
+        };
+
+        window.addEventListener('blur', pauseRendering);
+        window.addEventListener('focus', resumeRendering);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         init();
         animationFrame = requestAnimationFrame(draw);
 
@@ -278,6 +298,9 @@ function FluidBackground({ intensity = 0 }) {
             window.removeEventListener('resize', init);
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mousedown', handleClick);
+            window.removeEventListener('blur', pauseRendering);
+            window.removeEventListener('focus', resumeRendering);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             cancelAnimationFrame(animationFrame);
         };
     }, [audioStateRef]);

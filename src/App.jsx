@@ -1162,6 +1162,25 @@ function MainDashboard() {
 }
 
 function App() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const updateFocusClass = () => {
+      root.classList.toggle('page-unfocused', document.hidden || !document.hasFocus());
+    };
+
+    updateFocusClass();
+    window.addEventListener('focus', updateFocusClass);
+    window.addEventListener('blur', updateFocusClass);
+    document.addEventListener('visibilitychange', updateFocusClass);
+
+    return () => {
+      window.removeEventListener('focus', updateFocusClass);
+      window.removeEventListener('blur', updateFocusClass);
+      document.removeEventListener('visibilitychange', updateFocusClass);
+      root.classList.remove('page-unfocused');
+    };
+  }, []);
+
   return (
     <AudioReactiveProvider>
       <MainDashboard />
