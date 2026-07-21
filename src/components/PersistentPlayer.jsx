@@ -19,10 +19,15 @@ export default function PersistentPlayer({
 }) {
     const iframeRef = useRef(null);
     const lastPlayerStateRef = useRef(null);
+    const onEndedRef = useRef(onEnded);
+    const onProgressRef = useRef(onProgress);
     const [videoUrl, setVideoUrl] = useState(null);
     const [tuning, setTuning] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
+
+    onEndedRef.current = onEnded;
+    onProgressRef.current = onProgress;
 
     // DEBUG: Lifecycle
     useEffect(() => {
@@ -94,24 +99,22 @@ export default function PersistentPlayer({
     }, [videoUrl, volume]);
 
     // Playback Progress (Dead Reckoning for Lyrics Sync)
-    const [, setCurrentTime] = useState(0);
+    const currentTimeRef = useRef(0);
     const progressInterval = useRef(null);
 
     // Reset progress on track change
     useEffect(() => {
-        setCurrentTime(0);
-        if (onProgress) onProgress(0);
-    }, [nowPlaying?.name, nowPlaying?.artist, onProgress]);
+        currentTimeRef.current = 0;
+        if (onProgressRef.current) onProgressRef.current(0);
+    }, [nowPlaying?.name, nowPlaying?.artist]);
 
     // Timer Loop
     useEffect(() => {
         if (!isPaused && videoUrl) {
             progressInterval.current = setInterval(() => {
-                setCurrentTime(prev => {
-                    const next = prev + 0.1;
-                    if (onProgress) onProgress(next);
-                    return next;
-                });
+                const next = currentTimeRef.current + 0.1;
+                currentTimeRef.current = next;
+                if (onProgressRef.current) onProgressRef.current(next);
             }, 100);
         } else {
             if (progressInterval.current) clearInterval(progressInterval.current);
@@ -119,7 +122,7 @@ export default function PersistentPlayer({
         return () => {
             if (progressInterval.current) clearInterval(progressInterval.current);
         };
-    }, [isPaused, videoUrl, onProgress]);
+    }, [isPaused, videoUrl]);
 
     // Handle External Time Updates (if YouTube sends them via postMessage)
     useEffect(() => {
@@ -139,13 +142,14 @@ export default function PersistentPlayer({
 
                         // YouTube can deliver the same info snapshot repeatedly.
                         // Advance once on the transition to ENDED (state 0).
-                        if (playerState === 0 && previousPlayerState !== 0 && onEnded) {
-                            onEnded();
+                        if (playerState === 0 && previousPlayerState !== 0 && onEndedRef.current) {
+                            onEndedRef.current();
                         }
                     }
                     // Time Sync (Rare but possible)
                     if (data.info && typeof data.info.currentTime === 'number') {
-                        setCurrentTime(data.info.currentTime);
+                        currentTimeRef.current = data.info.currentTime;
+                        if (onProgressRef.current) onProgressRef.current(data.info.currentTime);
                     }
                 } catch {
                     // Ignore unrelated or malformed iframe messages.
@@ -154,7 +158,7 @@ export default function PersistentPlayer({
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [volume, onEnded]);
+    }, [volume]);
 
     const handleVolumeChange = (e) => {
         const newVol = parseInt(e.target.value);

@@ -28,7 +28,8 @@ function FluidBackground({ intensity = 0 }) {
 
         // Physics Config
         const STRING_COUNT = 15;
-        const POINTS = 200;
+        // Quadratic interpolation keeps the curves smooth with far fewer samples.
+        const POINTS = 120;
         const VISCOSITY = 0.05;
         const DAMPING = 0.95;
 
@@ -37,6 +38,8 @@ function FluidBackground({ intensity = 0 }) {
         let mouse = { x: -1000, y: -1000, vx: 0, vy: 0 };
         let prevMouse = { x: 0, y: 0 };
         let time = 0;
+        let lastFrameTime = 0;
+        let lastInteractionTime = -Infinity;
 
         class StringLine {
             constructor(y, color, speed) {
@@ -198,6 +201,7 @@ function FluidBackground({ intensity = 0 }) {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
             prevMouse = { x: e.clientX, y: e.clientY };
+            lastInteractionTime = performance.now();
         };
 
         const handleClick = (e) => {
@@ -218,7 +222,25 @@ function FluidBackground({ intensity = 0 }) {
             });
         };
 
-        const draw = () => {
+        const draw = (timestamp) => {
+            animationFrame = requestAnimationFrame(draw);
+
+            if (document.hidden) {
+                lastFrameTime = timestamp;
+                return;
+            }
+
+            // Ambient motion is intentionally slow, so 30 fps looks unchanged.
+            // Restore 60 fps while audio or pointer interaction needs immediacy.
+            const isInteractive = isListeningRef.current || timestamp - lastInteractionTime < 750;
+            const frameInterval = 1000 / (isInteractive ? 60 : 30);
+            if (lastFrameTime && timestamp - lastFrameTime < frameInterval) return;
+
+            const elapsedFrames = lastFrameTime
+                ? Math.min((timestamp - lastFrameTime) / (1000 / 60), 2)
+                : 1;
+            lastFrameTime = timestamp;
+
             // Speed up time based on intensity OR audio energy
             let speedBoost = intensityRef.current || 0;
             // USE REF TO AVOID STALE CLOSURE
@@ -226,7 +248,7 @@ function FluidBackground({ intensity = 0 }) {
                 speedBoost = Math.max(speedBoost, audioStateRef.current.energy * 0.4);
             }
             // Base speed 0.05, max speed ~0.15
-            time += 0.05 + speedBoost * 0.2;
+            time += (0.05 + speedBoost * 0.2) * elapsedFrames;
 
             // Lighter background (less pure black, more dark grey-ish to show depth)
             ctx.fillStyle = '#0a0a0a';
@@ -243,7 +265,6 @@ function FluidBackground({ intensity = 0 }) {
             mouse.vx *= 0.1;
             mouse.vy *= 0.1;
 
-            animationFrame = requestAnimationFrame(draw);
         };
 
         window.addEventListener('resize', init);
@@ -251,7 +272,7 @@ function FluidBackground({ intensity = 0 }) {
         window.addEventListener('mousedown', handleClick);
 
         init();
-        draw();
+        animationFrame = requestAnimationFrame(draw);
 
         return () => {
             window.removeEventListener('resize', init);

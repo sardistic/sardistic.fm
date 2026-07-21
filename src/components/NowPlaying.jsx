@@ -677,8 +677,16 @@ function LocalizedSwarm() {
         if (!containerRef.current) return;
 
         const rect = containerRef.current.getBoundingClientRect();
-        const W = rect.width;
-        const H = rect.height;
+        let W = rect.width;
+        let H = rect.height;
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            const nextRect = entries[0]?.contentRect;
+            if (!nextRect) return;
+            W = nextRect.width;
+            H = nextRect.height;
+        });
+        resizeObserver.observe(containerRef.current);
 
         // Init Particles
         particleSystem.current = Array.from({ length: COUNT }).map(() => ({
@@ -730,9 +738,6 @@ function LocalizedSwarm() {
         let frameId;
         const update = () => {
             if (!containerRef.current) return;
-            const r = containerRef.current.getBoundingClientRect();
-            const W = r.width;
-            const H = r.height;
 
             const mx = mouseRef.current.x;
             const my = mouseRef.current.y;
@@ -829,6 +834,7 @@ function LocalizedSwarm() {
 
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
+            resizeObserver.disconnect();
             cancelAnimationFrame(frameId);
         };
     }, []);

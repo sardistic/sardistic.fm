@@ -33,18 +33,30 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         let frameId;
+        let width = 0;
+        let height = 0;
 
-        const update = () => {
-            if (!canvas) return;
+        const resizeCanvas = () => {
             const rect = canvas.getBoundingClientRect();
+            const nextWidth = Math.max(0, Math.round(rect.width));
+            const nextHeight = Math.max(0, Math.round(rect.height));
 
-            if (canvas.width !== rect.width || canvas.height !== rect.height) {
-                canvas.width = rect.width;
-                canvas.height = rect.height;
+            if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+                canvas.width = nextWidth;
+                canvas.height = nextHeight;
             }
 
-            const W = canvas.width;
-            const H = canvas.height;
+            width = nextWidth;
+            height = nextHeight;
+        };
+
+        resizeCanvas();
+        const resizeObserver = new ResizeObserver(resizeCanvas);
+        resizeObserver.observe(canvas);
+
+        const update = () => {
+            const W = width;
+            const H = height;
             const mx = mousePos.current.x;
             const my = mousePos.current.y;
             const isMouseInside = mx >= -50 && mx <= W + 50 && my >= -50 && my <= H + 50;
@@ -132,11 +144,19 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
             }
             ctx.globalAlpha = 1.0;
             particleSystem.current = activeParticles;
-            frameId = requestAnimationFrame(update);
+
+            // Idle year cards have nothing visible to animate. Let an existing
+            // particle trail finish, then stop until hover starts the effect again.
+            if (isHovered || activeParticles.length > 0) {
+                frameId = requestAnimationFrame(update);
+            }
         };
 
         update();
-        return () => cancelAnimationFrame(frameId);
+        return () => {
+            resizeObserver.disconnect();
+            cancelAnimationFrame(frameId);
+        };
     }, [barPositions, isHovered, barScale, isListening, audioStateRef]); // Removed 'bands' from dep array
 
     return (
