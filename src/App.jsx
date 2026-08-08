@@ -708,37 +708,41 @@ function MainDashboard() {
         className="fixed top-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-b border-white/10 z-50 flex flex-col"
       >
         {/* Responsive Container */}
-        <div className={`w-full flex flex-wrap items-center justify-between px-4 py-3 gap-y-4 md:gap-y-0 transition-all duration-500 ${isGlobalPlayerActive ? 'md:h-auto md:py-4' : 'md:h-20'}`}>
+        <div className={`w-full flex flex-wrap items-center justify-between px-4 py-2 gap-y-2 md:gap-y-0 transition-all duration-500 ${isGlobalPlayerActive ? 'md:h-auto md:py-3' : 'md:h-16'}`}>
 
-          <div className="flex items-start order-1 md:w-1/3 h-full">
-            <div className="flex items-start gap-1 h-full">
+          <div className="flex items-center order-1 md:w-1/3 h-full">
+            {/* Wordmark: "audio." + liquid "S" gif + "ardistic.com", set tight so it reads as one line */}
+            <div
+              className="flex items-center h-full leading-none whitespace-nowrap"
+              style={{ fontFamily: "'Roboto', sans-serif" }}
+            >
               {/* "audio." part -> Links to current app home */}
-              <div className="cursor-pointer group self-start" onClick={goHome}>
-                <span className="text-xl tracking-tight transition-opacity hover:opacity-80">
-                  <span className="text-white font-bold" style={{ fontFamily: "'Roboto', sans-serif" }}>audio.</span>
-                </span>
-              </div>
+              <span
+                onClick={goHome}
+                className="cursor-pointer text-xl font-bold tracking-tight text-white transition-opacity hover:opacity-80"
+              >
+                audio.
+              </span>
 
-              {/* "sardistic.com" part -> Links to main site, replaced by GIF overhang */}
-              <a href="https://sardistic.com" className="relative block group z-50 ml-1 self-start">
-                {/* Image overhangs the header below only.
-                     Aligned to top (self-start).
-                     Size reduced (~20%): h-12 (mobile) md:h-20 (desktop base) 
-                     Added slight scale on hover. */}
+              {/* "sardistic.com" part -> Links to main site, the "s" is the liquid GIF */}
+              <a href="https://sardistic.com" className="group relative z-50 flex items-center">
+                {/* The GIF canvas is 200x150 and the glyph only occupies x 60-167,
+                     so asymmetric negative margins pull the text in against the "s"
+                     while leaving room for the droplets that fly off to the right. */}
                 <img
-                  src="https://www.sardistic.com/wp-content/uploads/2026/02/liquid_transparent.webp"
-                  alt="sardistic.com"
-                  className="h-10 md:h-[72px] w-auto object-contain transition-transform group-hover:scale-105"
-                  style={{
-                    marginTop: '-5px', // Fine-tune top alignment
-                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
-                  }}
+                  src="https://veles.cards/liquid.gif"
+                  alt="s"
+                  className="h-11 md:h-14 w-auto object-contain transition-transform group-hover:scale-105 ml-[-16px] mr-[-8px] md:ml-[-21px] md:mr-[-10px]"
+                  style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' }}
                 />
+                <span className="text-xl font-bold tracking-tight text-white transition-opacity group-hover:opacity-80">
+                  ardistic.com
+                </span>
               </a>
             </div>
 
             {/* Navigation Menu Links */}
-            <nav className="hidden md:flex items-center gap-1 ml-6">
+            <nav className="hidden md:flex items-center gap-1 ml-3">
               {/* Sardistic Dropdown */}
               <NavDropdown label="Sardistic" links={[
                 { label: 'Chat', href: 'https://chat.sardistic.com/', icon: MessageCircle, color: 'from-neon-cyan to-blue-400' },
@@ -765,7 +769,7 @@ function MainDashboard() {
             </nav>
 
             {/* Desktop Visual Controls (Hidden on Mobile) */}
-            <div className={`hidden md:flex items-center transition-all duration-500 ${isListening ? 'gap-12 ml-12' : 'gap-4 ml-6'}`}>
+            <div className={`hidden md:flex items-center transition-all duration-500 ${isListening ? 'gap-8 ml-8' : 'gap-3 ml-4'}`}>
               <PulsingMicButton viewport="desktop" />
 
               {/* Full Text Background Toggle (Desktop) */}
@@ -979,7 +983,7 @@ function MainDashboard() {
 
       <AnalyticsProvider currentView={view}>
         <motion.main
-          animate={{ paddingTop: isGlobalPlayerActive ? '18rem' : '8rem' }}
+          animate={{ paddingTop: isGlobalPlayerActive ? '17rem' : '6.5rem' }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
           className="px-4 max-w-7xl mx-auto min-h-[80vh]"
         >
