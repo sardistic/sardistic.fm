@@ -713,7 +713,7 @@ function MainDashboard() {
           <div className="flex items-center order-1 md:w-1/3 h-full">
             {/* Wordmark: "audio." + liquid "S" gif + "ardistic.com", set tight so it reads as one line */}
             <div
-              className="flex items-center h-full leading-none whitespace-nowrap"
+              className="flex items-center h-full leading-none whitespace-nowrap shrink-0"
               style={{ fontFamily: "'Roboto', sans-serif" }}
             >
               {/* "audio." part -> Links to current app home */}
@@ -741,25 +741,18 @@ function MainDashboard() {
               </a>
             </div>
 
-            {/* Navigation Menu Links */}
-            <nav className="hidden md:flex items-center gap-1 ml-3">
-              {/* Sardistic Dropdown */}
-              <NavDropdown label="Sardistic" links={[
+            {/* Navigation Menu Links.
+                 The wordmark itself now carries the "sardistic" name and links to
+                 sardistic.com, so the old "Sardistic" label and the standalone ".com"
+                 link are gone. Their destinations are all still reachable: the .com
+                 target is the wordmark, and the sub-sites live under "Sites". */}
+            <nav className="hidden md:flex items-center gap-1 ml-3 shrink-0">
+              {/* Sub-site Dropdown */}
+              <NavDropdown label="Sites" links={[
                 { label: 'Chat', href: 'https://chat.sardistic.com/', icon: MessageCircle, color: 'from-neon-cyan to-blue-400' },
                 { label: 'Read', href: 'https://read.sardistic.com/', icon: BookOpen, color: 'from-neon-pink to-purple-400' },
                 { label: 'Write', href: 'https://write.sardistic.com/', icon: PenTool, color: 'from-neon-green to-emerald-400' },
               ]} />
-
-              {/* .com link */}
-              <a
-                href="https://sardistic.com"
-                className="group relative px-4 py-2 text-xs font-mono tracking-widest text-gray-400 uppercase transition-all duration-300 hover:text-white"
-              >
-                <span className="absolute bottom-1 left-1/2 h-[1px] w-0 bg-gradient-to-r from-neon-cyan via-neon-pink to-neon-cyan transition-all duration-300 group-hover:left-2 group-hover:w-[calc(100%-16px)]" />
-                <span className="absolute inset-0 rounded-lg opacity-0 bg-white/5 transition-opacity duration-300 group-hover:opacity-100" />
-                <span className="relative z-10 transition-transform duration-300 group-hover:-translate-y-[1px] inline-block">.com</span>
-                <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/20" />
-              </a>
 
               {/* Gallery Dropdown */}
               <NavDropdown label="Gallery" links={[
