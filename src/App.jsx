@@ -745,10 +745,10 @@ function MainDashboard() {
                  The wordmark itself now carries the "sardistic" name and links to
                  sardistic.com, so the old "Sardistic" label and the standalone ".com"
                  link are gone. Their destinations are all still reachable: the .com
-                 target is the wordmark, and the sub-sites live under "Sites". */}
+                 target is the wordmark, and the sub-sites live under "I/O". */}
             <nav className="hidden md:flex items-center gap-1 ml-3 shrink-0">
               {/* Sub-site Dropdown */}
-              <NavDropdown label="Sites" links={[
+              <NavDropdown label="I/O" links={[
                 { label: 'Chat', href: 'https://chat.sardistic.com/', icon: MessageCircle, color: 'from-neon-cyan to-blue-400' },
                 { label: 'Read', href: 'https://read.sardistic.com/', icon: BookOpen, color: 'from-neon-pink to-purple-400' },
                 { label: 'Write', href: 'https://write.sardistic.com/', icon: PenTool, color: 'from-neon-green to-emerald-400' },
