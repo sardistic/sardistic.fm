@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="color-scheme" content="light dark" />
+<title>Back Print — Merch Index from My Last.fm</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%91%95%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+<style>
+  /* ---------- tokens: light (newsprint) ---------- */
+  :root{
+    --ground:#D8D7D2; --paper:#E6E5E1; --paper-2:#EFEEEB;
+    --rule:#BAB9B2; --rule-soft:#C8C7C0;
+    --ink:#15171A; --ink-2:#4A4C50; --ink-3:#74767B;
+    --red:#CC2936; --red-ink:#FFFFFF; --red-dim:#CC293622;
+    --blue:#2E4EA7; --veil:#15171A66;
+    --f-display:"Bahnschrift","Haettenschweiler","Arial Narrow","Helvetica Neue Condensed",Impact,sans-serif;
+    --f-mono:"Consolas",ui-monospace,"SF Mono",Menlo,monospace;
+    --f-body:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --wrap:1180px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#131316; --paper:#1A1B1F; --paper-2:#232429;
+      --rule:#34363C; --rule-soft:#26282D;
+      --ink:#EDECE8; --ink-2:#A8A9AD; --ink-3:#7C7E83;
+      --red:#FF4D5A; --red-ink:#1A0407; --red-dim:#FF4D5A26;
+      --blue:#8AA2EE; --veil:#00000099;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#131316; --paper:#1A1B1F; --paper-2:#232429;
+    --rule:#34363C; --rule-soft:#26282D;
+    --ink:#EDECE8; --ink-2:#A8A9AD; --ink-3:#7C7E83;
+    --red:#FF4D5A; --red-ink:#1A0407; --red-dim:#FF4D5A26;
+    --blue:#8AA2EE; --veil:#00000099;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  :focus-visible{outline:2.5px solid var(--red);outline-offset:2px}
+  .disp{font-family:var(--f-display);font-weight:700;font-stretch:condensed;text-transform:uppercase;letter-spacing:.005em;line-height:.94}
+  .num{font-variant-numeric:tabular-nums}
+  [hidden]{display:none !important}
+
+  /* ---------- gate ---------- */
+  #gate{position:fixed;inset:0;z-index:100;background:var(--ground);display:grid;place-items:center;padding:24px}
+  .gate-card{width:100%;max-width:440px}
+  .gate-mark{font-size:clamp(56px,15vw,104px);text-wrap:balance}
+  .gate-mark em{font-style:normal;color:var(--red);display:block}
+  .gate-rule{height:3px;background:var(--ink);margin:18px 0 14px}
+  .gate-sub{font-size:13.5px;color:var(--ink-2);margin:0 0 26px}
+  .gate-form{display:flex;flex-direction:column;gap:10px}
+  .gate-row{display:flex;gap:8px}
+  #pw{flex:1;min-width:0;background:var(--paper-2);border:2px solid var(--ink);color:var(--ink);font-family:var(--f-mono);font-size:15px;letter-spacing:.22em;padding:13px 14px;border-radius:0}
+  #pw::placeholder{color:var(--ink-3);letter-spacing:.14em}
+  .btn-solid{background:var(--ink);color:var(--ground);border:2px solid var(--ink);font-family:var(--f-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;padding:0 22px;cursor:pointer;border-radius:0}
+  .btn-solid:hover{background:var(--red);border-color:var(--red);color:var(--red-ink)}
+  .gate-err{font-family:var(--f-mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--red);min-height:16px}
+  .gate-note{font-size:11.5px;color:var(--ink-3);margin-top:22px;line-height:1.55}
+
+  /* ---------- masthead ---------- */
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 22px}
+  header.mast{padding:38px 0 20px}
+  .mast-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .mark{font-size:clamp(40px,7vw,72px)}
+  .mark em{font-style:normal;color:var(--red)}
+  .mast-rule{height:3px;background:var(--ink);margin:16px 0 0}
+  .mast-sub{font-size:13.5px;color:var(--ink-2);max-width:66ch;margin:14px 0 0}
+  .stats{display:flex;gap:26px;flex-wrap:wrap;margin-top:16px}
+  .stat b{display:block;font-family:var(--f-display);font-weight:700;font-stretch:condensed;font-size:30px;line-height:1;letter-spacing:.01em}
+  .stat span{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3)}
+
+  /* ---------- controls ---------- */
+  .controls{position:sticky;top:0;z-index:20;background:var(--ground);border-bottom:2px solid var(--ink);padding:13px 0 11px;margin-top:20px}
+  .ctl-grid{display:flex;flex-direction:column;gap:10px}
+  .ctl-line{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .ctl-label{font-family:var(--f-mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3);flex:0 0 74px}
+  .field{background:var(--paper-2);border:1.5px solid var(--rule);color:var(--ink);font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;padding:9px 11px;border-radius:0}
+  .field::placeholder{color:var(--ink-3)}
+  #q{flex:1 1 250px;min-width:0;font-size:13px}
+  #extra{flex:1 1 200px;min-width:0}
+  .chip{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;background:transparent;color:var(--ink-2);border:1.5px solid var(--rule);padding:6px 10px;cursor:pointer;border-radius:0;transition:background .12s,color .12s,border-color .12s}
+  .chip:hover{border-color:var(--ink);color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+  .chip.hot[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:var(--red-ink)}
+  .chip .n{opacity:.55;margin-left:6px}
+
+  /* ---------- list ---------- */
+  main{padding:0 0 90px}
+  .tally{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);padding:15px 0 6px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .tally b{color:var(--ink)}
+  .list{border-top:1.5px solid var(--rule)}
+  .row{border-bottom:1.5px solid var(--rule-soft)}
+  .head{display:flex;align-items:center}
+
+  .star{flex:0 0 auto;background:transparent;border:0;cursor:pointer;color:var(--ink-3);font-size:16px;line-height:1;padding:7px 3px 7px 0;border-radius:0}
+  .star[aria-pressed="true"]{color:var(--red)}
+  .star:hover{color:var(--red)}
+
+  .row-btn{flex:1 1 auto;min-width:0;width:100%;background:transparent;border:0;border-radius:0;display:flex;align-items:center;gap:13px;padding:10px 4px 10px 0;cursor:pointer;text-align:left;color:inherit;position:relative}
+  .row-btn::before{content:"";position:absolute;left:-22px;top:0;bottom:0;width:0;background:var(--red);transition:width .14s ease}
+  .row-btn:hover::before,.row[data-open="1"] .row-btn::before{width:4px}
+  .rk{flex:0 0 auto;font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);width:30px;letter-spacing:.04em}
+  .row[data-open="1"] .rk{color:var(--red)}
+  .nm{flex:1 1 auto;min-width:0;font-size:clamp(19px,2.7vw,27px);transition:transform .14s ease;overflow-wrap:anywhere}
+  .row-btn:hover .nm{transform:translateX(8px)}
+  .row[data-open="1"] .nm{transform:translateX(8px);color:var(--red)}
+
+  .meter{flex:0 0 auto;width:104px;display:flex;align-items:center;gap:8px}
+  .bar{flex:1;height:7px;background:var(--rule-soft);position:relative}
+  .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--red);display:block}
+  .plays{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-2);width:44px;text-align:right}
+  .yrs{flex:0 0 auto;font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;color:var(--ink-3);border:1.5px solid var(--rule);padding:3px 7px;white-space:nowrap}
+  .yrs.live{color:var(--red);border-color:var(--red);background:var(--red-dim)}
+  .plus{flex:0 0 auto;font-family:var(--f-mono);font-size:15px;color:var(--ink-3);width:20px;text-align:center;transition:transform .16s ease,color .16s ease}
+  .row[data-open="1"] .plus{transform:rotate(45deg);color:var(--red)}
+
+  .panel{display:none;padding:0 0 20px 30px}
+  .row[data-open="1"] .panel{display:block}
+  .facts{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.07em;color:var(--ink-3);margin:0 0 9px}
+  .facts b{color:var(--ink-2);font-weight:400}
+  .qline{font-family:var(--f-mono);font-size:11px;color:var(--ink-3);margin:0 0 11px;overflow-wrap:anywhere}
+  .qline span{color:var(--ink);background:var(--paper-2);padding:2px 6px;border:1.5px solid var(--rule)}
+  .sites{display:flex;flex-wrap:wrap;gap:7px}
+  .site{font-family:var(--f-mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--blue);background:transparent;text-decoration:none;border:1.5px solid var(--blue);padding:7px 12px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;border-radius:0;transition:background .12s,color .12s}
+  .site:hover{background:var(--blue);color:var(--paper-2)}
+  .site .mk{opacity:.55;font-size:9px}
+  .openall{font-family:var(--f-mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;background:transparent;color:var(--ink-2);border:1.5px dashed var(--rule);padding:7px 12px;cursor:pointer;border-radius:0}
+  .openall:hover{border-color:var(--red);color:var(--red);border-style:solid}
+
+  .empty{padding:60px 4px;color:var(--ink-3);font-size:14px}
+  .empty b{color:var(--ink)}
+  footer{border-top:2px solid var(--ink);padding:20px 0 60px;color:var(--ink-3);font-size:11.5px;line-height:1.65}
+  footer b{color:var(--ink-2)}
+  footer p{margin:0 0 9px;max-width:80ch}
+
+  /* ---------- store drawer ---------- */
+  #veil{position:fixed;inset:0;background:var(--veil);z-index:60;opacity:0;pointer-events:none;transition:opacity .18s}
+  body.shop #veil{opacity:1;pointer-events:auto}
+  #drawer{
+    position:fixed;top:0;right:0;bottom:0;width:min(760px,58vw);z-index:70;
+    background:var(--ground);border-left:3px solid var(--ink);
+    transform:translateX(101%);transition:transform .22s ease;
+    display:flex;flex-direction:column;
+  }
+  body.shop #drawer{transform:translateX(0)}
+  .dw-head{padding:14px 18px 11px;border-bottom:2px solid var(--ink);flex:0 0 auto}
+  .dw-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .dw-name{font-size:clamp(22px,3.4vw,34px)}
+  .dw-q{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);margin:6px 0 0;overflow-wrap:anywhere}
+  .dw-q span{color:var(--ink)}
+  .dw-close{background:transparent;border:1.5px solid var(--rule);color:var(--ink-2);font-family:var(--f-mono);font-size:14px;line-height:1;padding:7px 10px;cursor:pointer;border-radius:0}
+  .dw-close:hover{border-color:var(--red);color:var(--red)}
+  .dw-tabs{display:flex;gap:5px;flex-wrap:wrap;padding:10px 18px 0;flex:0 0 auto}
+  .dw-tab{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--ink-3);border:1.5px solid var(--rule);padding:5px 9px;cursor:pointer;border-radius:0}
+  .dw-tab:hover{color:var(--ink);border-color:var(--ink)}
+  .dw-tab[aria-selected="true"]{background:var(--red);border-color:var(--red);color:var(--red-ink)}
+  .dw-tab .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--blue);margin-left:6px;vertical-align:middle}
+  .dw-tab[aria-selected="true"] .dot{background:var(--red-ink)}
+  .dw-body{flex:1 1 auto;min-height:0;margin:10px 18px 18px;border:1.5px solid var(--rule);background:var(--paper-2);position:relative}
+  .dw-body iframe{width:100%;height:100%;border:0;display:block;background:var(--paper-2)}
+  .dw-blocked{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:30px;text-align:left}
+  .dw-blocked h3{font-family:var(--f-display);font-weight:700;font-stretch:condensed;text-transform:uppercase;font-size:26px;margin:0;line-height:1}
+  .dw-blocked p{font-size:12.5px;color:var(--ink-2);margin:0;max-width:46ch;line-height:1.6}
+  .dw-blocked code{font-family:var(--f-mono);font-size:11px;background:var(--ground);border:1.5px solid var(--rule);padding:1px 5px}
+  .dw-open{align-self:flex-start;background:var(--ink);color:var(--ground);border:2px solid var(--ink);font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:10px 16px;cursor:pointer;border-radius:0;text-decoration:none;display:inline-block}
+  .dw-open:hover{background:var(--red);border-color:var(--red);color:var(--red-ink)}
+  .dw-foot{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);padding:0 18px 12px;flex:0 0 auto}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+  @media (max-width:900px){ #drawer{width:100vw;border-left:0} }
+  @media (max-width:760px){
+    .meter{width:64px}.plays{width:38px}
+    .ctl-label{flex-basis:100%}
+    .row-btn:hover .nm{transform:none}
+    .panel{padding-left:0}
+  }
+  @media (max-width:520px){ .meter,.yrs{display:none} }
+</style>
+
+<div id="gate">
+  <div class="gate-card">
+    <h1 class="disp gate-mark">Back<em>Print</em></h1>
+    <div class="gate-rule"></div>
+    <p class="gate-sub">Merch hunting, ranked by what you actually played.</p>
+    <form class="gate-form" id="gate-form">
+      <div class="gate-row">
+        <input id="pw" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password" />
+        <button class="btn-solid" type="submit">Enter</button>
+      </div>
+      <div class="gate-err" id="gate-err" role="status"></div>
+    </form>
+    <p class="gate-note">Soft gate only — the password sits in this page's source, so treat it as a doormat, not a lock. Keeping the page unlisted is the real protection.</p>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="mast">
+    <div class="wrap">
+      <div class="mast-top">
+        <h1 class="disp mark">Back<em>Print</em></h1>
+        <button class="chip" id="lock" type="button">Lock</button>
+      </div>
+      <div class="mast-rule"></div>
+      <p class="mast-sub">Your top artists, pulled from your own Last.fm scrobbles on audio.sardistic.com and ranked by play count. Pick an act, pick an angle, then browse the stores in the side panel without losing your place.</p>
+      <div class="stats">
+        <div class="stat"><b class="num" id="s-scrob">0</b><span>Scrobbles</span></div>
+        <div class="stat"><b class="num" id="s-art">0</b><span>Artists heard</span></div>
+        <div class="stat"><b class="num" id="s-list">0</b><span>In this index</span></div>
+        <div class="stat"><b class="num" id="s-span">0</b><span>Years tracked</span></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="wrap ctl-grid">
+      <div class="ctl-line">
+        <span class="ctl-label">Find</span>
+        <input id="q" class="field" type="search" placeholder="Filter — &quot;circa&quot;, &quot;volta&quot;, &quot;deftones&quot;…" aria-label="Filter artists" />
+        <button class="chip hot" id="favs" type="button" aria-pressed="false">Starred <span class="n" id="fav-n">0</span></button>
+        <button class="chip" id="shuffle" type="button">Shuffle</button>
+        <button class="chip" id="reset" type="button">Reset</button>
+      </div>
+      <div class="ctl-line"><span class="ctl-label">Sort</span><span id="sorts"></span></div>
+      <div class="ctl-line"><span class="ctl-label">Angle</span><span id="angles"></span></div>
+      <div class="ctl-line"><span class="ctl-label">Add terms</span><input id="extra" class="field" type="text" placeholder="XL, single stitch, 1998…" aria-label="Extra search terms" /></div>
+      <div class="ctl-line"><span class="ctl-label">Rank</span><span id="tiers"></span></div>
+      <div class="ctl-line"><span class="ctl-label">First heard</span><span id="eras"></span></div>
+      <div class="ctl-line"><span class="ctl-label">Status</span><span id="status"></span></div>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <div class="tally">
+      <span>Showing <b id="t-shown">0</b> of <b id="t-total">0</b></span>
+      <span id="t-angle"></span>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="empty" id="empty" hidden>Nothing matches that. <b>Reset</b> the filters, or the artist may sit outside your top 300.</div>
+  </main>
+
+  <footer class="wrap">
+    <p><b>Where this comes from.</b> Your scrobble database on the Toughbook (<b>/srv/sardistic.fm/data/analytics.db</b>), read directly — every play count, year range and top album here is your own listening history, not an editorial guess.</p>
+    <p><b>Why some stores open in a tab.</b> Seven of the nine refuse to be embedded in another page: eBay, Depop, Mercari, Grailed and Goodwill send <b>X-Frame-Options: SAMEORIGIN</b>, ThredUp sends <b>DENY</b>, and Poshmark's frame-ancestors list excludes us. Only Etsy and Vinted allow it, so those render inline. The rest reuse a single named tab rather than piling up nine.</p>
+    <p><b>What was filtered out.</b> The raw top 300 is not a merch list, so 39 entries were dropped: record labels, score composers, League of Legends cinematic titles, collab credits whose lead act already appears alone, a literal <b>https</b>, unicode garbage, and <b>sardistic</b> — your own uploads. 45 artists carry a search override because the bare name searches badly.</p>
+  </footer>
+</div>
+
+<div id="veil"></div>
+<aside id="drawer" aria-hidden="true" aria-label="Store browser">
+  <div class="dw-head">
+    <div class="dw-top">
+      <div style="min-width:0">
+        <div class="disp dw-name" id="dw-name">—</div>
+        <p class="dw-q">Searching <span id="dw-q">—</span></p>
+      </div>
+      <button class="dw-close" id="dw-close" type="button" aria-label="Close store panel">✕</button>
+    </div>
+  </div>
+  <div class="dw-tabs" id="dw-tabs" role="tablist"></div>
+  <div class="dw-body" id="dw-body"></div>
+  <div class="dw-foot" id="dw-foot"></div>
+</aside>
+
+<script>
+var DATA={scrobbles:181761,artistsTotal:15602,first:'2007-02-07',last:'2026-08-09',rows:[[1, "Nine Inch Nails", 8629, 340, 2007, 2026, "The Fragile", ""], [2, "Circa Survive", 8423, 113, 2007, 2026, "Juturna", ""], [3, "The Weeknd", 3742, 213, 2013, 2026, "Beauty Behind the Madness", ""], [4, "Tool", 3178, 96, 2010, 2026, "10,000 Days", "Tool band"], [5, "Porter Robinson", 2935, 123, 2014, 2026, "Nurture", ""], [6, "The Mars Volta", 2794, 117, 2008, 2026, "Deloused in the Comatorium", ""], [7, "Coheed and Cambria", 2422, 58, 2007, 2026, "The Afterman: Ascension", ""], [8, "A Perfect Circle", 2354, 90, 2007, 2026, "Thirteenth Step", ""], [9, "Explosions in the Sky", 2089, 70, 2007, 2026, "All of a Sudden I Miss Everyone", ""], [10, "Modest Mouse", 2052, 139, 2009, 2026, "Good News For People Who Love Bad News", ""], [11, "Fair to Midland", 2049, 52, 2010, 2023, "Fables From a Mayfly: What I Tell You Three Times is True", ""], [12, "Saosin", 1598, 66, 2007, 2026, "Translating the Name", ""], [13, "As Cities Burn", 1573, 31, 2007, 2025, "Come Now Sleep", ""], [14, "Joji", 1558, 92, 2020, 2026, "Nectar", ""], [15, "Band of Horses", 1541, 41, 2010, 2023, "Cease to Begin", ""], [16, "Blockhead", 1402, 97, 2012, 2025, "Music By Cavelight", "Blockhead producer"], [17, "Sonic Syndicate", 1398, 49, 2010, 2026, "Only Inhuman", ""], [18, "Avenged Sevenfold", 1391, 60, 2007, 2023, "Waking The Fallen", ""], [19, "Gorillaz", 1355, 68, 2007, 2026, "Demon Days", ""], [20, "The Dear Hunter", 1318, 120, 2012, 2023, "Act III: Life and Death", ""], [21, "Chiodos", 1301, 62, 2007, 2026, "All's Well That Ends Well", ""], [22, "Deftones", 1294, 184, 2011, 2026, "Koi No Yokan", ""], [23, "Broken Bells", 1285, 19, 2010, 2026, "Broken Bells", ""], [24, "Ever We Fall", 1270, 12, 2007, 2023, "we are not human", "Ever We Fall band"], [25, "At the Drive-In", 1234, 67, 2012, 2026, "Relationship of Command", ""], [26, "Kate Fade", 1215, 6, 2021, 2023, "Something from Nothing", ""], [27, "Alexisonfire", 1165, 41, 2007, 2026, "Watch Out!", ""], [28, "Childish Gambino", 1081, 109, 2013, 2026, "Because the Internet", ""], [29, "BROCKHAMPTON", 1020, 60, 2019, 2026, "GINGER", ""], [30, "Glassjaw", 1011, 20, 2012, 2026, "Worship and Tribute", ""], [31, "Bon Iver", 994, 27, 2012, 2026, "Bon Iver", ""], [32, "God Is an Astronaut", 974, 46, 2010, 2014, "All Is Violent, All Is Bright", ""], [33, "Anthony Green", 940, 74, 2009, 2026, "Avalon", ""], [34, "Minus the Bear", 920, 69, 2010, 2023, "Highly Refined Pirates", ""], [35, "Puscifer", 892, 71, 2010, 2026, "\"C\" Is for (Please Insert Sophomoric Genitalia Reference Here) E.P.", ""], [36, "Clarence Clarity", 884, 45, 2015, 2026, "VANISHING ACT I: NO NOUNS", ""], [37, "Jean Dawson", 877, 31, 2023, 2026, "PIXEL BATH", ""], [38, "Chevelle", 823, 69, 2007, 2026, "Wonder What's Next", "Chevelle band"], [39, "Portugal. The Man", 806, 42, 2012, 2026, "Censored Colors", ""], [40, "Soilwork", 806, 80, 2010, 2025, "Figure Number Five", ""], [41, "dredg", 774, 31, 2008, 2026, "Catch Without Arms", "dredg band"], [42, "Scary Kids Scaring Kids", 757, 41, 2007, 2025, "The City Sleeps in Flames", ""], [43, "Always Never", 730, 18, 2022, 2026, "It's Easy", "Always Never band"], [44, "Kevin Abstract", 697, 26, 2016, 2026, "ARIZONA BABY", ""], [45, "In Flames", 679, 120, 2010, 2022, "A Sense of Purpose", ""], [46, "Sleep Token", 668, 46, 2023, 2026, "The Summoning", ""], [47, "O'Brother", 667, 29, 2012, 2023, "Garden Window", ""], [48, "Tyler, The Creator", 657, 53, 2014, 2026, "Chromakopia", ""], [49, "Dance Gavin Dance", 640, 57, 2010, 2026, "Instant Gratification", ""], [50, "Propagandhi", 635, 114, 2012, 2016, "Failed States [Deluxe Edition]", ""], [51, "Mutemath", 630, 18, 2010, 2026, "Armistice", ""], [52, "Taking Back Sunday", 626, 32, 2007, 2026, "Notes From The Past", ""], [53, "My Chemical Romance", 609, 45, 2007, 2026, "Three Cheers for Sweet Revenge", ""], [54, "Animals as Leaders", 607, 26, 2012, 2025, "Animals as Leaders", ""], [55, "All That Remains", 602, 26, 2008, 2022, "Overcome", ""], [56, "Rise Against", 587, 66, 2007, 2026, "Appeal to Reason", ""], [57, "Lorn", 559, 98, 2016, 2026, "Ask the Dust", "Lorn musician"], [58, "Billie Eilish", 557, 50, 2017, 2026, "HIT ME HARD AND SOFT", ""], [59, "Toro y Moi", 552, 15, 2012, 2025, "Underneath the Pine", ""], [60, "beabadoobee", 536, 21, 2020, 2026, "This Is How Tomorrow Moves [Explicit]", ""], [61, "Mac Miller", 523, 21, 2013, 2026, "Dang! (feat. Anderson .Paak)", ""], [62, "Moving Mountains", 509, 17, 2010, 2023, "Pneuma", ""], [63, "Thrice", 508, 44, 2007, 2026, "Vheissu", ""], [64, "Sir Sly", 459, 29, 2013, 2026, "Gold", "Sir Sly band"], [65, "The Sound of Animals Fighting", 457, 13, 2007, 2023, "Tiger & the Duke", ""], [66, "Chance the Rapper", 454, 80, 2015, 2026, "Acid Rap", ""], [67, "Sublime", 450, 105, 2011, 2026, "Gold", "Sublime band"], [68, "Ratatat", 445, 71, 2010, 2025, "Ratatat", ""], [69, "Jeremy Zucker", 440, 9, 2020, 2026, "Honey Honey Honeypie", ""], [70, "James Blake", 428, 14, 2013, 2026, "Playing Robots Into Heaven", ""], [71, "Memphis May Fire", 427, 14, 2012, 2024, "The Hollow", ""], [72, "millennium parade", 425, 12, 2022, 2026, "THE MILLENNIUM PARADE", ""], [73, "Daft Punk", 422, 86, 2011, 2026, "Discovery", ""], [74, "Breaking Benjamin", 412, 44, 2007, 2026, "Phobia", ""], [75, "Yesterday's Rising", 412, 13, 2007, 2023, "Lightworker", ""], [76, "Infected Mushroom", 399, 69, 2010, 2026, "Vicious Delicious", ""], [77, "Eminem", 393, 45, 2012, 2026, "The Singles 1998 - 2010 [MJN]", ""], [78, "Lauv", 390, 19, 2019, 2026, "Without You", ""], [79, "Blue Sky Black Death", 385, 25, 2011, 2014, "NOIR", ""], [80, "As I Lay Dying", 384, 28, 2007, 2021, "Shadows Are Security", ""], [81, "The xx", 380, 21, 2010, 2026, "xx", "The xx band"], [82, "Linkin Park", 377, 51, 2007, 2026, "Meteora", ""], [83, "Atreyu", 372, 21, 2007, 2026, "Lead Sails Paper Anchor", ""], [84, "From Autumn to Ashes", 367, 20, 2007, 2021, "Holding a Wolf by the Ears", ""], [85, "Justice", 367, 39, 2012, 2026, "Hyperdrama", "Justice band"], [86, "Escape The Fate", 363, 16, 2007, 2025, "Dying Is Your Latest Fashion", ""], [87, "Teezo Touchdown", 354, 14, 2023, 2026, "How Do You Sleep at Night?", ""], [88, "Bullet for My Valentine", 352, 23, 2007, 2026, "The Poison", ""], [89, "Envy on the Coast", 350, 21, 2012, 2013, "Lucy Gray", ""], [90, "Massive Attack", 340, 35, 2007, 2026, "100th Window", ""], [91, "Danger", 339, 16, 2010, 2026, "09/14 2007", "Danger musician"], [92, "The Receiving End of Sirens", 330, 25, 2010, 2025, "The Earth Sings Mi Fa Mi", ""], [93, "From First to Last", 320, 23, 2007, 2025, "Throne to the Wolves", ""], [94, "DragonForce", 316, 36, 2007, 2024, "Inhuman Rampage", ""], [95, "The Used", 316, 41, 2010, 2026, "The Used", ""], [96, "Protest the Hero", 315, 32, 2007, 2024, "Kezia", ""], [97, "The Fully Down", 311, 11, 2007, 2025, "Don't Get Lost in a Movement", ""], [98, "Remi Wolf", 309, 12, 2023, 2026, "Juno", ""], [99, "Radiohead", 308, 44, 2010, 2026, "The Best Of", ""], [100, "The Fall of Troy", 302, 12, 2007, 2026, "Doppelganger", ""], [101, "Between the Buried and Me", 298, 28, 2007, 2026, "Between the Burried and Me", ""], [102, "Twenty One Pilots", 296, 20, 2013, 2026, "Vessel", ""], [103, "A Static Lullaby", 289, 24, 2007, 2025, "A Static Lullaby-(Advance)", ""], [104, "Destroy Rebuild Until God Shows", 289, 5, 2012, 2026, "D.R.U.G.S.", ""], [105, "Fontaines D.C.", 287, 5, 2024, 2026, "Romance", ""], [106, "Yeasayer", 277, 11, 2010, 2024, "Odd Blood", ""], [107, "Knocked Loose", 275, 23, 2024, 2026, "You Won't Go Before You're Supposed To", ""], [108, "Team Sleep", 267, 23, 2007, 2026, "Team Sleep", ""], [109, "Wolf Alice", 265, 5, 2014, 2026, "Blush EP", ""], [110, "Cymbals Eat Guitars", 263, 20, 2012, 2012, "Why There are Mountains", ""], [111, "Backstreet Boys", 260, 25, 2013, 2026, "Millennium", ""], [112, "Peter Fox", 259, 15, 2012, 2025, "Stadtaffe", ""], [113, "Watsky", 254, 25, 2013, 2026, "Cardboard Castles", "Watsky rapper"], [114, "Primus", 250, 93, 2012, 2014, "Tales From The Punchbowl", "Primus band"], [115, "Saul Williams", 243, 16, 2007, 2023, "The Inevitable Rise and Liberation of NiggyTardust!", ""], [116, "Muse", 241, 54, 2008, 2021, "Black Holes and Revelations", "Muse band"], [117, "Astronautalis", 234, 34, 2013, 2023, "The Mighty Ocean & Nine Dark Theaters", ""], [118, "K/DA", 233, 12, 2019, 2026, "MORE", "KDA League of Legends"], [119, "The White Stripes", 232, 101, 2011, 2022, "Elephant", ""], [120, "Nirvana", 229, 40, 2012, 2026, "In Utero", ""], [121, "letlive.", 226, 7, 2013, 2026, "Fake History", "letlive band"], [122, "This Will Destroy You", 222, 28, 2010, 2017, "Tunnel Blanket", ""], [123, "Neon Indian", 221, 13, 2012, 2021, "Era Extraña", ""], [124, "Sky Eats Airplane", 220, 11, 2008, 2016, "Demo 2007", ""], [125, "White Rabbits", 218, 21, 2010, 2025, "It's Frightening", ""], [126, "Passion Pit", 217, 14, 2010, 2026, "Manners", ""], [127, "It Dies Today", 214, 27, 2007, 2023, "The Caitiff Choir", ""], [128, "Drake", 212, 8, 2015, 2026, "Nice for What", ""], [129, "The Shins", 212, 52, 2010, 2023, "Wincing the Night Away", ""], [130, "Arctic Monkeys", 211, 14, 2013, 2026, "AM", ""], [131, "Thursday", 211, 29, 2007, 2026, "A City by the Light Divided", "Thursday band"], [132, "ASHES dIVIDE", 207, 16, 2010, 2019, "Keep Telling Myself It's Alright", ""], [133, "Armor for Sleep", 205, 10, 2007, 2025, "What to Do When You Are Dead", ""], [134, "BTS", 205, 13, 2020, 2026, "Make It Right (feat. Lauv)", ""], [135, "Broods", 203, 2, 2014, 2026, "Evergreen", "Broods band"], [136, "Funeral For A Friend", 202, 16, 2007, 2024, "Leeds Festival", ""], [137, "Isles & Glaciers", 201, 7, 2010, 2014, "The Hearts of Lonely People", ""], [138, "Wolf Parade", 201, 27, 2011, 2013, "6 Song EP", ""], [139, "Tommy Richman", 200, 5, 2024, 2026, "Million Dollar Baby", ""], [140, "Jacob Lee", 199, 5, 2022, 2026, "Philosophical Sessions", ""], [141, "P.O.S.", 198, 19, 2012, 2024, "Never Better", "P.O.S rapper"], [142, "Steve Lacy", 198, 5, 2022, 2026, "Gemini Rights", ""], [143, "Skrillex", 195, 20, 2011, 2026, "Bangarang EP", ""], [144, "Bad Bunny", 192, 9, 2026, 2026, "Tití Me Preguntó", ""], [145, "BLACKPINK", 191, 28, 2020, 2026, "How You Like That", ""], [146, "Charli xcx", 191, 21, 2024, 2026, "BRAT", ""], [147, "Paramore", 191, 16, 2014, 2026, "Now That's What I Call Music! 51", ""], [148, "Tove Lo", 190, 11, 2014, 2026, "Queen of the Clouds", ""], [149, "KATSEYE (캣츠아이)", 188, 4, 2025, 2026, "", "KATSEYE"], [150, "Foals", 187, 19, 2011, 2026, "Total Life Forever", "Foals band"], [151, "Refused", 187, 18, 2012, 2014, "The Shape of Punk to Come", "Refused band"], [152, "Glass Animals", 186, 27, 2015, 2026, "Gooey", ""], [153, "M83", 184, 86, 2012, 2026, "Hurry Up, We're Dreaming", ""], [154, "Sufjan Stevens", 184, 13, 2020, 2026, "Javelin", ""], [155, "Audrey Nuna", 183, 18, 2024, 2026, "Mine", ""], [156, "Nilüfer Yanya", 182, 10, 2022, 2026, "Baby Luv", ""], [157, "Ethel Cain", 181, 3, 2023, 2026, "Crush", ""], [158, "Mastodon", 180, 46, 2007, 2021, "Leviathan", "Mastodon band"], [159, "Dream Theater", 179, 19, 2007, 2025, "Scenes From a Memory", ""], [160, "The Black Keys", 177, 18, 2012, 2023, "Rubber Factory", ""], [161, "Cage the Elephant", 173, 16, 2010, 2024, "Cage the Elephant", ""], [162, "Cold War Kids", 173, 56, 2011, 2024, "Loyalty to Loyalty", ""], [163, "Elbow", 171, 12, 2010, 2021, "The Seldom Seen Kid", "Elbow band"], [164, "Blvck Ceiling", 166, 22, 2013, 2026, "setMefree", ""], [165, "The Moody Blues", 166, 33, 2007, 2021, "Gold (Remastered)", ""], [166, "Saint Motel", 163, 1, 2013, 2025, "At Least I Have Nothing", ""], [167, "Anderson .Paak", 161, 13, 2020, 2025, "Bubblin", ""], [168, "Fall Out Boy", 161, 18, 2014, 2026, "From Under the Cork Tree", ""], [169, "Civil Twilight", 159, 8, 2010, 2022, "Civil Twilight", ""], [170, "Artemas", 158, 3, 2024, 2026, "i like the way you kiss me", "Artemas musician"], [171, "Kanye West", 158, 20, 2011, 2026, "Graduation", ""], [172, "Lisa", 157, 11, 2022, 2026, "Rockstar", "LISA Blackpink"], [173, "Silversun Pickups", 156, 12, 2009, 2026, "Carnavas", ""], [174, "Young the Giant", 156, 12, 2012, 2022, "Young the Giant", ""], [175, "Madeon", 155, 26, 2014, 2026, "Fire Away (feat. Slayyyter)", ""], [176, "Willow", 155, 6, 2022, 2026, "symptom of life", "Willow Smith"], [177, "Youth Lagoon", 149, 3, 2012, 2026, "Wondrous Bughouse", ""], [178, "Inzo", 148, 4, 2020, 2026, "Overthinker", "INZO music"], [179, "Jimmy Eat World", 148, 11, 2007, 2026, "Futures", ""], [180, "Keane", 148, 9, 2010, 2025, "Perfect Symmetry", "Keane band"], [181, "Kirin J Callinan", 148, 4, 2023, 2026, "Eternally Hateful", ""], [182, "LaxCity", 147, 3, 2021, 2026, "Good Morning", ""], [183, "Fujii Kaze", 145, 6, 2023, 2026, "HELP EVER HURT NEVER", ""], [184, "Clams Casino", 143, 6, 2015, 2026, "Instrumentals 2", "Clams Casino producer"], [185, "Ra Ra Riot", 143, 13, 2010, 2019, "Daytrotter Session 2", ""], [186, "Post Malone", 141, 13, 2019, 2026, "NOW That's What I Call Music! Vol. 73", ""], [187, "gnash", 139, 16, 2015, 2026, "we [Explicit]", "gnash musician"], [188, "Low Roar", 138, 11, 2014, 2026, "0", ""], [189, "Mumford & Sons", 138, 11, 2010, 2022, "Sigh No More", ""], [190, "Kaskade", 135, 5, 2022, 2026, "For Lack of a Better Album Title", ""], [191, "Sigur Rós", 135, 13, 2010, 2023, "Valtari", ""], [192, "Sleep Party People", 134, 6, 2020, 2026, "Sleep Party People", ""], [193, "Underoath", 132, 21, 2007, 2026, "Define the Great Line", ""], [194, "Coldplay", 130, 20, 2010, 2026, "Viva la Vida", ""], [195, "Killswitch Engage", 129, 16, 2010, 2026, "The End of Heartache", ""], [196, "BANKS", 128, 4, 2015, 2026, "Goddess (Deluxe)", "BANKS musician"], [197, "RÜFÜS DU SOL", 128, 9, 2021, 2026, "Innerbloom (The Remixes)", ""], [198, "Hunting Grounds", 127, 7, 2013, 2026, "In Hindsight", ""], [199, "Tame Impala", 126, 12, 2013, 2026, "Currents", ""], [200, "The Temper Trap", 126, 12, 2010, 2026, "Conditions", ""], [201, "MC Chris", 123, 3, 2007, 2026, "Eating's Not Cheating", ""], [202, "Phoria", 122, 3, 2021, 2026, "Volition", "Phoria band"], [203, "Disclosure", 121, 9, 2014, 2026, "Settle", ""], [204, "Bring Me the Horizon", 120, 7, 2022, 2026, "Sempiternal", ""], [205, "Bad Omens", 119, 18, 2023, 2026, "THE DEATH OF PEACE OF MIND", ""], [206, "C2C", 118, 2, 2014, 2020, "Tetra", "C2C band"], [207, "A Silent Film", 117, 5, 2010, 2021, "The City That Sleeps", ""], [208, "Haste The Day", 114, 17, 2007, 2021, "Pressure The Hinges (Special Edition)", ""], [209, "Queens of the Stone Age", 114, 13, 2013, 2026, "...Like Clockwork", ""], [210, "Two Door Cinema Club", 114, 11, 2010, 2026, "Tourist History", ""], [211, "Harry Styles", 112, 6, 2022, 2026, "Harry’s House", ""], [212, "bbno$", 112, 40, 2022, 2026, "check", ""], [213, "Logic", 111, 16, 2015, 2026, "Mission Control", "Logic rapper"], [214, "Otep", 111, 40, 2011, 2013, "Sevas Tra", "Otep band"], [215, "Conan Gray", 110, 5, 2020, 2026, "So Fresh: The Hits of Autumn 2020", ""], [216, "Highly Suspect", 110, 4, 2017, 2026, "The Boy Who Died Wolf", ""], [217, "Justin Timberlake", 110, 18, 2013, 2026, "Justified", ""], [218, "Grimes", 109, 10, 2013, 2026, "Visions", "Grimes musician"], [219, "Purity Ring", 109, 11, 2013, 2026, "Shrines", ""], [220, "Quadeca", 109, 6, 2024, 2026, "Scrapyard", "Quadeca rapper"], [221, "We Were Promised Jetpacks", 109, 9, 2010, 2013, "These Four Walls", ""], [222, "Edward Sharpe & The Magnetic Zeros", 107, 10, 2010, 2015, "From Below", ""], [223, "alt-J", 107, 24, 2013, 2023, "An Awesome Wave", "alt-J band"], [224, "Miike Snow", 106, 16, 2010, 2020, "Miike Snow", ""], [225, "The Panic Division", 106, 22, 2010, 2013, "Versus", ""], [226, "CHVRCHES", 105, 21, 2015, 2026, "The Bones of What You Believe", ""], [227, "August Burns Red", 104, 23, 2008, 2023, "Thrill Seeker", ""], [228, "Kendrick Lamar", 104, 33, 2015, 2026, "good kid, m.A.A.d city", ""], [229, "MSTRKRFT", 104, 1, 2014, 2025, "Fist of God", ""], [230, "Madison Beer", 104, 6, 2023, 2026, "Silence Between Songs", ""], [231, "Run the Jewels", 102, 35, 2014, 2026, "Run the Jewels 3", ""], [232, "C418", 101, 35, 2018, 2026, "Minecraft - Volume Alpha", ""], [233, "Grizzly Bear", 101, 9, 2013, 2025, "Veckatimest", ""], [234, "Disturbed", 100, 22, 2007, 2026, "Immortalized", "Disturbed band"], [235, "Kavinsky", 99, 5, 2013, 2026, "OutRun", ""], [236, "Them Crooked Vultures", 99, 12, 2011, 2013, "Them Crooked Vultures", ""], [237, "Milky Chance", 97, 5, 2014, 2025, "Sadnecessary", ""], [238, "Jinjer", 96, 5, 2022, 2026, "Pisces (Live Session)", ""], [239, "Brand New", 94, 18, 2010, 2024, "Deja Entendu", ""], [240, "Flatbush ZOMBiES", 94, 26, 2013, 2026, "Vacation In Hell", ""], [241, "MAX", 94, 7, 2020, 2026, "Working For The Weekend (feat. bbno$)", "MAX musician"], [242, "Spiritbox", 94, 12, 2022, 2026, "Eternal Blue", ""], [243, "System of a Down", 93, 30, 2007, 2026, "Toxicity", ""], [244, "Genesis Owusu", 90, 1, 2023, 2026, "Leaving The Light", ""], [245, "Europe", 89, 46, 2010, 2022, "The Final Countdown", "Europe band"], [246, "Fordirelifesake", 89, 3, 2007, 2013, "A Daydream Disaster", ""], [247, "Polyphia", 87, 5, 2023, 2026, "Remember That You Will Die", ""], [248, "Murder By Death", 86, 15, 2013, 2013, "Bitter Drink, Bitter Moon", ""], [249, "Mystery Skulls", 86, 8, 2013, 2026, "Forever", ""], [250, "Depeche Mode", 85, 55, 2012, 2026, "Violator", ""], [251, "Save Face", 85, 5, 2022, 2026, "Bury Me (Tonight!)", "Save Face band"], [252, "The Chemical Brothers", 85, 9, 2014, 2026, "Born in the Echoes", ""], [253, "Foster the People", 84, 5, 2012, 2026, "Torches", ""], [254, "We Are Scientists", 84, 2, 2014, 2016, "", ""], [255, "Incubus", 83, 8, 2007, 2026, "Stealth OST", "Incubus band"], [256, "Rachel Chinouriri", 83, 3, 2024, 2026, "What A Devastating Turn of Events [Explicit]", ""], [257, "Rezz", 83, 7, 2021, 2026, "Taste of You", ""], [258, "Chet Faker", 82, 17, 2013, 2025, "Built On Glass", ""], [259, "Dominic Fike", 81, 6, 2019, 2026, "Booom Summer 2019 [Explicit]", ""], [260, "Flux Pavilion", 81, 13, 2011, 2025, "Blow the Roof", ""], [261, "Calvin Harris", 80, 10, 2013, 2022, "Ready for the Weekend", ""]]};
+(function(){
+  "use strict";
+
+  // embed=true only where the site sends no X-Frame-Options and no blocking frame-ancestors.
+  var SITES = [
+    ["Etsy",     "https://www.etsy.com/search?q=",                  true ],
+    ["Vinted",   "https://www.vinted.com/catalog?search_text=",     true ],
+    ["eBay",     "https://www.ebay.com/sch/i.html?_nkw=",           false],
+    ["Depop",    "https://www.depop.com/search/?q=",                false],
+    ["Mercari",  "https://www.mercari.com/search/?keyword=",        false],
+    ["Poshmark", "https://poshmark.com/search?type=listings&query=",false],
+    ["Grailed",  "https://www.grailed.com/shop?query=",             false],
+    ["ThredUp",  "https://www.thredup.com/search?q=",               false],
+    ["Goodwill", "https://shopgoodwill.com/search?st=",             false]
+  ];
+  var TAB_NAME = "backprint-store";   // one reused tab, never nine
+
+  var ANGLES = [
+    ["shirt",   "Shirt",         "{n} shirt"],
+    ["album",   "Top album",     "{n} {a} shirt"],
+    ["vintage", "Vintage",       "{n} vintage shirt"],
+    ["tour",    "Tour",          "{n} tour shirt"],
+    ["single",  "Single stitch", "{n} single stitch shirt"],
+    ["bootleg", "Bootleg",       "{n} bootleg shirt"],
+    ["long",    "Long sleeve",   "{n} long sleeve shirt"],
+    ["hoodie",  "Hoodie",        "{n} hoodie"]
+  ];
+  var SORTS = [
+    ["plays",  "Most played"],
+    ["tracks", "Most tracks"],
+    ["depth",  "Plays per track"],
+    ["recent", "Recently played"],
+    ["first",  "Longest running"],
+    ["album",  "Album A–Z"],
+    ["name",   "Artist A–Z"]
+  ];
+  var TIERS = [["10","Top 10"],["25","Top 25"],["50","Top 50"],["100","Top 100"],["101","101+"]];
+  var ERAS  = [["a","2007-09"],["b","2010-12"],["c","2013-15"],["d","2016-19"],["e","2020-22"],["f","2023+"]];
+  var STAT  = [["live","In rotation"],["dorm","Dormant"]];
+
+  // row = [rank, name, plays, tracks, from, to, album, override]
+  var R = DATA.rows, MAXP = 0;
+  R.forEach(function(r){ if(r[2] > MAXP) MAXP = r[2]; });
+
+  function eraOf(y){ if(y<=2009)return"a"; if(y<=2012)return"b"; if(y<=2015)return"c"; if(y<=2019)return"d"; if(y<=2022)return"e"; return"f"; }
+  function tierOf(rk){ if(rk<=10)return"10"; if(rk<=25)return"25"; if(rk<=50)return"50"; if(rk<=100)return"100"; return"101"; }
+  function isLive(r){ return r[5] >= 2025; }
+  function fmt(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+  var KEY_OK="backprint.ok", KEY_FAV="backprint.favs";
+  var state={q:"",extra:"",angle:"shirt",sort:"plays",tiers:{},eras:{},status:{},favsOnly:false,favs:{},open:{}};
+  var shop={row:null,site:0};
+  function store(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  function load(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  try{ state.favs = JSON.parse(load(KEY_FAV)||"{}")||{}; }catch(e){ state.favs={}; }
+
+  /* ---------- gate ---------- */
+  var gate=document.getElementById("gate"), app=document.getElementById("app"), err=document.getElementById("gate-err");
+  function unlock(){ gate.hidden=true; app.hidden=false; store(KEY_OK,"1"); boot(); }
+  document.getElementById("gate-form").addEventListener("submit",function(e){
+    e.preventDefault();
+    if(document.getElementById("pw").value.trim().toLowerCase()==="shirts"){ err.textContent=""; unlock(); }
+    else { err.textContent="Not that one. Try again."; document.getElementById("pw").select(); }
+  });
+  document.getElementById("lock").addEventListener("click",function(){
+    closeShop(); store(KEY_OK,""); app.hidden=true; gate.hidden=false;
+    document.getElementById("pw").value=""; err.textContent=""; document.getElementById("pw").focus();
+  });
+
+  /* ---------- query ---------- */
+  function tplFor(id){ for(var i=0;i<ANGLES.length;i++){ if(ANGLES[i][0]===id) return ANGLES[i][2]; } return "{n} shirt"; }
+  function queryFor(r){
+    var name = r[7] || r[1];
+    var t = tplFor(state.angle);
+    if(t.indexOf("{a}")!==-1 && !r[6]) t = "{n} shirt";
+    return t.replace("{n}",name).replace("{a}", r[6]||"")
+            .concat(state.extra.trim() ? " "+state.extra.trim() : "")
+            .replace(/\s+/g," ").trim();
+  }
+  function urlFor(siteIdx, r){ return SITES[siteIdx][1] + encodeURIComponent(queryFor(r)); }
+
+  /* ---------- store drawer ---------- */
+  var dw = {
+    name:document.getElementById("dw-name"), q:document.getElementById("dw-q"),
+    tabs:document.getElementById("dw-tabs"), body:document.getElementById("dw-body"),
+    foot:document.getElementById("dw-foot")
+  };
+  function openShop(r, siteIdx){
+    shop.row = r; shop.site = siteIdx;
+    document.body.classList.add("shop");
+    document.getElementById("drawer").setAttribute("aria-hidden","false");
+    paintShop();
+  }
+  function closeShop(){
+    document.body.classList.remove("shop");
+    document.getElementById("drawer").setAttribute("aria-hidden","true");
+    dw.body.textContent = "";                       // stop the iframe loading
+    shop.row = null;
+  }
+  function paintShop(){
+    var r = shop.row; if(!r) return;
+    var q = queryFor(r), site = SITES[shop.site];
+    dw.name.textContent = r[1];
+    dw.q.textContent = q;
+
+    dw.tabs.textContent = "";
+    SITES.forEach(function(s,i){
+      var b=document.createElement("button");
+      b.type="button"; b.className="dw-tab"; b.setAttribute("role","tab");
+      b.setAttribute("aria-selected", i===shop.site ? "true":"false");
+      b.innerHTML = s[0] + (s[2] ? '<span class="dot" title="Renders inline"></span>' : "");
+      b.addEventListener("click",function(){ shop.site=i; paintShop(); });
+      dw.tabs.appendChild(b);
+    });
+
+    dw.body.textContent = "";
+    if(site[2]){
+      var f=document.createElement("iframe");
+      f.src = urlFor(shop.site, r);
+      f.referrerPolicy = "no-referrer";
+      f.title = site[0] + " results for " + q;
+      dw.body.appendChild(f);
+      dw.foot.textContent = site[0] + " renders inline · " + q;
+    } else {
+      var box=document.createElement("div"); box.className="dw-blocked";
+      var h=document.createElement("h3"); h.textContent = site[0] + " won't embed";
+      var p=document.createElement("p");
+      p.innerHTML = site[0] + " sends <code>X-Frame-Options</code>, which tells the browser to refuse "
+                  + "loading it inside another page. Nothing on this end can override that. "
+                  + "Opening it reuses one tab — flip back and this panel is still here.";
+      var a=document.createElement("a");
+      a.className="dw-open"; a.href = urlFor(shop.site, r); a.target = TAB_NAME; a.rel="noopener";
+      a.textContent = "Open " + site[0] + " →";
+      box.appendChild(h); box.appendChild(p); box.appendChild(a);
+      dw.body.appendChild(box);
+      dw.foot.textContent = "Blocked from embedding · opens in one reused tab";
+    }
+  }
+  document.getElementById("dw-close").addEventListener("click", closeShop);
+  document.getElementById("veil").addEventListener("click", closeShop);
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeShop(); });
+
+  /* ---------- chips ---------- */
+  function chipRow(hostId, defs, bucket, counter){
+    var host=document.getElementById(hostId);
+    defs.forEach(function(d){
+      var b=document.createElement("button");
+      b.type="button"; b.className="chip"; b.setAttribute("aria-pressed","false");
+      b.innerHTML = d[1] + '<span class="n">'+counter(d[0])+'</span>';
+      b.addEventListener("click",function(){
+        if(bucket[d[0]]) delete bucket[d[0]]; else bucket[d[0]]=1;
+        b.setAttribute("aria-pressed", bucket[d[0]]?"true":"false"); render();
+      });
+      host.appendChild(b);
+    });
+  }
+  function radioRow(hostId, defs, key, hot){
+    var host=document.getElementById(hostId);
+    defs.forEach(function(d){
+      var b=document.createElement("button");
+      b.type="button"; b.className="chip"+(hot?" hot":"");
+      b.setAttribute("aria-pressed", state[key]===d[0]?"true":"false");
+      b.textContent=d[1];
+      b.addEventListener("click",function(){
+        state[key]=d[0];
+        host.querySelectorAll(".chip").forEach(function(x){x.setAttribute("aria-pressed","false");});
+        b.setAttribute("aria-pressed","true");
+        if(key==="angle" && shop.row) paintShop();
+        render();
+      });
+      host.appendChild(b);
+    });
+  }
+
+  /* ---------- render ---------- */
+  var listEl, emptyEl;
+  function matches(r){
+    if(state.favsOnly && !state.favs[r[1]]) return false;
+    var t=Object.keys(state.tiers);  if(t.length && !state.tiers[tierOf(r[0])]) return false;
+    var e=Object.keys(state.eras);   if(e.length && !state.eras[eraOf(r[4])]) return false;
+    var s=Object.keys(state.status); if(s.length && !state.status[isLive(r)?"live":"dorm"]) return false;
+    if(state.q){
+      var hay=(r[1]+" "+(r[6]||"")+" "+(r[7]||"")).toLowerCase();
+      if(hay.indexOf(state.q.toLowerCase())===-1) return false;
+    }
+    return true;
+  }
+  function sorted(list){
+    var c=list.slice(), s=state.sort;
+    if(s==="name")        c.sort(function(a,b){ return a[1].localeCompare(b[1]); });
+    else if(s==="tracks") c.sort(function(a,b){ return b[3]-a[3] || b[2]-a[2]; });
+    else if(s==="depth")  c.sort(function(a,b){ return (b[2]/b[3])-(a[2]/a[3]); });
+    else if(s==="recent") c.sort(function(a,b){ return b[5]-a[5] || b[2]-a[2]; });
+    else if(s==="first")  c.sort(function(a,b){ return a[4]-b[4] || b[2]-a[2]; });
+    else if(s==="album")  c.sort(function(a,b){ return (a[6]||"~").localeCompare(b[6]||"~") || b[2]-a[2]; });
+    else                  c.sort(function(a,b){ return b[2]-a[2]; });
+    return c;
+  }
+
+  function rowFor(r){
+    var name=r[1], row=document.createElement("div");
+    row.className="row"; if(state.open[name]) row.setAttribute("data-open","1");
+
+    var star=document.createElement("button");
+    star.type="button"; star.className="star";
+    star.setAttribute("aria-pressed", state.favs[name]?"true":"false");
+    star.setAttribute("aria-label",(state.favs[name]?"Unstar ":"Star ")+name);
+    star.textContent = state.favs[name]?"★":"☆";
+    star.addEventListener("click",function(){
+      if(state.favs[name]) delete state.favs[name]; else state.favs[name]=1;
+      store(KEY_FAV,JSON.stringify(state.favs)); render();
+    });
+
+    var btn=document.createElement("button");
+    btn.type="button"; btn.className="row-btn";
+    btn.setAttribute("aria-expanded", state.open[name]?"true":"false");
+
+    var rk=document.createElement("span"); rk.className="rk num"; rk.textContent=("00"+r[0]).slice(-3);
+    var nm=document.createElement("span"); nm.className="disp nm"; nm.textContent=name;
+
+    var meter=document.createElement("span"); meter.className="meter";
+    var pct=Math.max(4, Math.round(Math.log(r[2])/Math.log(MAXP)*100));
+    meter.innerHTML='<span class="bar"><i style="width:'+pct+'%"></i></span><span class="plays num">'+fmt(r[2])+'</span>';
+
+    var yrs=document.createElement("span");
+    yrs.className="yrs num"+(isLive(r)?" live":"");
+    yrs.textContent = r[4]===r[5] ? String(r[4]) : (r[4]+"–"+String(r[5]).slice(2));
+
+    var plus=document.createElement("span"); plus.className="plus"; plus.textContent="+"; plus.setAttribute("aria-hidden","true");
+
+    btn.appendChild(rk); btn.appendChild(nm); btn.appendChild(meter); btn.appendChild(yrs); btn.appendChild(plus);
+    btn.addEventListener("click",function(){
+      if(state.open[name]) delete state.open[name]; else state.open[name]=1;
+      render();
+    });
+
+    var head=document.createElement("div"); head.className="head";
+    head.appendChild(star); head.appendChild(btn);
+
+    var panel=document.createElement("div"); panel.className="panel";
+    var q=queryFor(r);
+    var facts=document.createElement("p"); facts.className="facts";
+    facts.innerHTML='<b>'+fmt(r[2])+'</b> plays across <b>'+fmt(r[3])+'</b> tracks &nbsp;·&nbsp; first heard <b>'+r[4]+
+                    '</b>, last <b>'+r[5]+'</b>'+(r[6]?' &nbsp;·&nbsp; most played album <b>'+r[6]+'</b>':'');
+    var qline=document.createElement("p"); qline.className="qline";
+    qline.appendChild(document.createTextNode("Searching "));
+    var qs=document.createElement("span"); qs.textContent=q; qline.appendChild(qs);
+
+    var sites=document.createElement("div"); sites.className="sites";
+    SITES.forEach(function(s,i){
+      var b=document.createElement("button");
+      b.type="button"; b.className="site";
+      b.innerHTML = s[0] + (s[2] ? ' <span class="mk">inline</span>' : ' <span class="mk">tab</span>');
+      b.addEventListener("click",function(){ openShop(r,i); });
+      sites.appendChild(b);
+    });
+    var all=document.createElement("button");
+    all.type="button"; all.className="openall"; all.textContent="Open all 9 in tabs";
+    all.title="Your browser may block all but the first — allow pop-ups for this page.";
+    all.addEventListener("click",function(){
+      SITES.forEach(function(s,i){ window.open(urlFor(i,r),"_blank","noopener"); });
+    });
+    sites.appendChild(all);
+
+    panel.appendChild(facts); panel.appendChild(qline); panel.appendChild(sites);
+    row.appendChild(head); row.appendChild(panel);
+    return row;
+  }
+
+  function render(){
+    var shown=sorted(R.filter(matches));
+    listEl.textContent="";
+    var frag=document.createDocumentFragment();
+    shown.forEach(function(r){ frag.appendChild(rowFor(r)); });
+    listEl.appendChild(frag);
+    emptyEl.hidden = shown.length!==0;
+    document.getElementById("t-shown").textContent=shown.length;
+    document.getElementById("t-total").textContent=R.length;
+    document.getElementById("fav-n").textContent=Object.keys(state.favs).length;
+    var lbl="Shirt";
+    for(var i=0;i<ANGLES.length;i++){ if(ANGLES[i][0]===state.angle) lbl=ANGLES[i][1]; }
+    document.getElementById("t-angle").textContent="Angle: "+lbl+(state.extra.trim()?" + "+state.extra.trim():"");
+  }
+
+  /* ---------- boot ---------- */
+  function boot(){
+    if(listEl){ render(); return; }
+    listEl=document.getElementById("list"); emptyEl=document.getElementById("empty");
+
+    document.getElementById("s-scrob").textContent=fmt(DATA.scrobbles);
+    document.getElementById("s-art").textContent=fmt(DATA.artistsTotal);
+    document.getElementById("s-list").textContent=R.length;
+    document.getElementById("s-span").textContent=
+      (parseInt(DATA.last.slice(0,4),10)-parseInt(DATA.first.slice(0,4),10)+1);
+
+    radioRow("sorts",SORTS,"sort",false);
+    radioRow("angles",ANGLES.map(function(a){return [a[0],a[1]];}),"angle",true);
+    chipRow("tiers",TIERS,state.tiers,function(k){ return R.filter(function(r){return tierOf(r[0])===k;}).length; });
+    chipRow("eras",ERAS,state.eras,function(k){ return R.filter(function(r){return eraOf(r[4])===k;}).length; });
+    chipRow("status",STAT,state.status,function(k){ return R.filter(function(r){return (isLive(r)?"live":"dorm")===k;}).length; });
+
+    document.getElementById("q").addEventListener("input",function(e){ state.q=e.target.value; render(); });
+    document.getElementById("extra").addEventListener("input",function(e){
+      state.extra=e.target.value; if(shop.row) paintShop(); render();
+    });
+    var favBtn=document.getElementById("favs");
+    favBtn.addEventListener("click",function(){
+      state.favsOnly=!state.favsOnly; favBtn.setAttribute("aria-pressed",state.favsOnly?"true":"false"); render();
+    });
+    document.getElementById("shuffle").addEventListener("click",function(){
+      var pool=R.filter(matches); if(!pool.length) return;
+      var pick=pool[Math.floor(Math.random()*pool.length)];
+      state.open={}; state.open[pick[1]]=1; render();
+      var rows=listEl.querySelectorAll('.row[data-open="1"]');
+      if(rows.length) rows[0].scrollIntoView({behavior:"smooth",block:"center"});
+    });
+    document.getElementById("reset").addEventListener("click",function(){
+      state.q=""; state.extra=""; state.tiers={}; state.eras={}; state.status={};
+      state.favsOnly=false; state.open={};
+      document.getElementById("q").value=""; document.getElementById("extra").value="";
+      document.querySelectorAll("#tiers .chip,#eras .chip,#status .chip").forEach(function(c){ c.setAttribute("aria-pressed","false"); });
+      favBtn.setAttribute("aria-pressed","false"); render();
+    });
+    render();
+  }
+
+  if(load(KEY_OK)==="1") unlock();
+  else document.getElementById("pw").focus();
+})();
+</script>
+
+</body>
+</html>
