@@ -271,29 +271,50 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
 
                 {/* YEAR BACKGROUND LAYER */}
                 <div className="absolute inset-0 z-0 pointer-events-none flex items-end pb-2 overflow-hidden px-6"> {/* Padding matches chart container approximately */}
-                    {!zoomYear && Object.keys(years).map((year) => {
-                        // Find the approximate relative position of this year in the timeline
-                        // We can just space them out or find the first month of that year
-                        const yearDataIndex = monthlyTimeline.findIndex(d => d.date.startsWith(year));
-                        if (yearDataIndex === -1) return null;
+                    {!zoomYear && (() => {
+                        // A 100px monospace year is ~240px wide, so all twenty of them
+                        // landed on top of each other. Individually they are nearly
+                        // invisible, but the overlap stacked their alpha into the mottled
+                        // smear behind the chart. Keep only labels far enough apart to
+                        // read as a watermark, and let each one carry its own weight.
+                        const MIN_GAP_PCT = 18;
 
-                        const leftPct = (yearDataIndex / monthlyTimeline.length) * 100;
+                        // The timeline runs newest-first, so position decreases as the
+                        // year increases. Sort by position before thinning, or the very
+                        // first label would swallow every later one.
+                        let lastPct = -Infinity;
+                        const spaced = Object.keys(years)
+                            .map((year) => {
+                                const yearDataIndex = monthlyTimeline.findIndex(d => d.date.startsWith(year));
+                                return yearDataIndex === -1
+                                    ? null
+                                    : { year, leftPct: (yearDataIndex / monthlyTimeline.length) * 100 };
+                            })
+                            .filter(Boolean)
+                            .sort((a, b) => a.leftPct - b.leftPct)
+                            .filter(({ leftPct }) => {
+                                if (leftPct - lastPct < MIN_GAP_PCT) return false;
+                                lastPct = leftPct;
+                                return true;
+                            });
 
-                        return (
-                            <div
-                                key={year}
-                                className="absolute text-[100px] font-black leading-none text-white/5 select-none"
-                                style={{
-                                    left: `${leftPct}%`,
-                                    bottom: '-20px',
-                                    fontFamily: 'monospace',
-                                    opacity: 0.03
-                                }}
-                            >
-                                {year}
-                            </div>
-                        );
-                    })}
+                        return spaced.map(({ year, leftPct }) => {
+                            return (
+                                <div
+                                    key={year}
+                                    className="absolute text-[100px] font-black leading-none select-none"
+                                    style={{
+                                        left: `${leftPct}%`,
+                                        bottom: '-20px',
+                                        fontFamily: 'monospace',
+                                        color: 'rgba(255,255,255,0.06)'
+                                    }}
+                                >
+                                    {year}
+                                </div>
+                            );
+                        });
+                    })()}
                 </div>
 
                 <div className="absolute inset-0 z-10 w-full h-full" style={{ minHeight: '200px' }}>
@@ -481,6 +502,57 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
     const requestRef = useRef(null);
 
     // Prepare Items based on Tab
+    // The dashboard payload has no top-level `albums` or `tracks` — that data
+    // only exists nested inside each artist — so those two tabs rendered an
+    // empty grid, leaving just the panel's hover spotlight moving over nothing.
+    // Derive the flat lists here, preferring the server's own if it ever sends them.
+    const derived = useMemo(() => {
+        const albums = [];
+        const trackTotals = new Map();
+
+        for (const [artist, stats] of Object.entries(data.artists || {})) {
+            for (const [albumName, album] of Object.entries(stats.albums || {})) {
+                albums.push({
+                    name: albumName,
+                    artist,
+                    count: album.count,
+                    url: album.url,
+                    is_book: stats.is_book
+                });
+
+                for (const t of album.tracks || []) {
+                    // A track can be attributed to several releases (album, single,
+                    // compilation); each scrobble is counted once, so summing gives
+                    // the true all-time total rather than a per-release slice.
+                    const key = `${artist} ${t.name}`;
+                    const prev = trackTotals.get(key);
+                    if (prev) {
+                        prev.count += t.count;
+                        if (album.count > prev.fromAlbumCount) {
+                            prev.img = album.url;
+                            prev.fromAlbumCount = album.count;
+                        }
+                    } else {
+                        trackTotals.set(key, {
+                            name: t.name,
+                            artist,
+                            count: t.count,
+                            img: album.url,
+                            is_book: stats.is_book,
+                            fromAlbumCount: album.count
+                        });
+                    }
+                }
+            }
+        }
+
+        const byCount = (a, b) => b.count - a.count;
+        return {
+            albums: data.albums?.length ? data.albums : albums.sort(byCount).slice(0, 500),
+            tracks: data.tracks?.length ? data.tracks : [...trackTotals.values()].sort(byCount).slice(0, 500)
+        };
+    }, [data]);
+
     const items = useMemo(() => {
         if (tab === 'artists') {
             return Object.entries(data.artists)
@@ -495,7 +567,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                 .sort((a, b) => b.count - a.count)
                 .slice(0, 500);
         } else if (tab === 'albums') {
-            return (data.albums || []).map(a => ({
+            return derived.albums.map(a => ({
                 id: `${a.name}-${a.artist}`,
                 name: a.name,
                 sub: a.artist,
@@ -504,7 +576,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                 is_book: a.is_book
             }));
         } else {
-            return (data.tracks || []).map(t => ({
+            return derived.tracks.map(t => ({
                 id: `${t.name}-${t.artist}`,
                 name: t.name,
                 sub: t.artist,
@@ -513,7 +585,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                 is_book: t.is_book
             }));
         }
-    }, [tab, data]);
+    }, [tab, data, derived]);
 
     const totalPages = Math.ceil(items.length / PER_PAGE);
     const displayed = items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
