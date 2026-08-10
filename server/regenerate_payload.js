@@ -8,6 +8,63 @@ const PAYLOAD_PATH = isRailway ? '/data/dashboard_payload.json' : path.resolve(_
 const DURATIONS_PATH = path.resolve(__dirname, 'track_durations.json'); // New source
 
 
+/*
+ * Audiobook detection.
+ *
+ * Audiobooks scrobble exactly like albums, so the only signal is that their
+ * tracks read like chapters. Tuned against the full 9,912-album library: it
+ * flags one album (J.R.R. Tolkien — The Lord of the Rings, whose tracks are
+ * named "1. The Ring Sets Out. Strider") and leaves every long music album
+ * alone — Ghosts I-IV, The Color Spectrum, Trilogy, RARITIES all score 0.
+ *
+ * The exclusion matters: "Bird Box (Abridged) [Original Score]" is a Trent
+ * Reznor film score, not a book, and would otherwise match on "(Abridged)".
+ */
+const BOOK_EXPLICIT = /\((?:un)?abridged\)|\baudiobook\b/i;
+const BOOK_EXCLUDE = /\b(?:score|soundtrack|ost)\b/i;
+const BOOK_CHAPTER = new RegExp(
+    [
+        String.raw`^\s*\d+\s*[.)\-]\s+\S`,          // "1. The Ring Sets Out…"
+        String.raw`\bchapter\b`,
+        String.raw`\bpart\s+\d+\b`,
+        String.raw`^(?:prologue|epilogue|preface|foreword|afterword)\b`,
+        String.raw`\btrack\s+\d+\b`
+    ].join('|'),
+    'i'
+);
+const BOOK_MIN_TRACKS = 10;
+const BOOK_MIN_RATIO = 0.6;
+
+function looksLikeAudiobook(albumName, trackNames) {
+    const album = albumName || '';
+    if (BOOK_EXCLUDE.test(album)) return false;
+    if (BOOK_EXPLICIT.test(album)) return true;
+    if (trackNames.some((n) => BOOK_EXPLICIT.test(n || ''))) return true;
+    if (trackNames.length < BOOK_MIN_TRACKS) return false;
+
+    const hits = trackNames.filter((n) => BOOK_CHAPTER.test(n || '')).length;
+    return hits / trackNames.length >= BOOK_MIN_RATIO;
+}
+
+/* Flags each album, then calls the artist a book author only when those
+   albums hold most of their plays — so a musician with one spoken-word
+   release is not relabelled wholesale. */
+function detectBooks(stat) {
+    const albums = {};
+    let bookPlays = 0;
+    let totalPlays = 0;
+
+    Object.entries(stat.albums || {}).forEach(([albName, albData]) => {
+        const names = Object.values(albData.tracks || {}).map((t) => t.name);
+        const isBook = looksLikeAudiobook(albName, names);
+        albums[albName] = isBook;
+        totalPlays += albData.count || 0;
+        if (isBook) bookPlays += albData.count || 0;
+    });
+
+    return { albums, artistIsBook: totalPlays > 0 && bookPlays / totalPlays > 0.5 };
+}
+
 async function generatePayload(dbInstance = null) {
     let localDb = false;
     const database = dbInstance || new sqlite3.Database(DB_PATH);
@@ -307,16 +364,31 @@ async function generatePayload(dbInstance = null) {
 
         // Finalize Artists Object (Filter top 500 to save space)
         const artists = {};
-        const topArtists = Object.entries(artistStats)
-            .sort(([, a], [, b]) => b.t - a.t)
-            .slice(0, 300); // Top 300 artists
+        const ranked = Object.entries(artistStats).sort(([, a], [, b]) => b.t - a.t);
+        const books = new Map(ranked.map(([name, stat]) => [name, detectBooks(stat)]));
 
-        topArtists.forEach(([name, stat]) => {
+        // A book is listened to once, not on repeat, so audiobooks sit far below
+        // the music in play count and the top-300 cut drops them entirely — which
+        // is why the "Highlight Books" filter had nothing to match. Keep every
+        // book author on top of the top 300.
+        const selected = ranked.slice(0, 300);
+        const carried = new Set(selected.map(([name]) => name));
+        ranked.slice(300).forEach((entry) => {
+            if (books.get(entry[0]).artistIsBook && !carried.has(entry[0])) {
+                selected.push(entry);
+                carried.add(entry[0]);
+            }
+        });
+
+        selected.forEach(([name, stat]) => {
+            const flags = books.get(name);
+
             // Transform albums tracks object to array
             const transformedAlbums = {};
             Object.entries(stat.albums).forEach(([albName, albData]) => {
                 transformedAlbums[albName] = {
                     ...albData,
+                    is_book: flags.albums[albName] || false,
                     tracks: Object.values(albData.tracks).sort((a, b) => b.count - a.count)
                 };
             });
@@ -324,6 +396,7 @@ async function generatePayload(dbInstance = null) {
             artists[name] = {
                 ...stat,
                 albums: transformedAlbums,
+                is_book: flags.artistIsBook,
                 // Ensure img is valid
                 img: stat.img.length > 0 ? stat.img : null
             };

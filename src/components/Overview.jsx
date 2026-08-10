@@ -512,12 +512,14 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
 
         for (const [artist, stats] of Object.entries(data.artists || {})) {
             for (const [albumName, album] of Object.entries(stats.albums || {})) {
+                const albumIsBook = album.is_book ?? stats.is_book;
+
                 albums.push({
                     name: albumName,
                     artist,
                     count: album.count,
                     url: album.url,
-                    is_book: stats.is_book
+                    is_book: albumIsBook
                 });
 
                 for (const t of album.tracks || []) {
@@ -538,7 +540,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                             artist,
                             count: t.count,
                             img: album.url,
-                            is_book: stats.is_book,
+                            is_book: albumIsBook,
                             fromAlbumCount: album.count
                         });
                     }
@@ -587,6 +589,8 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
         }
     }, [tab, data, derived]);
 
+    const hasBooks = useMemo(() => items.some(i => i.is_book), [items]);
+
     const totalPages = Math.ceil(items.length / PER_PAGE);
     const displayed = items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
@@ -634,8 +638,9 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    {/* Audiobook Toggle */}
-                    <button
+                    {/* Audiobook Toggle — hidden when this tab holds no books,
+                        so it is never a control that cannot do anything. */}
+                    {hasBooks && <button
                         onClick={() => setHighlightBooks(!highlightBooks)}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${highlightBooks
                             ? 'bg-neon-pink/10 border-neon-pink text-neon-pink shadow-[0_0_10px_rgba(244,114,182,0.3)]'
@@ -644,7 +649,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                     >
                         <BookOpen size={14} />
                         <span className="text-xs font-bold">Highlight Books</span>
-                    </button>
+                    </button>}
 
                     {/* Pagination */}
                     <div className="flex gap-2">
