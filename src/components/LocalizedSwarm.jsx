@@ -1,7 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import { useAudioReactive } from './AudioReactiveContext';
+import { useLite } from '../lite';
 
 export default function LocalizedSwarm({ barPositions = [], isHovered = false, barScale = 1 }) {
+    const lite = useLite();
     const canvasRef = useRef(null);
     const particleSystem = useRef([]);
     const mousePos = useRef({ x: -1000, y: -1000 });
@@ -29,6 +31,7 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
 
     // Animation Loop
     useEffect(() => {
+        if (lite) return; // no particle loop in Back Print mode
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -157,7 +160,11 @@ export default function LocalizedSwarm({ barPositions = [], isHovered = false, b
             resizeObserver.disconnect();
             cancelAnimationFrame(frameId);
         };
-    }, [barPositions, isHovered, barScale, isListening, audioStateRef]); // Removed 'bands' from dep array
+    }, [barPositions, isHovered, barScale, isListening, audioStateRef, lite]); // Removed 'bands' from dep array
+
+    // Returned after every hook has run, so the hook order stays stable when
+    // lite mode is toggled at runtime.
+    if (lite) return null;
 
     return (
         <canvas

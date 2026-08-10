@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useAnimationFrame } from 'framer-motion';
+import { motion, AnimatePresence, useAnimationFrame, MotionConfig } from 'framer-motion';
 import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github, ChevronDown, BookOpen, PenTool, MessageCircle, Sparkles, Leaf } from 'lucide-react';
 import rawData from './data/dashboard_payload.json';
 import Overview from './components/Overview';
@@ -17,6 +17,8 @@ import GlassDistortionFilter from './components/GlassDistortionFilter';
 import PersistentPlayer from './components/PersistentPlayer';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AudioReactiveProvider, useAudioReactive } from './components/AudioReactiveContext';
+import { useLite, toggleLite } from './lite';
+import './lite.css';
 
 const REFRESH_INTERVAL_MS = 10000;
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
@@ -24,6 +26,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 // Optimized Button Component that animates without re-rendering parent
 const PulsingMicButton = ({ viewport }) => {
   const { isListening, toggleListening, audioSource, setAudioSource, audioStateRef } = useAudioReactive();
+  const lite = useLite();
   const buttonRef = useRef(null);
   const canvasRef = useRef(null);
   const borderCanvasRef = useRef(null); // New canvas for the border
@@ -45,9 +48,21 @@ const PulsingMicButton = ({ viewport }) => {
     return () => mediaQuery.removeEventListener('change', updateAnimationState);
   }, [viewport]);
 
+  // Entering lite mode leaves the button mid-breath, so undo the inline styles
+  // the frame loop was writing. MotionConfig does not cover this — reducedMotion
+  // governs animated values, not useAnimationFrame.
+  useEffect(() => {
+    if (!lite || !buttonRef.current) return;
+    buttonRef.current.style.transform = '';
+    buttonRef.current.style.boxShadow = '';
+    buttonRef.current.style.borderColor = '';
+  }, [lite]);
+
   // Animate via Framer Motion loop (bypasses React Render)
   useAnimationFrame(() => {
-    if (!shouldAnimateRef.current || document.hidden) return;
+    // The idle branch below repaints a box-shadow every frame even when the mic
+    // is off, so lite mode has to skip the whole callback, not just the drawing.
+    if (lite || !shouldAnimateRef.current || document.hidden) return;
 
     const canvas = canvasRef.current;
     const borderCanvas = borderCanvasRef.current;
@@ -199,13 +214,13 @@ const PulsingMicButton = ({ viewport }) => {
       className={`group relative flex items-center gap-3 px-4 py-2 rounded-full border transition-colors duration-300 ${isListening ? 'bg-black/80 border-transparent' : 'border-white/10 text-gray-400 hover:text-white hover:bg-white/5'}`}
       title="Visualize Audio (Speaker/Mic Required)"
     >
-      {/* Waveform Border Canvas (Absolute Overlay) */}
-      <canvas
+      {/* Waveform Border Canvas (Absolute Overlay) — no canvas in lite mode */}
+      {!lite && <canvas
         ref={borderCanvasRef}
         width={220} // Slightly larger than button
         height={60}
         className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-opacity duration-300 ${isListening ? 'opacity-100' : 'opacity-0'}`}
-      />
+      />}
 
       {/* Icon */}
       <div className={`relative z-10 ${isListening ? "text-neon-cyan animate-pulse" : ""}`}>
@@ -230,14 +245,14 @@ const PulsingMicButton = ({ viewport }) => {
       </div>
 
       {/* Mini Graph Canvas */}
-      <div className="flex flex-col gap-0.5 relative z-10">
+      {!lite && <div className="flex flex-col gap-0.5 relative z-10">
         <canvas
           ref={canvasRef}
           width={60}
           height={20}
           className="opacity-90"
         />
-      </div>
+      </div>}
 
       {/* Text Label (Optional, maybe just Visualizer?) */}
       {!isListening && <span className="text-xs font-mono tracking-widest opacity-60">VISUALIZE</span>}
@@ -422,6 +437,7 @@ function MainDashboard() {
   const [initialLibrarySearch, setInitialLibrarySearch] = useState('');
   const [metric, setMetric] = useState('scrobbles'); // 'scrobbles' | 'minutes'
   const [backgroundType, setBackgroundType] = useState('fluid'); // Default to Fluid
+  const lite = useLite(); // Back Print: flat styling, no canvas/WebGL, no motion
 
   // Global Player State
   const [nowPlaying, setNowPlaying] = useState(null);
@@ -688,18 +704,22 @@ function MainDashboard() {
 
   return (
     <div className="min-h-screen text-gray-200 selection:bg-neon-pink selection:text-white pb-20 overflow-x-hidden relative">
-      {/* Backgrounds */}
-      <AnimatePresence mode="wait">
-        {backgroundType === 'fluid' ? (
-          <motion.div key="fluid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
-            <FluidBackground intensity={playerIntensity} />
-          </motion.div>
-        ) : (
-          <motion.div key="shader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
-            <ShaderBackground />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Backgrounds. Lite mode unmounts them entirely rather than hiding
+          them — a hidden canvas keeps its requestAnimationFrame loop running,
+          which is the single largest CPU cost on the page. */}
+      {!lite && (
+        <AnimatePresence mode="wait">
+          {backgroundType === 'fluid' ? (
+            <motion.div key="fluid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
+              <FluidBackground intensity={playerIntensity} />
+            </motion.div>
+          ) : (
+            <motion.div key="shader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
+              <ShaderBackground />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Header */}
       <motion.nav
@@ -765,11 +785,24 @@ function MainDashboard() {
             <div className={`hidden md:flex items-center transition-all duration-500 ${isListening ? 'gap-8 ml-8' : 'gap-3 ml-4'}`}>
               <PulsingMicButton viewport="desktop" />
 
+              {/* Back Print / lite mode. Sits before the background switch
+                  because it overrides it — there is no background to switch. */}
+              <button
+                type="button"
+                onClick={toggleLite}
+                className="lite-toggle"
+                aria-pressed={lite}
+                title={lite ? 'Back to the full visuals' : 'Flat styling, no canvas or WebGL — much lighter on the CPU'}
+              >
+                {lite ? 'Back Print · on' : 'Back Print'}
+              </button>
+
               {/* Full Text Background Toggle (Desktop) */}
               <div
                 onClick={() => setBackgroundType(prev => prev === 'shader' ? 'fluid' : 'shader')}
-                className="relative flex items-center bg-white/5 border border-white/10 rounded-full cursor-pointer h-8 w-36 px-1 select-none hover:bg-white/10 transition-colors"
-                title="Switch Background Visuals"
+                className={`relative flex items-center bg-white/5 border border-white/10 rounded-full h-8 w-36 px-1 select-none transition-colors ${lite ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:bg-white/10'}`}
+                title={lite ? 'Backgrounds are off in Back Print mode' : 'Switch Background Visuals'}
+                aria-disabled={lite}
               >
                 <motion.div
                   className="absolute top-1 bottom-1 w-16 bg-white/10 rounded-full border border-white/5 shadow-inner"
@@ -854,11 +887,25 @@ function MainDashboard() {
             <div className="flex md:hidden items-center gap-2">
               <PulsingMicButton viewport="mobile" />
 
+              {/* Back Print / lite mode (Mobile). Phones are where the heavy
+                  visuals hurt most, so the toggle has to be reachable here. */}
+              <button
+                type="button"
+                onClick={toggleLite}
+                className="lite-toggle"
+                aria-pressed={lite}
+                aria-label={lite ? 'Turn off Back Print mode' : 'Turn on Back Print mode'}
+                title={lite ? 'Back to the full visuals' : 'Flat styling, no canvas or WebGL'}
+              >
+                {lite ? 'BP · on' : 'BP'}
+              </button>
+
               {/* Compact Background Toggle (Mobile) */}
               <div
                 onClick={() => setBackgroundType(prev => prev === 'shader' ? 'fluid' : 'shader')}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 border border-white/10 cursor-pointer text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                title="Switch Visuals"
+                className={`flex items-center justify-center w-8 h-8 rounded-full bg-white/5 border border-white/10 text-white/50 transition-colors ${lite ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:text-white hover:bg-white/10'}`}
+                title={lite ? 'Backgrounds are off in Back Print mode' : 'Switch Visuals'}
+                aria-disabled={lite}
               >
                 {backgroundType === 'fluid' ? <Layers size={14} /> : <Zap size={14} />}
               </div>
@@ -1180,8 +1227,20 @@ function App() {
 
   return (
     <AudioReactiveProvider>
-      <MainDashboard />
+      <LiteAwareDashboard />
     </AudioReactiveProvider>
+  );
+}
+
+/* MotionConfig reducedMotion="always" makes every framer-motion component in
+   the tree skip transform/opacity animation and jump straight to its final
+   state — one switch instead of touching all fifteen motion files. */
+function LiteAwareDashboard() {
+  const lite = useLite();
+  return (
+    <MotionConfig reducedMotion={lite ? 'always' : 'never'}>
+      <MainDashboard />
+    </MotionConfig>
   );
 }
 

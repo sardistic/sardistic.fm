@@ -1,0 +1,358 @@
+/* =========================================================================
+   LITE MODE — "Back Print"
+   =========================================================================
+   A low-CPU skin for the dashboard, extending the two-ink screen-print
+   identity of /shirts: flat ink on paper, hairline rules, condensed caps,
+   square corners. Everything here is scoped under `html.lite`, so the
+   default experience is untouched when the class is absent.
+
+   The CPU saving comes from what is removed, not added: no backdrop-filter,
+   no blur or drop-shadow, no CSS animation, no gradient repaints. The
+   canvas/WebGL backgrounds and the particle swarm are unmounted in JS
+   (see lite.js) because CSS cannot stop a requestAnimationFrame loop.
+   ========================================================================= */
+
+html.lite {
+  /* paper */
+  --bp-ground: #d8d7d2;
+  --bp-paper: #e6e5e1;
+  --bp-paper-2: #efeeeb;
+  --bp-rule: #bab9b2;
+  --bp-rule-soft: #c8c7c0;
+  /* ink */
+  --bp-ink: #15171a;
+  --bp-ink-2: #4a4c50;
+  --bp-ink-3: #74767b;
+  /* spot inks — the neon palette remapped to screen-print equivalents */
+  --bp-spot-1: #cc2936;
+  --bp-spot-2: #2e4ea7;
+  --bp-spot-3: #1f7a5a;
+  --bp-spot-4: #b25a00;
+  --bp-spot-ink: #ffffff;
+
+  --bp-display: "Bahnschrift", "Haettenschweiler", "Arial Narrow",
+    "Helvetica Neue Condensed", Impact, sans-serif;
+  --bp-mono: "Consolas", ui-monospace, "SF Mono", Menlo, monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  html.lite {
+    --bp-ground: #131316;
+    --bp-paper: #1a1b1f;
+    --bp-paper-2: #232429;
+    --bp-rule: #34363c;
+    --bp-rule-soft: #26282d;
+    --bp-ink: #edece8;
+    --bp-ink-2: #a8a9ad;
+    --bp-ink-3: #7c7e83;
+    --bp-spot-1: #ff4d5a;
+    --bp-spot-2: #8aa2ee;
+    --bp-spot-3: #4fd1a0;
+    --bp-spot-4: #e0a64b;
+    --bp-spot-ink: #1a0407;
+    color-scheme: dark;
+  }
+}
+
+/* ---------- 1. ground ---------------------------------------------------- */
+
+html.lite body {
+  background: var(--bp-ground) !important;
+  color: var(--bp-ink);
+}
+
+/* The fixed background layers are unmounted in JS; this covers any that
+   remain (error states, transitions) so nothing paints behind the page. */
+html.lite canvas {
+  display: none !important;
+}
+
+/* ---------- 2. stop the expensive paint --------------------------------- */
+
+html.lite [class*="backdrop-blur"],
+html.lite .glass-panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.lite [class*="blur-"],
+html.lite [class*="drop-shadow"],
+html.lite [class*="shadow-"] {
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+/* Chart bars carry their glow as an inline style attribute, which only an
+   !important rule can beat. Several hundred shadowed elements is genuine
+   paint cost, and a glow reads wrong on paper regardless. Focus rings are
+   unaffected: they are drawn with outline, not box-shadow. */
+html.lite * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+html.lite [class*="mix-blend"] {
+  mix-blend-mode: normal !important;
+}
+
+/* No looping animation and no transitions: both cost frames, and lite mode
+   is chosen precisely when frames are scarce. */
+html.lite *,
+html.lite *::before,
+html.lite *::after {
+  animation: none !important;
+  transition: none !important;
+  will-change: auto !important;
+}
+
+/* Decorative ambient blobs and glows carry no information — drop them. */
+html.lite .animate-orbit,
+html.lite .animate-pulse-slow,
+html.lite [class*="animate-ping"],
+html.lite .glass-panel::before,
+html.lite .glass-panel::after {
+  display: none !important;
+}
+
+/* ---------- 3. surfaces: paper, not glass -------------------------------- */
+
+html.lite .glass-panel,
+html.lite :is(
+    [class^="bg-dark-card"], [class*=" bg-dark-card"],
+    [class^="bg-dark-surface"], [class*=" bg-dark-surface"],
+    [class^="bg-white/5"], [class*=" bg-white/5"],
+    [class^="bg-white/10"], [class*=" bg-white/10"],
+    [class^="bg-black/20"], [class*=" bg-black/20"],
+    [class^="bg-black/30"], [class*=" bg-black/30"],
+    [class^="bg-black/40"], [class*=" bg-black/40"],
+    [class^="bg-black/50"], [class*=" bg-black/50"],
+    [class^="bg-black/60"], [class*=" bg-black/60"]
+  ) {
+  background: var(--bp-paper) !important;
+  border-color: var(--bp-rule) !important;
+}
+
+html.lite .glass-panel {
+  border: 1.5px solid var(--bp-rule) !important;
+  border-radius: 0 !important;
+  transform: none !important;
+}
+
+/* Square everything: a screen print has no rounded corners. Pills and the
+   circular controls keep their shape so they stay readable as controls. */
+html.lite [class*="rounded"]:not([class*="rounded-full"]) {
+  border-radius: 0 !important;
+}
+
+html.lite :is(
+    [class^="border-white"], [class*=" border-white"],
+    [class^="border-dark-border"], [class*=" border-dark-border"],
+    [class^="divide-white"], [class*=" divide-white"]
+  ) {
+  border-color: var(--bp-rule) !important;
+}
+
+/* ---------- 4. type ------------------------------------------------------ */
+
+html.lite h1,
+html.lite h2,
+html.lite h3 {
+  font-family: var(--bp-display);
+  font-weight: 700;
+  font-stretch: condensed;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  line-height: 0.96;
+  color: var(--bp-ink);
+}
+
+html.lite [class*="font-mono"] {
+  font-family: var(--bp-mono) !important;
+  letter-spacing: 0.11em;
+}
+
+html.lite :is([class^="text-gray-2"], [class*=" text-gray-2"],
+    [class^="text-gray-3"], [class*=" text-gray-3"]) {
+  color: var(--bp-ink-2) !important;
+}
+html.lite :is([class^="text-gray-4"], [class*=" text-gray-4"],
+    [class^="text-gray-5"], [class*=" text-gray-5"],
+    [class^="text-gray-6"], [class*=" text-gray-6"]) {
+  color: var(--bp-ink-3) !important;
+}
+html.lite :is([class^="text-white"], [class*=" text-white"]) {
+  color: var(--bp-ink) !important;
+}
+
+/* ---------- 5. the neon palette, remapped to spot inks ------------------- */
+
+html.lite :is([class^="text-neon-pink"], [class*=" text-neon-pink"],
+    [class^="text-neon-purple"], [class*=" text-neon-purple"]) {
+  color: var(--bp-spot-1) !important;
+}
+html.lite :is([class^="text-neon-cyan"], [class*=" text-neon-cyan"],
+    [class^="text-neon-blue"], [class*=" text-neon-blue"]) {
+  color: var(--bp-spot-2) !important;
+}
+html.lite :is([class^="text-neon-green"], [class*=" text-neon-green"],
+    [class^="text-emerald"], [class*=" text-emerald"]) {
+  color: var(--bp-spot-3) !important;
+}
+html.lite :is([class^="text-neon-yellow"], [class*=" text-neon-yellow"],
+    [class^="text-amber"], [class*=" text-amber"],
+    [class^="text-yellow"], [class*=" text-yellow"]) {
+  color: var(--bp-spot-4) !important;
+}
+
+html.lite :is([class^="bg-neon-pink"], [class*=" bg-neon-pink"],
+    [class^="bg-neon-purple"], [class*=" bg-neon-purple"]) {
+  background: var(--bp-spot-1) !important;
+  color: var(--bp-spot-ink) !important;
+}
+html.lite :is([class^="bg-neon-cyan"], [class*=" bg-neon-cyan"],
+    [class^="bg-neon-blue"], [class*=" bg-neon-blue"]) {
+  background: var(--bp-spot-2) !important;
+  color: var(--bp-spot-ink) !important;
+}
+
+html.lite :is([class^="border-neon-pink"], [class*=" border-neon-pink"]) {
+  border-color: var(--bp-spot-1) !important;
+}
+html.lite :is([class^="border-neon-cyan"], [class*=" border-neon-cyan"]) {
+  border-color: var(--bp-spot-2) !important;
+}
+
+/* Variant-prefixed forms are matched deliberately, on the state they belong to,
+   rather than leaking into the base state the way [class*=] alone would. */
+html.lite [class*="hover:text-neon-cyan"]:hover { color: var(--bp-spot-2) !important; }
+html.lite [class*="hover:text-neon-pink"]:hover { color: var(--bp-spot-1) !important; }
+html.lite [class*="hover:border-neon-cyan"]:hover { border-color: var(--bp-spot-2) !important; }
+html.lite [class*="hover:border-neon-pink"]:hover { border-color: var(--bp-spot-1) !important; }
+
+/* The stat cards colour themselves through an inline style attribute
+   (`glowColor` in Overview.jsx), which no class selector can reach. Match the
+   serialized rgb() instead. `style^=` keeps the text rule off the accent rail,
+   whose own style begins with background-color. */
+html.lite [style^="color: rgb(255, 0, 85)"],
+html.lite [style^="color: rgb(189, 0, 255)"] { color: var(--bp-spot-1) !important; }
+html.lite [style^="color: rgb(0, 255, 204)"],
+html.lite [style^="color: rgb(0, 204, 255)"] { color: var(--bp-spot-2) !important; }
+html.lite [style^="color: rgb(255, 255, 0)"]  { color: var(--bp-spot-4) !important; }
+
+html.lite [style*="background-color: rgb(255, 0, 85)"],
+html.lite [style*="background-color: rgb(189, 0, 255)"] { background-color: var(--bp-spot-1) !important; }
+html.lite [style*="background-color: rgb(0, 255, 204)"],
+html.lite [style*="background-color: rgb(0, 204, 255)"] { background-color: var(--bp-spot-2) !important; }
+html.lite [style*="background-color: rgb(255, 255, 0)"]  { background-color: var(--bp-spot-4) !important; }
+
+/* The remaining two accent rails come from classes, not inline styles. */
+html.lite :is([class^="border-neon-yellow"], [class*=" border-neon-yellow"]) {
+  border-color: var(--bp-spot-4) !important;
+}
+html.lite :is([class^="border-neon-purple"], [class*=" border-neon-purple"]) {
+  border-color: var(--bp-spot-1) !important;
+}
+
+/* Gradients are per-frame paint for no information — flatten to one ink. */
+html.lite [class*="bg-gradient"] {
+  background-image: none !important;
+}
+html.lite [class*="bg-clip-text"] {
+  -webkit-text-fill-color: currentColor !important;
+  color: var(--bp-ink) !important;
+}
+
+/* ---------- 6. charts: risograph spot colour ---------------------------- */
+/* Recharts writes fill/stroke as presentation attributes, which CSS wins
+   against — so the neon hexes can be remapped without touching chart code. */
+
+html.lite [fill="#ff0055"], html.lite [stroke="#ff0055"],
+html.lite [fill="#bd00ff"], html.lite [stroke="#bd00ff"] {
+  fill: var(--bp-spot-1);
+  stroke: var(--bp-spot-1);
+}
+html.lite [fill="#00ffcc"], html.lite [stroke="#00ffcc"],
+html.lite [fill="#00ccff"], html.lite [stroke="#00ccff"] {
+  fill: var(--bp-spot-2);
+  stroke: var(--bp-spot-2);
+}
+html.lite [fill="#ffff00"], html.lite [stroke="#ffff00"] {
+  fill: var(--bp-spot-4);
+  stroke: var(--bp-spot-4);
+}
+
+html.lite .recharts-bar-rectangles path:hover {
+  filter: none !important;
+  transform: none !important;
+  stroke: var(--bp-ink) !important;
+  stroke-width: 1.5px !important;
+}
+html.lite .recharts-cartesian-grid line {
+  stroke: var(--bp-rule-soft) !important;
+}
+html.lite .recharts-text {
+  fill: var(--bp-ink-3) !important;
+  font-family: var(--bp-mono);
+}
+
+/* ---------- 7. chrome --------------------------------------------------- */
+
+html.lite nav[class*="fixed"] {
+  background: var(--bp-ground) !important;
+  border-bottom: 2px solid var(--bp-ink) !important;
+}
+
+html.lite ::-webkit-scrollbar-thumb {
+  background: var(--bp-rule);
+  border-radius: 0;
+}
+html.lite ::-webkit-scrollbar-thumb:hover {
+  background: var(--bp-ink-3);
+}
+
+html.lite ::selection {
+  background: var(--bp-spot-1);
+  color: var(--bp-spot-ink);
+}
+
+html.lite :focus-visible {
+  outline: 2.5px solid var(--bp-spot-1) !important;
+  outline-offset: 2px;
+}
+
+/* ---------- 8. the toggle itself ---------------------------------------- */
+/* Styled explicitly in both modes so it reads as a control either way. */
+
+.lite-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: "Consolas", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+.lite-toggle:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+html.lite .lite-toggle {
+  border: 1.5px solid var(--bp-spot-1);
+  border-radius: 0;
+  background: var(--bp-spot-1);
+  color: var(--bp-spot-ink);
+}
+html.lite .lite-toggle:hover {
+  background: transparent;
+  color: var(--bp-spot-1);
+}
