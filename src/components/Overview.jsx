@@ -524,7 +524,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                     // A track can be attributed to several releases (album, single,
                     // compilation); each scrobble is counted once, so summing gives
                     // the true all-time total rather than a per-release slice.
-                    const key = `${artist} ${t.name}`;
+                    const key = `${artist}\u0000${t.name}`;
                     const prev = trackTotals.get(key);
                     if (prev) {
                         prev.count += t.count;
