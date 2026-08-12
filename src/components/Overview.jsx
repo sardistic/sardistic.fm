@@ -45,6 +45,7 @@ const CHART_METRICS = [
 function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen, onPlayContext }) {
     const [chartMetric, setChartMetric] = useState(metric === 'minutes' ? 'hours' : 'plays');
     const [genreMode, setGenreMode] = useState('share');   // share | plays
+    const [selectedGenre, setSelectedGenre] = useState(GENRE_SLOTS[0][0]);
     const [hoveredYear, setHoveredYear] = useState(null);
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
     const [zoomYear, setZoomYear] = useState(null); // V14: Zoom into a specific year
@@ -190,10 +191,11 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
 
 
 
-    /* Genre composition per month. The payload ships plays-per-genre-per-month
-       already collapsed, so this only has to fold the long tail into "Other",
-       order the bands to match the validated colour order, and optionally
-       normalise to share. */
+    /* Genre trend per month. The payload ships plays-per-genre-per-month already
+       collapsed, so this folds the long tail into "Other" and optionally
+       normalises to share. Every genre stays in the rows so changing the focus
+       is instant; a centred three-month mean keeps the display about eras of
+       listening instead of the noise of one unusually heavy week. */
     const genreSeries = useMemo(() => {
         const g = data.genres;
         if (!g || !g.months) return [];
@@ -223,8 +225,46 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
             .filter((r) => r.total > 0)
             .sort((a, b) => a.date.localeCompare(b.date));
 
-        return rows.reverse();   // newest on the left, matching the history chart
+        const smoothed = rows.map((row, i) => {
+            const window = rows.slice(Math.max(0, i - 1), Math.min(rows.length, i + 2));
+            const out = { ...row };
+            named.forEach((name) => {
+                const mean = window.reduce((sum, item) => sum + (item[name] || 0), 0) / window.length;
+                out[name] = Math.round(mean * 10) / 10;
+            });
+            return out;
+        });
+
+        return smoothed.reverse();   // newest on the left, matching the history chart
     }, [data.genres, genreMode]);
+
+    const selectedGenreColor = GENRE_SLOTS.find(([name]) => name === selectedGenre)?.[1] || 'var(--viz-1)';
+
+    const genreSummary = useMemo(() => {
+        const g = data.genres;
+        if (!g || !g.months || !g.list) return null;
+
+        const named = GENRE_SLOTS.map(([name]) => name);
+        let selectedTotal = 0;
+        let classifiedTotal = 0;
+
+        Object.values(g.months).forEach((counts) => {
+            g.list.forEach((genre, i) => {
+                const value = counts[i] || 0;
+                classifiedTotal += value;
+                const slot = named.includes(genre) ? genre : 'Other';
+                if (slot === selectedGenre) selectedTotal += value;
+            });
+        });
+
+        const share = classifiedTotal ? Math.round((selectedTotal / classifiedTotal) * 100) : 0;
+        return {
+            displayValue: genreMode === 'share' ? `${share}%` : selectedTotal.toLocaleString(),
+            detail: genreMode === 'share'
+                ? `${selectedTotal.toLocaleString()} classified plays overall`
+                : `${share}% of classified listening`
+        };
+    }, [data.genres, genreMode, selectedGenre]);
 
     // 2. Yearly Data for the Grid
     const timelineData = useMemo(() => {
@@ -356,15 +396,29 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
             {/* ---------- GENRE COMPOSITION ---------- */}
             {genreSeries.length > 0 && (
                 <div className="glass-panel p-6 relative" style={{ '--spotlight-color': '#8a8a86' }}>
-                    <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div>
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 <span className="w-1 h-6 rounded-full" style={{ background: 'var(--viz-1)' }}></span>
                                 What You Were Into
                             </h2>
                             <p className="text-xs text-gray-500 mt-1">
-                                Genre mix by month, from Last.fm tags · covers {data.genres?.coverage ?? 0}% of plays
+                                Genre by month · 3-month average · covers {data.genres?.coverage ?? 0}% of plays
                             </p>
+                            {genreSummary && (
+                                <div className="mt-5">
+                                    <p className="text-xs font-semibold text-gray-300 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-sm" style={{ background: selectedGenreColor }} />
+                                        {selectedGenre}
+                                    </p>
+                                    <p className="text-4xl font-semibold tracking-tight text-white mt-1 leading-none">
+                                        {genreSummary.displayValue}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 font-mono mt-2">
+                                        {genreSummary.detail}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-1">
                             {[['share', 'Share'], ['plays', 'Plays']].map(([id, label]) => (
@@ -378,70 +432,88 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                         </div>
                     </div>
 
-                    {/* The legend is permanent: it carries identity without relying on colour
-                        alone, and supplies the relief that the light palette's contrast
-                        warning obliges. */}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 my-3">
+                    {/* One focused series keeps the chart readable; this labelled selector
+                        preserves access to every genre without stacking nine fills. */}
+                    <div className="flex flex-wrap gap-1.5 my-4" role="tablist" aria-label="Genre">
                         {GENRE_SLOTS.map(([name, color]) => (
-                            <span key={name} className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: color }} />
+                            <button
+                                key={name}
+                                type="button"
+                                role="tab"
+                                aria-selected={selectedGenre === name}
+                                onClick={() => setSelectedGenre(name)}
+                                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] transition-colors ${selectedGenre === name ? 'border-white/25 bg-white/10 text-white' : 'border-transparent text-gray-500 hover:border-white/10 hover:text-gray-300'}`}
+                            >
+                                <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} />
                                 {name}
-                            </span>
+                            </button>
                         ))}
                     </div>
 
-                    <div className="h-[260px] w-full">
+                    <div className="h-[250px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={genreSeries} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-                                <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
-                                <XAxis dataKey="date" hide />
+                            <AreaChart data={genreSeries} margin={{ top: 10, right: 4, bottom: 0, left: 0 }}>
+                                <defs>
+                                    <linearGradient id="genreFocusFill" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={selectedGenreColor} stopOpacity={0.48} />
+                                        <stop offset="95%" stopColor={selectedGenreColor} stopOpacity={0.08} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.09)" strokeDasharray="3 4" />
+                                <XAxis
+                                    dataKey="date"
+                                    interval="preserveStartEnd"
+                                    minTickGap={72}
+                                    tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'monospace' }}
+                                    tickFormatter={(d) => (d || '').slice(0, 4)}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
                                 <YAxis
                                     width={38}
                                     tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'monospace' }}
                                     axisLine={false}
                                     tickLine={false}
-                                    domain={genreMode === 'share' ? [0, 100] : undefined}
-                        ticks={genreMode === 'share' ? [0, 25, 50, 75, 100] : undefined}
-                                    tickFormatter={(v) => (genreMode === 'share' ? `${v}%` : v.toLocaleString())}
+                                    domain={genreMode === 'share'
+                                        ? [0, (dataMax) => Math.min(100, Math.max(10, Math.ceil(dataMax / 10) * 10))]
+                                        : [0, 'auto']}
+                                    tickCount={4}
+                                    tickFormatter={(v) => (genreMode === 'share' ? `${Math.round(v)}%` : v.toLocaleString())}
                                 />
                                 <Tooltip
                                     content={({ active, payload }) => {
                                         if (!active || !payload || !payload.length) return null;
                                         const row = payload[0].payload;
-                                        const ranked = GENRE_SLOTS
-                                            .map(([name, color]) => ({ name, color, value: row[name] || 0 }))
-                                            .filter((x) => x.value > 0)
-                                            .sort((a, b) => b.value - a.value);
+                                        const value = row[selectedGenre] || 0;
                                         return (
-                                            <div className="bg-[#0a0a0a]/95 p-3 rounded-xl border border-white/10 pointer-events-none min-w-[210px]">
-                                                <p className="text-white font-bold text-sm mb-1">{row.label}</p>
-                                                <p className="text-[10px] text-gray-500 mb-2 font-mono">{row.total.toLocaleString()} classified plays</p>
-                                                {ranked.map((x) => (
-                                                    <div key={x.name} className="flex items-center gap-2 text-[11px] leading-5">
-                                                        <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: x.color }} />
-                                                        <span className="text-gray-300 flex-1 truncate">{x.name}</span>
-                                                        <span className="text-white font-mono">
-                                                            {genreMode === 'share' ? `${x.value}%` : x.value.toLocaleString()}
-                                                        </span>
-                                                    </div>
-                                                ))}
+                                            <div className="bg-[#0a0a0a]/95 p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none min-w-[220px]">
+                                                <p className="text-white font-bold text-sm">{row.label}</p>
+                                                <div className="flex items-center gap-2 text-xs mt-2">
+                                                    <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: selectedGenreColor }} />
+                                                    <span className="text-gray-300 flex-1">{selectedGenre}</span>
+                                                    <span className="text-white font-mono">
+                                                        {genreMode === 'share' ? `${value}%` : value.toLocaleString()}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] text-gray-500 mt-2 font-mono">
+                                                    3-month average · {row.total.toLocaleString()} classified plays this month
+                                                </p>
                                             </div>
                                         );
                                     }}
                                 />
-                                {GENRE_SLOTS.map(([name, color]) => (
-                                    <Area
-                                        key={name}
-                                        type="monotone"
-                                        dataKey={name}
-                                        stackId="genre"
-                                        stroke="rgba(0,0,0,0.35)"
-                                        strokeWidth={1}
-                                        fill={color}
-                                        fillOpacity={0.92}
-                                        isAnimationActive={false}
-                                    />
-                                ))}
+                                <Area
+                                    type="monotone"
+                                    dataKey={selectedGenre}
+                                    stroke={selectedGenreColor}
+                                    strokeWidth={3}
+                                    strokeLinejoin="round"
+                                    fill="url(#genreFocusFill)"
+                                    fillOpacity={1}
+                                    dot={false}
+                                    activeDot={{ r: 4, fill: selectedGenreColor, stroke: '#0a0a0a', strokeWidth: 2 }}
+                                    isAnimationActive={false}
+                                />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
