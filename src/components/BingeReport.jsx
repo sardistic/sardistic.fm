@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Zap, Moon, Sun, Sunrise, Sunset, Play } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { artistImage } from '../artistImage';
 
 function BingeReport({ data, onBack, onArtistClick, onPlayContext }) {
     // Process Binge Data
@@ -13,7 +14,7 @@ function BingeReport({ data, onBack, onArtistClick, onPlayContext }) {
                 binges: stats.b.count,
                 maxStreak: stats.b.max_streak,
                 total: stats.t,
-                img: stats.img,
+                img: artistImage(stats.img),
                 allStats: stats
             }))
             .sort((a, b) => b.binges - a.binges)
@@ -50,7 +51,7 @@ function BingeReport({ data, onBack, onArtistClick, onPlayContext }) {
                             onClick={() => onArtistClick(artist.name)}
                         >
                             {artist.img && (
-                                <div className="absolute inset-0 z-0 opacity-30 bg-cover bg-center transition-opacity hover:opacity-50" style={{ backgroundImage: `url(${artist.img})` }} />
+                                <div className="absolute inset-0 z-0 opacity-30 bg-cover bg-center transition-opacity hover:opacity-50" style={{ backgroundImage: `url("${artist.img}")` }} />
                             )}
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-2">

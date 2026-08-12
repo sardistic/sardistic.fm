@@ -9,6 +9,7 @@ import NowPlaying from './NowPlaying';
 import yearMeta from '../data/year_meta.json';
 
 import LocalizedSwarm from './LocalizedSwarm';
+import { artistImage } from '../artistImage';
 
 const hexToRgb = (hex) => {
     const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
@@ -563,7 +564,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                     name: name,
                     sub: 'Artist',
                     count: stats.t,
-                    img: stats.img,
+                    img: artistImage(stats.img),
                     is_book: stats.is_book
                 }))
                 .sort((a, b) => b.count - a.count)
@@ -693,7 +694,7 @@ function FavoritesSection({ data, onArtistClick, onPlayContext }) {
                             {item.img ? (
                                 <div
                                     className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                                    style={{ backgroundImage: `url(${item.img})` }}
+                                    style={{ backgroundImage: `url("${item.img}")` }}
                                 />
                             ) : (
                                 <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-black flex items-center justify-center">

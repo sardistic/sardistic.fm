@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { artistImage } from '../artistImage';
 
 function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'scrobbles', onPlayContext }) {
     const [search, setSearch] = useState(initialSearch);
@@ -19,7 +20,7 @@ function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'sc
             plays: stats.t,
             est_minutes: stats.m || Math.round(stats.t * 3.5),
             year: stats.y ? Object.keys(stats.y).length : 0,
-            img: stats.img
+            img: artistImage(stats.img)
         }));
     }, [data]);
 

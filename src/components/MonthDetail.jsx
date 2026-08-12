@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Calendar, Music, Clock, BarChart2, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, CartesianGrid } from 'recharts';
+import { artistImage } from '../artistImage';
 
 // Reuse sentiment logic
 const getSentimentStyle = (text = "") => {
@@ -267,7 +268,7 @@ export default function MonthDetail({ year, month, allData, onBack, metric, setM
                                                                 .map(track => ({
                                                                     name: track.name || track.n,
                                                                     artist: artist.n,
-                                                                    image: track.image || track.img || artistData.img
+                                                                    image: track.image || track.img || artistImage(artistData.img)
                                                                 }))
                                                                 .sort((a, b) => (b.count || 0) - (a.count || 0));
 

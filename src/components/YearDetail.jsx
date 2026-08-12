@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MagneticText from './MagneticText';
 import LocalizedSwarm from './LocalizedSwarm';
 import monthMeta from '../data/month_meta.json';
+import { artistImage } from '../artistImage';
 
 // Sentiment Analysis Color Logic
 const getSentimentStyle = (text = "") => {
@@ -1243,7 +1244,7 @@ export default function YearDetail({ year, data = {}, onBack, allData, metric, s
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {(data.top_artists || []).filter(a => a && a.n).slice(0, 100).map((artist, idx) => {
-                        const artistImg = allData?.artists?.[artist.n]?.img;
+                        const artistImg = artistImage(allData?.artists?.[artist.n]?.img);
                         return (
                             <motion.div
                                 key={artist.n}
