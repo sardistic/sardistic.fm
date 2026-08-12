@@ -29,6 +29,7 @@ html.lite {
   --bp-spot-3: #1f7a5a;
   --bp-spot-4: #b25a00;
   --bp-spot-ink: #ffffff;
+  --bp-scrim: rgba(21, 23, 26, 0.34);
 
   --bp-display: "Bahnschrift", "Haettenschweiler", "Arial Narrow",
     "Helvetica Neue Condensed", Impact, sans-serif;
@@ -52,6 +53,7 @@ html.lite {
     --bp-spot-3: #4fd1a0;
     --bp-spot-4: #e0a64b;
     --bp-spot-ink: #1a0407;
+    --bp-scrim: rgba(0, 0, 0, 0.46);
     color-scheme: dark;
   }
 }
@@ -107,6 +109,15 @@ html.lite *::after {
   will-change: auto !important;
 }
 
+/* Recharts reveals a series by animating the width of a clip rect from zero.
+   Killing animation above means that reveal never runs, so the clip stays at
+   width 0 and the chart is laid out but painted nowhere — every chart in the
+   app came out blank. Drop the animation clip so series show at full extent
+   immediately, which is what a no-animation mode wants anyway. */
+html.lite [clip-path^="url(#animationClipPath"] {
+  clip-path: none !important;
+}
+
 /* Decorative ambient blobs and glows carry no information — drop them. */
 html.lite .animate-orbit,
 html.lite .animate-pulse-slow,
@@ -118,20 +129,29 @@ html.lite .glass-panel::after {
 
 /* ---------- 3. surfaces: paper, not glass -------------------------------- */
 
+/* Panels become paper — but two rules keep artwork visible.
+   `background-color`, never the `background` shorthand, or a tile's own
+   background-image is reset along with it; and any element carrying artwork
+   is skipped outright. */
 html.lite .glass-panel,
 html.lite :is(
     [class^="bg-dark-card"], [class*=" bg-dark-card"],
     [class^="bg-dark-surface"], [class*=" bg-dark-surface"],
     [class^="bg-white/5"], [class*=" bg-white/5"],
-    [class^="bg-white/10"], [class*=" bg-white/10"],
-    [class^="bg-black/20"], [class*=" bg-black/20"],
-    [class^="bg-black/30"], [class*=" bg-black/30"],
-    [class^="bg-black/40"], [class*=" bg-black/40"],
-    [class^="bg-black/50"], [class*=" bg-black/50"],
-    [class^="bg-black/60"], [class*=" bg-black/60"]
-  ) {
-  background: var(--bp-paper) !important;
+    [class^="bg-white/10"], [class*=" bg-white/10"]
+  ):not([style*="background-image"]) {
+  background-color: var(--bp-paper) !important;
   border-color: var(--bp-rule) !important;
+}
+
+/* The bg-black/N classes are not surfaces in this app — they are scrims laid
+   over album and artist artwork to keep the caption readable. Painting them
+   with an opaque colour hid every tile behind a solid rectangle, which is why
+   the art only appeared to exist on hover. They stay translucent. */
+html.lite :is(
+    [class^="bg-black/"], [class*=" bg-black/"]
+  ):not([style*="background-image"]) {
+  background-color: var(--bp-scrim) !important;
 }
 
 html.lite .glass-panel {
@@ -268,20 +288,20 @@ html.lite [class*="bg-clip-text"] {
 /* Recharts writes fill/stroke as presentation attributes, which CSS wins
    against — so the neon hexes can be remapped without touching chart code. */
 
-html.lite [fill="#ff0055"], html.lite [stroke="#ff0055"],
-html.lite [fill="#bd00ff"], html.lite [stroke="#bd00ff"] {
-  fill: var(--bp-spot-1);
-  stroke: var(--bp-spot-1);
-}
-html.lite [fill="#00ffcc"], html.lite [stroke="#00ffcc"],
-html.lite [fill="#00ccff"], html.lite [stroke="#00ccff"] {
-  fill: var(--bp-spot-2);
-  stroke: var(--bp-spot-2);
-}
-html.lite [fill="#ffff00"], html.lite [stroke="#ffff00"] {
-  fill: var(--bp-spot-4);
-  stroke: var(--bp-spot-4);
-}
+html.lite [fill="#ff0055"], html.lite [fill="#bd00ff"] { fill: var(--bp-spot-1); }
+html.lite [fill="#00ffcc"], html.lite [fill="#00ccff"] { fill: var(--bp-spot-2); }
+html.lite [fill="#ffff00"] { fill: var(--bp-spot-4); }
+
+html.lite [stroke="#ff0055"], html.lite [stroke="#bd00ff"] { stroke: var(--bp-spot-1); }
+html.lite [stroke="#00ffcc"], html.lite [stroke="#00ccff"] { stroke: var(--bp-spot-2); }
+html.lite [stroke="#ffff00"] { stroke: var(--bp-spot-4); }
+
+/* Recolour gradient stops in place rather than overriding the fill: a path
+   filled with url(#colorPlays) keeps its soft fade instead of turning into a
+   flat block of colour. */
+html.lite stop[stop-color="#ff0055"], html.lite stop[stop-color="#bd00ff"] { stop-color: var(--bp-spot-1); }
+html.lite stop[stop-color="#00ffcc"], html.lite stop[stop-color="#00ccff"] { stop-color: var(--bp-spot-2); }
+html.lite stop[stop-color="#ffff00"] { stop-color: var(--bp-spot-4); }
 
 html.lite .recharts-bar-rectangles path:hover {
   filter: none !important;

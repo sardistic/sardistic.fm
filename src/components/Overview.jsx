@@ -270,55 +270,49 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                     {zoomYear ? `History: ${zoomYear}` : "Listening History"}
                 </h2>
 
-                {/* YEAR BACKGROUND LAYER */}
-                <div className="absolute inset-0 z-0 pointer-events-none flex items-end pb-2 overflow-hidden px-6"> {/* Padding matches chart container approximately */}
+                {/* YEAR AXIS
+                    Previously twenty 100px year numerals sat behind the chart. The
+                    translucent area fill let them show through, and the overlap read
+                    as a second, inverted series — the "negative graph". Replaced with
+                    a real axis: a tick and a small label per year, along the baseline,
+                    thinned so labels never collide and inset so none is clipped. */}
+                <div className="absolute inset-x-0 bottom-0 h-8 z-20 pointer-events-none select-none">
                     {!zoomYear && (() => {
-                        // A 100px monospace year is ~240px wide, so all twenty of them
-                        // landed on top of each other. Individually they are nearly
-                        // invisible, but the overlap stacked their alpha into the mottled
-                        // smear behind the chart. Keep only labels far enough apart to
-                        // read as a watermark, and let each one carry its own weight.
-                        const MIN_GAP_PCT = 18;
+                        const MIN_GAP_PCT = 9;   // a 4-digit label at 10px needs ~9%
+                        const EDGE_PCT = 3;      // keep the first and last off the rim
 
-                        // The timeline runs newest-first, so position decreases as the
-                        // year increases. Sort by position before thinning, or the very
-                        // first label would swallow every later one.
                         let lastPct = -Infinity;
-                        const spaced = Object.keys(years)
+                        return Object.keys(years)
                             .map((year) => {
-                                const yearDataIndex = monthlyTimeline.findIndex(d => d.date.startsWith(year));
-                                return yearDataIndex === -1
+                                const i = monthlyTimeline.findIndex(d => d.date.startsWith(year));
+                                return i === -1
                                     ? null
-                                    : { year, leftPct: (yearDataIndex / monthlyTimeline.length) * 100 };
+                                    : { year, leftPct: (i / monthlyTimeline.length) * 100 };
                             })
                             .filter(Boolean)
                             .sort((a, b) => a.leftPct - b.leftPct)
                             .filter(({ leftPct }) => {
+                                if (leftPct < EDGE_PCT || leftPct > 100 - EDGE_PCT) return false;
                                 if (leftPct - lastPct < MIN_GAP_PCT) return false;
                                 lastPct = leftPct;
                                 return true;
-                            });
-
-                        return spaced.map(({ year, leftPct }) => {
-                            return (
+                            })
+                            .map(({ year, leftPct }) => (
                                 <div
                                     key={year}
-                                    className="absolute text-[100px] font-black leading-none select-none"
-                                    style={{
-                                        left: `${leftPct}%`,
-                                        bottom: '-20px',
-                                        fontFamily: 'monospace',
-                                        color: 'rgba(255,255,255,0.06)'
-                                    }}
+                                    className="absolute bottom-0 flex flex-col items-center gap-1"
+                                    style={{ left: `${leftPct}%`, transform: 'translateX(-50%)' }}
                                 >
-                                    {year}
+                                    <span className="block w-px h-2 bg-white/20" />
+                                    <span className="font-mono text-[10px] tracking-widest text-gray-500 leading-none">
+                                        {year}
+                                    </span>
                                 </div>
-                            );
-                        });
+                            ));
                     })()}
                 </div>
 
-                <div className="absolute inset-0 z-10 w-full h-full" style={{ minHeight: '200px' }}>
+                <div className="absolute inset-x-0 top-0 bottom-7 z-10" style={{ minHeight: '180px' }}>
                     <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <AreaChart
                             data={chartData}
