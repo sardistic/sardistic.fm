@@ -403,7 +403,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                 What You Were Into
                             </h2>
                             <p className="text-xs text-gray-500 mt-1">
-                                Genre by month · 3-month average · covers {data.genres?.coverage ?? 0}% of plays
+                                Overlapping genre trends · 3-month average · covers {data.genres?.coverage ?? 0}% of plays
                             </p>
                             {genreSummary && (
                                 <div className="mt-5">
@@ -432,8 +432,8 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                         </div>
                     </div>
 
-                    {/* One focused series keeps the chart readable; this labelled selector
-                        preserves access to every genre without stacking nine fills. */}
+                    {/* Every genre remains visible as an independent translucent area. The
+                        selector only brings one forward for the summary and close reading. */}
                     <div className="flex flex-wrap gap-1.5 my-4" role="tablist" aria-label="Genre">
                         {GENRE_SLOTS.map(([name, color]) => (
                             <button
@@ -454,10 +454,12 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={genreSeries} margin={{ top: 10, right: 4, bottom: 0, left: 0 }}>
                                 <defs>
-                                    <linearGradient id="genreFocusFill" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={selectedGenreColor} stopOpacity={0.48} />
-                                        <stop offset="95%" stopColor={selectedGenreColor} stopOpacity={0.08} />
-                                    </linearGradient>
+                                    {GENRE_SLOTS.map(([name, color], index) => (
+                                        <linearGradient key={name} id={`genreFill-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={color} stopOpacity={0.78} />
+                                            <stop offset="95%" stopColor={color} stopOpacity={0.08} />
+                                        </linearGradient>
+                                    ))}
                                 </defs>
                                 <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.09)" strokeDasharray="3 4" />
                                 <XAxis
@@ -484,32 +486,62 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                     content={({ active, payload }) => {
                                         if (!active || !payload || !payload.length) return null;
                                         const row = payload[0].payload;
-                                        const value = row[selectedGenre] || 0;
+                                        const ranked = GENRE_SLOTS
+                                            .map(([name, color]) => ({ name, color, value: row[name] || 0 }))
+                                            .filter((item) => item.value > 0)
+                                            .sort((a, b) => b.value - a.value);
                                         return (
-                                            <div className="bg-[#0a0a0a]/95 p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none min-w-[220px]">
+                                            <div className="bg-[#0a0a0a]/95 p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none min-w-[240px]">
                                                 <p className="text-white font-bold text-sm">{row.label}</p>
-                                                <div className="flex items-center gap-2 text-xs mt-2">
-                                                    <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: selectedGenreColor }} />
-                                                    <span className="text-gray-300 flex-1">{selectedGenre}</span>
-                                                    <span className="text-white font-mono">
-                                                        {genreMode === 'share' ? `${value}%` : value.toLocaleString()}
-                                                    </span>
-                                                </div>
-                                                <p className="text-[10px] text-gray-500 mt-2 font-mono">
+                                                <p className="text-[10px] text-gray-500 mt-1 mb-2 font-mono">
                                                     3-month average · {row.total.toLocaleString()} classified plays this month
                                                 </p>
+                                                {ranked.map((item) => (
+                                                    <div
+                                                        key={item.name}
+                                                        className={`flex items-center gap-2 text-[11px] leading-5 ${item.name === selectedGenre ? 'text-white' : 'text-gray-400'}`}
+                                                    >
+                                                        <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: item.color }} />
+                                                        <span className="flex-1 truncate">{item.name}</span>
+                                                        <span className="font-mono text-white">
+                                                            {genreMode === 'share' ? `${item.value}%` : item.value.toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         );
                                     }}
                                 />
+                                {GENRE_SLOTS
+                                    .filter(([name]) => name !== selectedGenre)
+                                    .map(([name, color]) => {
+                                        const fillIndex = GENRE_SLOTS.findIndex(([genre]) => genre === name);
+                                        return (
+                                            <Area
+                                                key={name}
+                                                type="monotone"
+                                                dataKey={name}
+                                                stroke={color}
+                                                strokeWidth={1.4}
+                                                strokeOpacity={0.52}
+                                                strokeLinejoin="round"
+                                                fill={`url(#genreFill-${fillIndex})`}
+                                                fillOpacity={0.16}
+                                                dot={false}
+                                                activeDot={false}
+                                                isAnimationActive={false}
+                                            />
+                                        );
+                                    })}
                                 <Area
                                     type="monotone"
                                     dataKey={selectedGenre}
                                     stroke={selectedGenreColor}
-                                    strokeWidth={3}
+                                    strokeWidth={2.6}
+                                    strokeOpacity={0.95}
                                     strokeLinejoin="round"
-                                    fill="url(#genreFocusFill)"
-                                    fillOpacity={1}
+                                    fill={`url(#genreFill-${GENRE_SLOTS.findIndex(([name]) => name === selectedGenre)})`}
+                                    fillOpacity={0.42}
                                     dot={false}
                                     activeDot={{ r: 4, fill: selectedGenreColor, stroke: '#0a0a0a', strokeWidth: 2 }}
                                     isAnimationActive={false}
