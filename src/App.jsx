@@ -746,14 +746,15 @@ function MainDashboard() {
 
               {/* "sardistic.com" part -> Links to main site, the "s" is the liquid GIF */}
               <a href="https://sardistic.com" className="group relative z-50 flex items-center">
-                {/* The GIF canvas is 200x150 and the glyph only occupies x 60-167,
-                     so asymmetric negative margins pull the text in against the "s"
-                     while leaving room for the droplets that fly off to the right. */}
+                {/* The GIF canvas is 200x150 but the glyph only occupies x 60-167, so
+                     roughly 30% of the width on the left and 16% on the right is empty
+                     padding. The negative margins cancel that, which is what lets the
+                     "s" sit tight against the text and read as one wordmark. */}
                 <img
                   src="https://veles.cards/liquid.gif"
                   alt="s"
-                  className="h-11 md:h-14 w-auto object-contain transition-transform group-hover:scale-105 ml-[-16px] mr-[-8px] md:ml-[-21px] md:mr-[-10px]"
-                  style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' }}
+                  className="h-8 md:h-10 w-auto object-contain transition-transform group-hover:scale-105 ml-[-12px] mr-[-6px] md:ml-[-15px] md:mr-[-7px]"
+                  style={{ filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.5))' }}
                 />
                 <span className="text-xl font-bold tracking-tight text-white transition-opacity group-hover:opacity-80">
                   ardistic.com
@@ -794,7 +795,7 @@ function MainDashboard() {
                 aria-pressed={lite}
                 title={lite ? 'Back to the full visuals' : 'Flat styling, no canvas or WebGL — much lighter on the CPU'}
               >
-                {lite ? 'Back Print · on' : 'Back Print'}
+                Lite mode
               </button>
 
               {/* Full Text Background Toggle (Desktop) */}
@@ -894,10 +895,10 @@ function MainDashboard() {
                 onClick={toggleLite}
                 className="lite-toggle"
                 aria-pressed={lite}
-                aria-label={lite ? 'Turn off Back Print mode' : 'Turn on Back Print mode'}
+                aria-label={lite ? 'Turn off lite mode' : 'Turn on lite mode'}
                 title={lite ? 'Back to the full visuals' : 'Flat styling, no canvas or WebGL'}
               >
-                {lite ? 'BP · on' : 'BP'}
+                Lite
               </button>
 
               {/* Compact Background Toggle (Mobile) */}

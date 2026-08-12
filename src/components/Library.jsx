@@ -154,19 +154,34 @@ function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'sc
                             <div
                                 key={artist.name}
                                 onClick={() => onArtistClick(artist.name)}
-                                className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent hover:border-neon-cyan/30 cursor-pointer group transition-all"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        onArtistClick(artist.name);
+                                    }
+                                }}
+                                role="button"
+                                tabIndex={0}
+                                className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent hover:border-neon-cyan/30 cursor-pointer group transition-all focus:outline-none focus-visible:border-neon-cyan"
                             >
-                                <div className="w-12 h-12 rounded bg-black/40 overflow-hidden shrink-0">
+                                {/* `relative` is load-bearing: the play overlay below is
+                                    absolute inset-0, so without a positioned parent it
+                                    resolved against the fixed full-screen container. Every
+                                    card then laid a full-page overlay over the app —
+                                    clicking anywhere hit the topmost one and opened its
+                                    artist, and its centred play button floated mid-screen. */}
+                                <div className="relative w-12 h-12 rounded bg-black/40 overflow-hidden shrink-0">
                                     {artist.img ? (
-                                        <img src={artist.img} loading="lazy" className="w-full h-full object-cover" />
+                                        <img src={artist.img} alt="" loading="lazy" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-xs font-bold text-gray-700">
                                             {artist.name.slice(0, 2).toUpperCase()}
                                         </div>
                                     )}
                                     {/* Play Overlay */}
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center justify-center">
                                         <button
+                                            aria-label={`Play ${artist.name}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 const stats = data.artists[artist.name];
@@ -178,9 +193,9 @@ function Library({ data, onBack, onArtistClick, initialSearch = '', metric = 'sc
                                                     onPlayContext(allTracks);
                                                 }
                                             }}
-                                            className="p-2 bg-neon-cyan text-black rounded-full hover:scale-110 transition-transform shadow-[0_0_10px_rgba(0,255,204,0.5)]"
+                                            className="p-1.5 bg-neon-cyan text-black rounded-full hover:scale-110 transition-transform"
                                         >
-                                            <Play size={16} fill="currentColor" />
+                                            <Play size={14} fill="currentColor" />
                                         </button>
                                     </div>
                                 </div>
