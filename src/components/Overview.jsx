@@ -18,7 +18,16 @@ const hexToRgb = (hex) => {
     return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0, 255, 204';
 };
 
+const CHART_METRICS = [
+    { id: 'plays',        label: 'Plays',      short: 'plays',   fmt: (v) => v.toLocaleString() },
+    { id: 'hours',        label: 'Hours',      short: 'hrs',     fmt: (v) => v.toLocaleString(undefined, { maximumFractionDigits: 1 }) },
+    { id: 'activeDays',   label: 'Days on',    short: 'days',    fmt: (v) => `${v} / mo` },
+    { id: 'perActiveDay', label: 'Per day',    short: 'per day', fmt: (v) => v.toLocaleString() },
+    { id: 'peakDay',      label: 'Peak day',   short: 'peak',    fmt: (v) => v.toLocaleString() }
+];
+
 function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen, onPlayContext }) {
+    const [chartMetric, setChartMetric] = useState(metric === 'minutes' ? 'hours' : 'plays');
     const [hoveredYear, setHoveredYear] = useState(null);
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
     const [zoomYear, setZoomYear] = useState(null); // V14: Zoom into a specific year
@@ -97,6 +106,31 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
 
 
 
+    /* The chart only ever plotted one number. The daily calendar carries
+       scrobbles and minutes for every one of ~4,770 days, which is enough to
+       derive several exact per-month measures — how many days were actually
+       listened on, how hard those days were pushed, and the single biggest
+       day — without inventing anything. */
+    const monthStats = useMemo(() => {
+        const out = {};
+        Object.values(data.calendar || {}).forEach((day) => {
+            if (!day || !day.date) return;
+            const key = day.date.slice(0, 7);   // YYYY-MM
+            const plays = Number(day.scrobbles) || 0;
+            if (plays <= 0) return;
+
+            const m = out[key] || (out[key] = { plays: 0, minutes: 0, activeDays: 0, peakDay: 0, peakDate: null });
+            m.plays += plays;
+            m.minutes += Number(day.minutes) || 0;
+            m.activeDays += 1;
+            if (plays > m.peakDay) { m.peakDay = plays; m.peakDate = day.date; }
+        });
+        Object.values(out).forEach((m) => {
+            m.perActiveDay = m.activeDays ? Math.round(m.plays / m.activeDays) : 0;
+        });
+        return out;
+    }, [data.calendar]);
+
     // Prepare Timeline Data (Monthly)
     const monthlyTimeline = useMemo(() => {
         if (!data.history) return [];
@@ -112,11 +146,20 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 label = new Date(d.date + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
             } catch { /* Use the raw date label when parsing fails. */ }
 
+            const st = monthStats[d.date] || { activeDays: 0, perActiveDay: 0, peakDay: 0, peakDate: null, minutes: minutes };
+
             return {
                 date: d.date, // YYYY-MM
                 label: label,
                 year: d.date.split('-')[0],
                 value: val,
+                plays: scrobbles,
+                minutes: minutes,
+                hours: Math.round((minutes / 60) * 10) / 10,
+                activeDays: st.activeDays,
+                perActiveDay: st.perActiveDay,
+                peakDay: st.peakDay,
+                peakDate: st.peakDate,
                 // Normalized curve 0.6 power for visibility
                 normalized_plays: Math.pow(val, 0.6),
                 top_albums: d.top_albums || [],
@@ -124,7 +167,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 img: d.img || null
             };
         }).reverse(); // V14: Newest on Left (Reverse chronological)
-    }, [data, metric]);
+    }, [data, metric, monthStats]);
 
     // 2. Yearly Data for the Grid
 
@@ -265,10 +308,31 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                 className="glass-panel no-highlight h-[280px] relative overflow-hidden group"
                 style={{ '--spotlight-color': '#00ffcc' }}
             >
-                <h2 className="absolute top-6 left-6 z-20 text-xl font-bold flex items-center gap-2 pointer-events-none">
-                    <span className="w-1 h-6 bg-neon-cyan rounded-full shadow-[0_0_10px_#00ffcc]"></span>
-                    {zoomYear ? `History: ${zoomYear}` : "Listening History"}
-                </h2>
+                <div className="absolute top-5 left-6 right-6 z-30 flex items-start justify-between gap-4 flex-wrap">
+                    <h2 className="text-xl font-bold flex items-center gap-2 pointer-events-none">
+                        <span className="w-1 h-6 bg-neon-cyan rounded-full shadow-[0_0_10px_#00ffcc]"></span>
+                        {zoomYear ? `History: ${zoomYear}` : "Listening History"}
+                    </h2>
+
+                    {/* Which measure the curve plots. All five are exact, derived from
+                        the daily calendar rather than estimated. */}
+                    <div className="flex flex-wrap gap-1">
+                        {CHART_METRICS.map((m) => (
+                            <button
+                                key={m.id}
+                                onClick={(e) => { e.stopPropagation(); setChartMetric(m.id); }}
+                                aria-pressed={chartMetric === m.id}
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-widest border transition-colors ${
+                                    chartMetric === m.id
+                                        ? 'bg-neon-cyan/15 border-neon-cyan/60 text-neon-cyan'
+                                        : 'bg-white/5 border-white/10 text-gray-500 hover:text-white hover:border-white/30'
+                                }`}
+                            >
+                                {m.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
                 {/* YEAR AXIS
                     Previously twenty 100px year numerals sat behind the chart. The
@@ -316,6 +380,10 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                     <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <AreaChart
                             data={chartData}
+                            /* Reserve the header band: metrics like "days on" sit near
+                               their ceiling all month, so without this the curve runs up
+                               underneath the title and the metric buttons. */
+                            margin={{ top: 54, right: 0, bottom: 0, left: 0 }}
                             onMouseMove={(data) => {
                                 if (data) {
                                     const label = data.activeLabel;
@@ -381,11 +449,31 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                                     <div className="flex-1 min-w-0">
                                                         <div className="mb-2">
                                                             <p className="text-white font-bold text-base leading-tight">{data.label}</p>
-                                                            <p className="text-neon-cyan text-sm font-mono font-bold">
-                                                                {metric === 'minutes'
-                                                                    ? `Time: ${formatDuration(data.value)}`
-                                                                    : `Plays: ${data.value.toLocaleString()}`}
-                                                            </p>
+                                                            {/* Every measure at once, so hovering answers the question
+                                                                regardless of which one the curve is plotting. */}
+                                                            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1.5">
+                                                                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Plays</span>
+                                                                <span className="text-[11px] text-neon-cyan font-mono text-right">{data.plays.toLocaleString()}</span>
+
+                                                                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Listened</span>
+                                                                <span className="text-[11px] text-white font-mono text-right">{formatDuration(data.minutes)}</span>
+
+                                                                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Days on</span>
+                                                                <span className="text-[11px] text-white font-mono text-right">{data.activeDays}</span>
+
+                                                                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Per day</span>
+                                                                <span className="text-[11px] text-white font-mono text-right">{data.perActiveDay.toLocaleString()}</span>
+
+                                                                {data.peakDay > 0 && (
+                                                                    <>
+                                                                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Peak day</span>
+                                                                        <span className="text-[11px] text-white font-mono text-right">
+                                                                            {data.peakDay.toLocaleString()}
+                                                                            <span className="text-gray-500"> · {data.peakDate?.slice(8)}</span>
+                                                                        </span>
+                                                                    </>
+                                                                )}
+                                                            </div>
                                                         </div>
 
                                                         {/* Top Album */}
@@ -419,7 +507,7 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                             />
                             <Area
                                 type="monotone"
-                                dataKey="value"
+                                dataKey={chartMetric}
                                 stroke="#00ffcc"
                                 strokeWidth={2}
                                 fillOpacity={1}
