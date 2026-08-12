@@ -19,6 +19,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AudioReactiveProvider, useAudioReactive } from './components/AudioReactiveContext';
 import { useLite, toggleLite } from './lite';
 import './lite.css';
+import './viz.css';
 
 const REFRESH_INTERVAL_MS = 10000;
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';

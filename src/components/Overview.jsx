@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, memo } from 'react';
 import { ArrowRight, BarChart3, Calendar, Disc, Moon, Sun, ChevronLeft, ChevronRight, User as UserIcon, BookOpen, Music, Layers, TrendingUp, TrendingDown, Minus, Play } from 'lucide-react';
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, ReferenceArea, CartesianGrid } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceArea, CartesianGrid } from 'recharts';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 
 import MagneticText from './MagneticText';
@@ -18,6 +18,22 @@ const hexToRgb = (hex) => {
     return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0, 255, 204';
 };
 
+/* Colour follows the genre, not its position in the current stack, so
+   filtering or a quiet month never repaints the other bands. Slots are
+   assigned once, by all-time volume, and the tail folds into a neutral
+   "Other" rather than inventing a ninth hue. */
+const GENRE_SLOTS = [
+    ['Indie & Alternative', 'var(--viz-1)'],
+    ['Metal', 'var(--viz-2)'],
+    ['Electronic', 'var(--viz-3)'],
+    ['Post-hardcore & Emo', 'var(--viz-4)'],
+    ['Hip-Hop', 'var(--viz-5)'],
+    ['Industrial', 'var(--viz-6)'],
+    ['R&B & Soul', 'var(--viz-7)'],
+    ['Post-rock & Ambient', 'var(--viz-8)'],
+    ['Other', 'var(--viz-other)']
+];
+
 const CHART_METRICS = [
     { id: 'plays',        label: 'Plays',      short: 'plays',   fmt: (v) => v.toLocaleString() },
     { id: 'hours',        label: 'Hours',      short: 'hrs',     fmt: (v) => v.toLocaleString(undefined, { maximumFractionDigits: 1 }) },
@@ -28,6 +44,7 @@ const CHART_METRICS = [
 
 function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, setMetric, nowPlaying, isListening, onToggleListen, onPlayContext }) {
     const [chartMetric, setChartMetric] = useState(metric === 'minutes' ? 'hours' : 'plays');
+    const [genreMode, setGenreMode] = useState('share');   // share | plays
     const [hoveredYear, setHoveredYear] = useState(null);
     const [hoveredMonth, setHoveredMonth] = useState(null); // Format: "YYYY-MM"
     const [zoomYear, setZoomYear] = useState(null); // V14: Zoom into a specific year
@@ -173,6 +190,42 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
 
 
 
+    /* Genre composition per month. The payload ships plays-per-genre-per-month
+       already collapsed, so this only has to fold the long tail into "Other",
+       order the bands to match the validated colour order, and optionally
+       normalise to share. */
+    const genreSeries = useMemo(() => {
+        const g = data.genres;
+        if (!g || !g.months) return [];
+
+        const named = GENRE_SLOTS.map(([name]) => name);
+        const rows = Object.entries(g.months)
+            .map(([month, counts]) => {
+                const row = { date: month };
+                named.forEach((n) => { row[n] = 0; });
+
+                let total = 0;
+                g.list.forEach((genre, i) => {
+                    const v = counts[i] || 0;
+                    total += v;
+                    row[named.includes(genre) ? genre : 'Other'] += v;
+                });
+
+                row.total = total;
+                if (genreMode === 'share' && total > 0) {
+                    named.forEach((n) => { row[n] = Math.round((row[n] / total) * 1000) / 10; });
+                }
+                try {
+                    row.label = new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                } catch { row.label = month; }
+                return row;
+            })
+            .filter((r) => r.total > 0)
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        return rows.reverse();   // newest on the left, matching the history chart
+    }, [data.genres, genreMode]);
+
     // 2. Yearly Data for the Grid
     const timelineData = useMemo(() => {
         return Object.entries(years).map(([year, info]) => {
@@ -300,6 +353,101 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
             </div>
 
             {/* Main Timeline */}
+            {/* ---------- GENRE COMPOSITION ---------- */}
+            {genreSeries.length > 0 && (
+                <div className="glass-panel p-6 relative" style={{ '--spotlight-color': '#8a8a86' }}>
+                    <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
+                        <div>
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <span className="w-1 h-6 rounded-full" style={{ background: 'var(--viz-1)' }}></span>
+                                What You Were Into
+                            </h2>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Genre mix by month, from Last.fm tags · covers {data.genres?.coverage ?? 0}% of plays
+                            </p>
+                        </div>
+                        <div className="flex gap-1">
+                            {[['share', 'Share'], ['plays', 'Plays']].map(([id, label]) => (
+                                <button
+                                    key={id}
+                                    onClick={() => setGenreMode(id)}
+                                    aria-pressed={genreMode === id}
+                                    className={`px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-widest border transition-colors ${genreMode === id ? 'bg-white/10 border-white/40 text-white' : 'bg-white/5 border-white/10 text-gray-500 hover:text-white'}`}
+                                >{label}</button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* The legend is permanent: it carries identity without relying on colour
+                        alone, and supplies the relief that the light palette's contrast
+                        warning obliges. */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 my-3">
+                        {GENRE_SLOTS.map(([name, color]) => (
+                            <span key={name} className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: color }} />
+                                {name}
+                            </span>
+                        ))}
+                    </div>
+
+                    <div className="h-[260px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={genreSeries} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+                                <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+                                <XAxis dataKey="date" hide />
+                                <YAxis
+                                    width={38}
+                                    tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'monospace' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    domain={genreMode === 'share' ? [0, 100] : undefined}
+                        ticks={genreMode === 'share' ? [0, 25, 50, 75, 100] : undefined}
+                                    tickFormatter={(v) => (genreMode === 'share' ? `${v}%` : v.toLocaleString())}
+                                />
+                                <Tooltip
+                                    content={({ active, payload }) => {
+                                        if (!active || !payload || !payload.length) return null;
+                                        const row = payload[0].payload;
+                                        const ranked = GENRE_SLOTS
+                                            .map(([name, color]) => ({ name, color, value: row[name] || 0 }))
+                                            .filter((x) => x.value > 0)
+                                            .sort((a, b) => b.value - a.value);
+                                        return (
+                                            <div className="bg-[#0a0a0a]/95 p-3 rounded-xl border border-white/10 pointer-events-none min-w-[210px]">
+                                                <p className="text-white font-bold text-sm mb-1">{row.label}</p>
+                                                <p className="text-[10px] text-gray-500 mb-2 font-mono">{row.total.toLocaleString()} classified plays</p>
+                                                {ranked.map((x) => (
+                                                    <div key={x.name} className="flex items-center gap-2 text-[11px] leading-5">
+                                                        <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: x.color }} />
+                                                        <span className="text-gray-300 flex-1 truncate">{x.name}</span>
+                                                        <span className="text-white font-mono">
+                                                            {genreMode === 'share' ? `${x.value}%` : x.value.toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    }}
+                                />
+                                {GENRE_SLOTS.map(([name, color]) => (
+                                    <Area
+                                        key={name}
+                                        type="monotone"
+                                        dataKey={name}
+                                        stackId="genre"
+                                        stroke="rgba(0,0,0,0.35)"
+                                        strokeWidth={1}
+                                        fill={color}
+                                        fillOpacity={0.92}
+                                        isAnimationActive={false}
+                                    />
+                                ))}
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
+
             <motion.div
                 onMouseMove={handleMouseMove}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -512,7 +660,12 @@ function Overview({ data, onYearClick, onArtistClick, onLibraryClick, metric, se
                                 strokeWidth={2}
                                 fillOpacity={1}
                                 fill="url(#colorPlays)"
-                                animationDuration={800}
+                                /* The dashboard re-polls every 10s and hands recharts a
+                                   fresh data object, which restarts the entrance animation
+                                   each time — the curve was perpetually replaying from zero
+                                   rather than sitting still. Nothing is gained by animating
+                                   a history that does not change. */
+                                isAnimationActive={false}
                             />
                             {hoveredYear && (() => {
                                 const yearMonths = monthlyTimeline.filter(d =>

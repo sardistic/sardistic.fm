@@ -1,0 +1,69 @@
+/* =========================================================================
+   Categorical palette for the genre chart
+   =========================================================================
+   Eight fixed slots plus a neutral. Assigned to genres by identity, never by
+   rank, so changing what is on screen never repaints the survivors.
+
+   Both columns are validated with the data-viz validator on the adjacent
+   pairlist, which is the one a stacked area uses:
+     light  worst adjacent CVD ΔE 9.1, normal-vision ΔE 19.6
+     dark   worst adjacent CVD ΔE 8.4, normal-vision ΔE 19.3
+   Light mode WARNs on contrast for aqua/yellow/magenta against the surface,
+   which obliges relief — the chart ships a permanent labelled legend.
+
+   Anything past the eighth genre folds into the neutral "Other" rather than
+   inventing a ninth hue.
+   ========================================================================= */
+
+:root {
+  --viz-1: #2a78d6;   /* blue     */
+  --viz-2: #eb6834;   /* orange   */
+  --viz-3: #1baf7a;   /* aqua     */
+  --viz-4: #eda100;   /* yellow   */
+  --viz-5: #e87ba4;   /* magenta  */
+  --viz-6: #008300;   /* green    */
+  --viz-7: #4a3aa7;   /* violet   */
+  --viz-8: #e34948;   /* red      */
+  --viz-other: #8a8a86;
+}
+
+/* The dashboard is dark by default, so the dark steps are the common case.
+   They are the same eight hues re-stepped for a dark surface, not a flip. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --viz-1: #3987e5;
+    --viz-2: #d95926;
+    --viz-3: #199e70;
+    --viz-4: #c98500;
+    --viz-5: #d55181;
+    --viz-6: #008300;
+    --viz-7: #9085e9;
+    --viz-8: #e66767;
+    --viz-other: #6f6f6b;
+  }
+}
+:root[data-theme="dark"] {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-6: #008300;
+  --viz-7: #9085e9;
+  --viz-8: #e66767;
+  --viz-other: #6f6f6b;
+}
+
+/* The app's own shell is dark regardless of the OS setting, so outside lite
+   mode the dark steps always apply. */
+html:not(.lite) {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-6: #008300;
+  --viz-7: #9085e9;
+  --viz-8: #e66767;
+  --viz-other: #6f6f6b;
+}
