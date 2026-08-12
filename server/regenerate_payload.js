@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const { resolveGenres, GENRE_LIST } = require('./genres');
 
 const isRailway = fs.existsSync('/data');
 const DB_PATH = process.env.DB_PATH || (isRailway ? '/data/analytics.db' : path.resolve(__dirname, 'analytics.db'));
@@ -362,6 +363,46 @@ async function generatePayload(dbInstance = null) {
             }
         });
 
+        /* Genre over time.
+           There is no per-artist-per-month data in the payload and there never
+           should be — it would be enormous. Instead the breakdown is collapsed
+           here, where the raw rows are already in memory, into one small
+           structure: plays per canonical genre per month. Roughly 200 months by
+           ten genres, which costs nothing to ship. */
+        const genreRanked = Object.entries(artistStats).sort(([, a], [, b]) => b.t - a.t);
+        const genreArtists = genreRanked.slice(0, 600).map(([name]) => name);
+
+        console.log(`Resolving genres for ${genreArtists.length} artists...`);
+        let artistGenre = {};
+        try {
+            artistGenre = await resolveGenres(genreArtists, process.env.LASTFM_API_KEY, {
+                onProgress: (done, total) => console.log(`  tags ${done}/${total}`)
+            });
+        } catch (e) {
+            console.error('Genre resolution failed, continuing without it:', e.message);
+        }
+
+        const genreMonths = {};        // YYYY-MM -> [counts aligned to GENRE_LIST]
+        let genreClassified = 0;
+        let genreUnknown = 0;
+        scrobbles.forEach((s2) => {
+            const g = artistGenre[s2.artist];
+            if (!g) { genreUnknown++; return; }
+            genreClassified++;
+            const month = new Date(s2.timestamp * 1000).toISOString().slice(0, 7);
+            const row = genreMonths[month] || (genreMonths[month] = new Array(GENRE_LIST.length).fill(0));
+            row[GENRE_LIST.indexOf(g)] += 1;
+        });
+        console.log(`Genre coverage: ${genreClassified} of ${genreClassified + genreUnknown} scrobbles`);
+
+        const genres = {
+            list: GENRE_LIST,
+            months: genreMonths,
+            coverage: genreClassified + genreUnknown > 0
+                ? Math.round((genreClassified / (genreClassified + genreUnknown)) * 100)
+                : 0
+        };
+
         // Finalize Artists Object (Filter top 500 to save space)
         const artists = {};
         const ranked = Object.entries(artistStats).sort(([, a], [, b]) => b.t - a.t);
@@ -397,6 +438,7 @@ async function generatePayload(dbInstance = null) {
                 ...stat,
                 albums: transformedAlbums,
                 is_book: flags.artistIsBook,
+                genre: artistGenre[name] || null,
                 // Ensure img is valid
                 img: stat.img.length > 0 ? stat.img : null
             };
@@ -408,7 +450,8 @@ async function generatePayload(dbInstance = null) {
             calendar,
             history,
             years,
-            artists
+            artists,
+            genres
         };
 
         return payload;
