@@ -1,5 +1,12 @@
 # Architectural Decisions
 
+## 2026-09-14 — Load the music archive after the application shell
+
+- Do not compile the multi-megabyte historical dashboard snapshot into the initial JavaScript bundle.
+- Load current dashboard data from the existing production API; dynamically download the checked-in snapshot only when the first API request fails.
+- Keep the initial document and loading shell descriptive and height-stable so people and crawlers receive useful content before the interactive archive is ready.
+- Lazy-load non-default dashboard views and the optional WebGL background so the overview does not pay their startup cost.
+
 ## 2026-07-19 — Generate Jukebox queues from raw scrobbles
 
 - The Jukebox ranking engine runs on the backend against the complete SQLite `scrobbles` history.

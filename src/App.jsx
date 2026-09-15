@@ -1,17 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useAnimationFrame, MotionConfig } from 'framer-motion';
 import { LayoutDashboard, Calendar, Music, User, Zap, Mic, MicOff, Layers, MessageSquare, X, Github, ChevronDown, BookOpen, PenTool, MessageCircle, Sparkles, Leaf } from 'lucide-react';
-import rawData from './data/dashboard_payload.json';
 import Overview from './components/Overview';
-import YearDetail from './components/YearDetail';
-import MonthDetail from './components/MonthDetail';
-import ArtistProfile from './components/ArtistProfile';
-import BingeReport from './components/BingeReport';
-import Library from './components/Library';
-import Jukebox from './components/Jukebox';
 import FluidBackground from './components/FluidBackground';
-import ShaderBackground from './components/ShaderBackground';
-import AdvancedAnalyticsDashboard from './components/AdvancedAnalyticsDashboard';
 import { AnalyticsProvider } from './components/AnalyticsProvider';
 import GlassDistortionFilter from './components/GlassDistortionFilter';
 import PersistentPlayer from './components/PersistentPlayer';
@@ -20,6 +11,15 @@ import { AudioReactiveProvider, useAudioReactive } from './components/AudioReact
 import { useLite, toggleLite } from './lite';
 import './lite.css';
 import './viz.css';
+
+const YearDetail = React.lazy(() => import('./components/YearDetail'));
+const MonthDetail = React.lazy(() => import('./components/MonthDetail'));
+const ArtistProfile = React.lazy(() => import('./components/ArtistProfile'));
+const BingeReport = React.lazy(() => import('./components/BingeReport'));
+const Library = React.lazy(() => import('./components/Library'));
+const Jukebox = React.lazy(() => import('./components/Jukebox'));
+const ShaderBackground = React.lazy(() => import('./components/ShaderBackground'));
+const AdvancedAnalyticsDashboard = React.lazy(() => import('./components/AdvancedAnalyticsDashboard'));
 
 const REFRESH_INTERVAL_MS = 10000;
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
@@ -540,14 +540,20 @@ function MainDashboard() {
     setLyrics(null);
   }, [nowPlaying?.name, nowPlaying?.artist]);
 
-  // Data State (Starts with static bundle, updates from API)
-  const [data, setData] = useState(rawData);
+  // Keep the 3 MB historical payload out of the initial JavaScript bundle. Production
+  // reads the same data from the API; the checked-in snapshot is downloaded only if
+  // that request fails during the first load.
+  const [data, setData] = useState(null);
+  const hasDashboardData = useRef(false);
 
   // Fetch fresh data periodically (every 2 minutes)
   useEffect(() => {
     const fetchData = () => {
       fetch(`${SERVER_URL}/api/dashboard/data`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error(`Dashboard API returned ${res.status}`);
+          return res.json();
+        })
         .then(freshData => {
           // Validate that we actually received meaningful data before overwriting
           const isValid = freshData.timeline && Object.keys(freshData.timeline).length > 0;
@@ -557,6 +563,7 @@ function MainDashboard() {
             return;
           }
 
+          hasDashboardData.current = true;
           setData(prevData => {
             // Safety Check: If server returns 0/low data but we have data, likely a server-side DB issue (common on Vercel)
             // We trust the bundled data (prevData) more than an empty server response.
@@ -575,9 +582,13 @@ function MainDashboard() {
             return prevData;
           });
         })
-        .catch(err => {
+        .catch(async err => {
           console.error('Failed to load fresh data from API:', err);
-          console.warn('Falling back to static payload (may be stale).');
+          if (hasDashboardData.current) return;
+          console.warn('Falling back to the checked-in dashboard snapshot.');
+          const fallback = (await import('./data/dashboard_payload.json')).default;
+          hasDashboardData.current = true;
+          setData(fallback);
         });
     };
 
@@ -716,7 +727,7 @@ function MainDashboard() {
             </motion.div>
           ) : (
             <motion.div key="shader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 -z-10">
-              <ShaderBackground />
+              <React.Suspense fallback={null}><ShaderBackground /></React.Suspense>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1029,8 +1040,16 @@ function MainDashboard() {
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
           className="px-4 max-w-7xl mx-auto min-h-[80vh]"
         >
+          <React.Suspense fallback={<div className="min-h-[62vh] grid place-items-center text-gray-400">Opening view…</div>}>
           <AnimatePresence mode="wait">
-            {view === 'overview' && (
+            {!data && (
+              <motion.section key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[62vh] flex flex-col items-center justify-center text-center gap-3" aria-live="polite">
+                <p className="text-neon-cyan text-xs font-mono tracking-[0.25em] uppercase">Loading listening history</p>
+                <h1 className="text-3xl md:text-5xl font-bold text-white">A personal music listening archive</h1>
+                <p className="max-w-xl text-gray-400">Years of Last.fm listening, artists, albums, tracks, patterns, and a playable jukebox.</p>
+              </motion.section>
+            )}
+            {data && view === 'overview' && (
               <motion.div
                 key="overview"
                 initial={{ opacity: 0, y: 20 }}
@@ -1053,7 +1072,7 @@ function MainDashboard() {
               </motion.div>
             )}
 
-            {view === 'binges' && (
+            {data && view === 'binges' && (
               <motion.div
                 key="binges"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -1070,7 +1089,7 @@ function MainDashboard() {
               </motion.div>
             )}
 
-            {view === 'jukebox' && (
+            {data && view === 'jukebox' && (
               <motion.div
                 key="jukebox"
                 initial={{ opacity: 0, y: 20 }}
@@ -1086,7 +1105,7 @@ function MainDashboard() {
               </motion.div>
             )}
 
-            {view === 'library' && (
+            {data && view === 'library' && (
               <motion.div
                 key="library"
                 initial={{ opacity: 0 }}
@@ -1105,7 +1124,7 @@ function MainDashboard() {
               </motion.div>
             )}
 
-            {view === 'year' && selectedYear && (
+            {data && view === 'year' && selectedYear && (
               <motion.div
                 key="year"
                 initial={{ opacity: 0, x: 50 }}
@@ -1132,7 +1151,7 @@ function MainDashboard() {
               </motion.div>
             )}
 
-            {view === 'month' && selectedYear && selectedMonth && (
+            {data && view === 'month' && selectedYear && selectedMonth && (
               <motion.div
                 key="month"
                 initial={{ opacity: 0, x: 50 }}
@@ -1153,7 +1172,7 @@ function MainDashboard() {
               </motion.div>
             )}
 
-            {view === 'artist' && selectedArtist && (
+            {data && view === 'artist' && selectedArtist && (
               <motion.div
                 key="artist"
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -1173,7 +1192,7 @@ function MainDashboard() {
               </motion.div>
             )}
 
-            {view === 'analytics' && (
+            {data && view === 'analytics' && (
               <motion.div
                 key="analytics"
                 initial={{ opacity: 0, y: 20 }}
@@ -1185,6 +1204,7 @@ function MainDashboard() {
               </motion.div>
             )}
           </AnimatePresence>
+          </React.Suspense>
         </motion.main>
       </AnalyticsProvider>
 
