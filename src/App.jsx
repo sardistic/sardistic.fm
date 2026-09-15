@@ -1040,13 +1040,16 @@ function MainDashboard() {
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
           className="px-4 max-w-7xl mx-auto min-h-[80vh]"
         >
+          <section className="min-h-44 flex flex-col items-center justify-center text-center gap-3 pb-8" aria-labelledby="archive-title">
+            <p className="text-neon-cyan text-xs font-mono tracking-[0.25em] uppercase">sardistic.fm</p>
+            <h1 id="archive-title" className="text-3xl md:text-5xl font-bold text-white">A personal music listening archive</h1>
+            <p className="max-w-xl text-gray-400">Years of Last.fm listening, artists, albums, tracks, patterns, and a playable jukebox.</p>
+          </section>
           <React.Suspense fallback={<div className="min-h-[62vh] grid place-items-center text-gray-400">Opening view…</div>}>
           <AnimatePresence mode="wait">
             {!data && (
-              <motion.section key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[62vh] flex flex-col items-center justify-center text-center gap-3" aria-live="polite">
-                <p className="text-neon-cyan text-xs font-mono tracking-[0.25em] uppercase">Loading listening history</p>
-                <h1 className="text-3xl md:text-5xl font-bold text-white">A personal music listening archive</h1>
-                <p className="max-w-xl text-gray-400">Years of Last.fm listening, artists, albums, tracks, patterns, and a playable jukebox.</p>
+              <motion.section key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[44vh] grid place-items-center text-center" aria-live="polite">
+                <p className="text-gray-400 text-sm font-mono tracking-wider">Loading listening history…</p>
               </motion.section>
             )}
             {data && view === 'overview' && (
@@ -1208,7 +1211,7 @@ function MainDashboard() {
         </motion.main>
       </AnalyticsProvider>
 
-      <footer className="mt-20 py-10 border-t border-white/5 text-center text-gray-400 text-xs relative z-10 bg-black/50 backdrop-blur-sm">
+      {data && <footer className="mt-20 py-10 border-t border-white/5 text-center text-gray-400 text-xs relative z-10 bg-black/50 backdrop-blur-sm">
         <div className="flex items-center justify-center gap-4">
           <p>Built with ❤️ by Antigravity & Sardistic</p>
           <span className="w-px h-3 bg-white/10" />
@@ -1222,7 +1225,7 @@ function MainDashboard() {
             <span>Repo on GitHub</span>
           </a>
         </div>
-      </footer>
+      </footer>}
     </div >
   );
 }
